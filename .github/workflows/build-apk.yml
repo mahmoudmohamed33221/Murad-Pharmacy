@@ -24,7 +24,7 @@ jobs:
         run: |
           sed -i "s/__BUILD__/apk-${VCODE}/g" sw.js config.js
           mkdir -p android-app/www
-          cp -r index.html config.js sw.js manifest.webmanifest assets data android-app/www/
+          cp -r index.html config.js sw.js manifest.webmanifest assets android-app/www/
 
       - name: Create Android project
         working-directory: android-app
