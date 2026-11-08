@@ -32,7 +32,7 @@ jobs:
       - name: Collect site files only
         run: |
           mkdir _site
-          cp -r index.html config.js sw.js manifest.webmanifest assets data _site/
+          cp -r index.html config.js sw.js manifest.webmanifest assets _site/
           touch _site/.nojekyll
 
       - uses: actions/configure-pages@v5
