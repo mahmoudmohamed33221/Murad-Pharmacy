@@ -157,12 +157,10 @@ const cnt = n => n===1 ? "علبة واحدة" : n===2 ? "علبتين" : ar(n)+
 const offerLine = p => p.inc>0 ? `اشتري ${cnt(p.min)} أو أكتر: خصم ${discTxt(p)} على ${cnt(p.inc)} فقط` : `اشتري ${cnt(p.min)} أو أكتر: خصم ${discTxt(p)} على كل العلب`;
 // شرح العرض بالتفصيل (من غير لبس) مع مثال محسوب
 function offerExplain(p){
-  const pb = perBox(p);
   if(!(p.inc>0)) return `<div>لما تشتري <b>${cnt(p.min)} أو أكتر</b> بتاخد خصم <b>${discTxt(p)}</b> على <b>كل العلب</b>.</div>`;
-  const ex = p.min + p.inc, rest = ex - p.inc;
+  
   return `<div>لما تشتري <b>${cnt(p.min)} أو أكتر</b> بتاخد خصم <b>${discTxt(p)}</b> على <b>${cnt(p.inc)} فقط</b>.</div>
-    <div>أي علب زيادة عن كده بتتحسب <b>بسعرها العادي من غير خصم</b>.</div>
-    <div class="ex">مثال: لو اشتريت ${cnt(ex)} → الخصم على ${cnt(p.inc)} = <b>${fmt(p.inc*pb)}</b>، و${cnt(rest)} الباقيين بسعرهم العادي. ولو اشتريت ${ar(Math.max(50,ex))} علبة، الخصم برضه على ${cnt(p.inc)} بس.</div>`;
+    <div>أي علب زيادة عن كده بتتحسب <b>بسعرها العادي من غير خصم</b>.</div>`;
 }
 const label = k => { const {p,u} = parseK(k); return p.name + (u==="s" ? " (شريط)" : ""); };
 const lineTotal = k => { const {p,u}=parseK(k), q=cart[k]||0; return u==="s" ? q*stripPrice(p) : q*p.price - saveOf(p,q); };
