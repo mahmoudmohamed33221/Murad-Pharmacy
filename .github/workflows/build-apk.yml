@@ -9,9 +9,9 @@ jobs:
   apk:
     runs-on: ubuntu-latest
     env:
-      KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-      KS_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-      KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      KS_PASS: murad123456
+      KS_ALIAS: murad
+      KEY_PASS: murad123456
       VCODE: ${{ github.run_number }}
     steps:
       - uses: actions/checkout@v4
@@ -40,13 +40,24 @@ jobs:
           pip install pillow
           python3 tools/make_android_icons.py android-app/android/app/src/main/res
 
-      - name: Decode signing key
+      - name: Restore signing key from cache
+        id: ks-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/murad-release.jks
+          key: murad-keystore-v1
+
+      - name: Generate signing key (first time only)
+        if: steps.ks-cache.outputs.cache-hit != 'true'
         run: |
-          echo "KS_PATH=$RUNNER_TEMP/murad-release.jks" >> "$GITHUB_ENV"
-          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/murad-release.jks"
+          keytool -genkeypair -v -keystore ~/murad-release.jks -storetype JKS \
+            -keyalg RSA -keysize 2048 -validity 10000 -alias murad \
+            -storepass murad123456 -keypass murad123456 \
+            -dname "CN=Murad Pharmacy, O=Murad, C=EG"
 
       - name: Signing and version
         run: |
+          echo "KS_PATH=$HOME/murad-release.jks" >> "$GITHUB_ENV"
           cat >> android-app/android/app/build.gradle <<'GRADLE'
 
           android {
