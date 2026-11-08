@@ -43,7 +43,7 @@ function normProduct(r,i){
   const num = v => { const n = parseFloat(String(v==null?"":v).replace(/[^\d.]/g,"")); return isFinite(n)?n:0; };
   const name = String(r.name||"").trim(); if(!name) return null;
   const sh = /^\s*\d+(\.\d+)?\s*$/.test(String(r.sh||"")) ? num(r.sh) : 0;     // رقم أكبر من صفر فقط = في شرايط
-  const k = sh>0 ? Math.max(1,Math.floor(num(r.cnt)||sh)) : 1;
+  const k = sh>0 ? Math.max(1,Math.floor(sh)) : 1;
   const stock = Math.max(0,Math.floor(/^\s*\d+\s*$/.test(String(r.stock||"")) ? num(r.stock) : 0));   // فاضي/كلام = غير متوفر
   return { id:String(r.id||("p"+(i+1))).trim(), name, cat:"أدوية", price:num(r.price), strips:k, stripPrice:num(r.strip_price),
     img:driveImg(r.image), alias:"", stock, out:stock<=0 };
@@ -58,7 +58,7 @@ function parseCSV(t){
   if(c||r.length){ r.push(c); rows.push(r); }
   return rows;
 }
-const HK = {"الرقم":"id","اسم المنتج":"name","علبه":"stock","شرايط":"sh","عدد الشرايط":"cnt","سعر العلبه":"price","سعر الشريط":"strip_price","رابط الصوره":"image"};
+const HK = {"الرقم":"id","اسم المنتج":"name","علبه":"stock","شرايط":"sh","سعر العلبه":"price","سعر الشريط":"strip_price","رابط الصوره":"image"};
 async function loadProducts(){
   const KEY = "mrad_products_cache", S = CFG.SHEET || {};
   const fromSheet = async ()=>{
