@@ -1,0 +1,47 @@
+/* انترو التطبيق: لوجو يظهر تدريجيًا -> اسم الصيدليات -> "صحتك تهمنا" بتتكتب -> انتقال ناعم للتطبيق */
+body.intro-lock{overflow:hidden;height:100vh}
+#intro{position:fixed;inset:0;z-index:99999;background:#fff;overflow:hidden;
+  display:flex;align-items:center;justify-content:center;
+  transition:opacity .9s cubic-bezier(.4,0,.2,1),transform .9s cubic-bezier(.4,0,.2,1),filter .9s ease;
+  will-change:opacity,transform}
+/* هالة برتقالية خفيفة جدًا ورا اللوجو */
+#intro::before{content:"";position:absolute;width:120vmax;height:120vmax;left:50%;top:50%;transform:translate(-50%,-50%);
+  background:radial-gradient(circle,rgba(245,124,0,.07) 0,rgba(245,124,0,0) 42%);opacity:0;transition:opacity 2s ease}
+#intro.s1::before{opacity:1}
+
+#intro .ilogo{position:absolute;left:50%;top:50%;width:min(80vw,380px);height:auto;
+  transform:translate(-50%,-50%) scale(.92);opacity:0;
+  transition:opacity 2s cubic-bezier(.3,.6,.3,1),transform 2.6s cubic-bezier(.22,.8,.24,1)}
+#intro.s1 .ilogo{opacity:.30;transform:translate(-50%,-50%) scale(1)}   /* بيوصل لـ 30% بس */
+
+#intro .itext{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;
+  text-align:center;padding:0 20px;margin-top:-18vh;direction:rtl}
+#intro .ititle{font-weight:800;font-size:clamp(1.55rem,7.2vw,2.4rem);line-height:1.5;color:#2b2118;
+  letter-spacing:.04em;opacity:0;transform:translateY(14px);filter:blur(7px);
+  text-shadow:0 1px 0 rgba(255,255,255,.9),0 3px 10px rgba(217,104,0,.22),0 8px 22px rgba(20,20,20,.12);
+  transition:opacity 1.3s ease,transform 1.3s cubic-bezier(.22,.8,.24,1),filter 1.3s ease,letter-spacing 1.6s ease}
+#intro.s2 .ititle{opacity:1;transform:none;filter:blur(0);letter-spacing:0}
+
+#intro .iline{width:0;height:2px;margin:10px 0 6px;border-radius:2px;
+  background:linear-gradient(90deg,transparent,#F57C00,transparent);opacity:.85;
+  transition:width 1.2s cubic-bezier(.22,.8,.24,1) .2s}
+#intro.s2 .iline{width:min(56vw,230px)}
+
+#intro .itag{min-height:2.2em;font-weight:600;font-size:clamp(1.05rem,4.8vw,1.45rem);color:#D96800;
+  text-shadow:0 2px 8px rgba(217,104,0,.18);letter-spacing:.02em}
+#intro .itag::after{content:"";display:inline-block;width:2px;height:1.05em;margin-inline-start:4px;
+  vertical-align:-.15em;background:#D96800;opacity:0}
+#intro.typing .itag::after{opacity:.9;animation:icaret .8s steps(1) infinite}
+@keyframes icaret{50%{opacity:0}}
+
+/* الانتقال للتطبيق */
+#intro.out{opacity:0;transform:scale(1.06);filter:blur(8px);pointer-events:none}
+
+/* دخول التطبيق بنعومة بعد الانترو */
+body.intro-done header,body.intro-done main:not([hidden]),body.intro-done .nav{animation:introIn .8s cubic-bezier(.22,.8,.24,1) both}
+body.intro-done main:not([hidden]){animation-delay:.08s}
+@keyframes introIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+
+@media (prefers-reduced-motion:reduce){
+  #intro,#intro *{transition-duration:.01s!important;animation:none!important}
+}
