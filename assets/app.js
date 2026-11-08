@@ -59,6 +59,12 @@ function parseCSV(t){
   if(c||r.length){ r.push(c); rows.push(r); }
   return rows;
 }
+const hdrKey = x => { const h = norm(String(x)).replace(/\s+/g," ");
+  if(HK[h]) return HK[h];
+  if(h.includes("خصم")) return "disc";
+  if(h.includes("ادني")||h.startsWith("الحد")) return "minq";
+  if(h.includes("مشمول")||h.includes("تقطيع")) return "incl";
+  return ""; };
 const HK = {"الرقم":"id","اسم المنتج":"name","القسم":"cat","خصم":"disc","قيمه الخصم":"disc","الكميه":"minq","الحد الادني":"minq","تقطيع":"incl","العدد المشمول":"incl","علبه":"stock","شرايط":"sh","سعر العلبه":"price","سعر الشريط":"strip_price","رابط الصوره":"image"};
 async function loadProducts(){
   const KEY = "mrad_products_cache", S = CFG.SHEET || {};
@@ -70,7 +76,7 @@ async function loadProducts(){
         if(!r.ok) throw new Error("sheet");
         const txt = await r.text(); ok++;
         if(seen.has(txt)) continue; seen.add(txt);
-        const vals = parseCSV(txt), keys = (vals[0]||[]).map(x=>HK[norm(String(x)).replace(/\s+/g," ")]||"");
+        const vals = parseCSV(txt), keys = (vals[0]||[]).map(hdrKey);
         vals.slice(1).forEach(v=>{ const o = Object.fromEntries(keys.map((k,i)=>[k||("x"+i),v[i]])); if(ti && o.id) o.id = "t"+ti+"-"+o.id; out.push(o); });
       }catch(e){}
     }
