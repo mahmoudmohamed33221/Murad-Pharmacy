@@ -44,22 +44,19 @@ body.intro-lock{overflow:hidden;height:100vh}
 #intro.out .itext{opacity:0;transform:translate3d(0,-185%,0);transition:opacity .5s ease,transform .8s cubic-bezier(.5,0,.2,1)}
 #intro.out .itag{opacity:0;transform:translate3d(0,185%,0);transition:opacity .5s ease,transform .8s cubic-bezier(.5,0,.2,1)}
 
-/* دخول الصفحة الرئيسية بشكل متتابع */
-body.intro-done header{animation:iHead .8s cubic-bezier(.22,.8,.24,1) .35s both}
-body.intro-done .offers{animation:iPop .9s cubic-bezier(.22,.8,.24,1) .5s both}
-body.intro-done .sec{animation:iUp .7s cubic-bezier(.22,.8,.24,1) .7s both}
-body.intro-done .cats>*{animation:iUp .7s cubic-bezier(.22,.8,.24,1) both;animation-delay:calc(.75s + var(--i,0)*70ms)}
+/* دخول الصفحة الرئيسية: فيد بس، وكل عنصر متأخر شوية عن اللي قبله */
+body.intro-done header{animation:iFade 1s ease-out .6s both}
+body.intro-done .offers{animation:iFade 1s ease-out .9s both}
+body.intro-done .sec{animation:iFade 1s ease-out 1.2s both}
+body.intro-done .cats>*{animation:iFade 1s ease-out both;animation-delay:calc(1.4s + var(--i,0)*120ms)}
 body.intro-done .cats>*:nth-child(1){--i:0}body.intro-done .cats>*:nth-child(2){--i:1}
 body.intro-done .cats>*:nth-child(3){--i:2}body.intro-done .cats>*:nth-child(4){--i:3}
 body.intro-done .cats>*:nth-child(5){--i:4}body.intro-done .cats>*:nth-child(6){--i:5}
 body.intro-done .cats>*:nth-child(n+7){--i:6}
-body.intro-done .nav{animation:iNav .8s cubic-bezier(.22,.8,.24,1) .9s both}
-body.intro-done #openCart,body.intro-done #bar{animation:iPop .7s cubic-bezier(.22,.8,.24,1) 1s both}
-body.intro-done main:not(#v-home):not([hidden]){animation:iUp .7s cubic-bezier(.22,.8,.24,1) .5s both}
-@keyframes iHead{from{opacity:0;transform:translate3d(0,-100%,0)}to{opacity:1;transform:none}}
-@keyframes iPop{from{opacity:0;transform:scale(.92) translate3d(0,10px,0)}to{opacity:1;transform:none}}
-@keyframes iUp{from{opacity:0;transform:translate3d(0,26px,0)}to{opacity:1;transform:none}}
-@keyframes iNav{from{opacity:0;transform:translate3d(0,100%,0)}to{opacity:1;transform:none}}
+body.intro-done .nav{animation:iFade 1s ease-out 1.9s both}
+body.intro-done #openCart,body.intro-done #bar{animation:iFade 1s ease-out 2.1s both}
+body.intro-done main:not(#v-home):not([hidden]){animation:iFade 1s ease-out .9s both}
+@keyframes iFade{from{opacity:0}to{opacity:1}}
 
 @media (prefers-reduced-motion:reduce){
   #intro,#intro *{transition-duration:.01s!important;animation:none!important}
