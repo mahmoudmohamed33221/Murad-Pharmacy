@@ -4,6 +4,7 @@ const CFG = window.APP_CONFIG || {};
 const PHARMACY_PHONE = CFG.PHARMACY_PHONE || "";
 const CURRENCY = CFG.CURRENCY || "ج.م";
 const RECOGNIZE_URL = CFG.RECOGNIZE_URL || "";
+let DEBUG = false; try{ DEBUG = localStorage.getItem("mrad_debug")==="1" || /[?&]debug=1/.test(location.search); }catch(e){}
 
 // ====== الأيقونات (خطوط بسيطة بدل الإيموجي) ======
 const IC = {
@@ -26,7 +27,7 @@ const IC = {
 const svg = n => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${IC[n]||IC.box}</svg>`;
 const CAT_ICON = {"أدوية":"pill","عناية بالشعر":"drop","عناية بالبشرة":"sparkle","العناية اليومية":"bubbles","مكملات وفيتامينات":"leaf","الأم والطفل":"heart","أجهزة طبية":"pulse"};
 const iconFor = c => CAT_ICON[c] || "box";
-const thumb = p => `<span class="th">${svg(iconFor(p.cat))}${p.imgs&&p.imgs[0]?`<img src="${esc(p.imgs[0])}" data-pid="${esc(p.id)}" data-i="0" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="imgFail(this)">`:""}</span>`;
+const thumb = p => `<span class="th">${svg(iconFor(p.cat))}${p.imgs&&p.imgs[0]?`<img src="${esc(p.imgs[0])}" data-pid="${esc(p.id)}" data-i="0" alt="" loading="lazy" referrerpolicy="no-referrer" onload="imgOk(this)" onerror="imgFail(this)">`:""}</span>`;
 const fillIcons = () => document.querySelectorAll("[data-ic]").forEach(e=>{ e.innerHTML = svg(e.dataset.ic); });
 
 // ====== المنتجات: بتتحمل من data/products.json أو من Google Sheet ======
@@ -40,8 +41,16 @@ function driveImgs(u){
     return ["https://lh3.googleusercontent.com/d/"+id+"=w800","https://drive.google.com/thumbnail?id="+id+"&sz=w800","https://drive.google.com/uc?export=view&id="+id]; }
   return [/^https?:/.test(u) ? u : "assets/products/"+u];
 }
+const IMGLOG = {};
+const dbgText = p => "خلية الصورة: "+(p.rawImg||"(فاضية)")+"\nالأعمدة: "+(window.__HDR||"-")+"\n"+(IMGLOG[p.id]||[]).slice(-8).join("\n");
+function imgNote(pid,msg){
+  if(!DEBUG) return; (IMGLOG[pid] = IMGLOG[pid]||[]).push(msg);
+  const d = document.getElementById("dbgimg"), p = P(pid); if(d && p && popId===pid) d.textContent = dbgText(p);
+}
+function imgOk(el){ imgNote(el.dataset.pid, "✓ اتحملت: "+el.currentSrc); }
 function imgFail(el){
   const p = P(el.dataset.pid), i = (+el.dataset.i||0)+1;
+  imgNote(el.dataset.pid, "✗ فشل: "+el.src);
   if(p && p.imgs && p.imgs[i]){ el.dataset.i = i; el.src = p.imgs[i]; } else el.remove();
 }
 function normProduct(r,i){
@@ -51,7 +60,7 @@ function normProduct(r,i){
   const k = sh>0 ? Math.max(1,Math.floor(sh)) : 1;
   const stock = Math.max(0,Math.floor(/^\s*\d+\s*$/.test(String(r.stock||"")) ? num(r.stock) : 0));   // فاضي/كلام = غير متوفر
   return { id:String(r.id||("p"+(i+1))).trim(), name, cat:String(r.cat||"").trim()||"أخرى", price:num(r.price), strips:k, stripPrice:num(r.strip_price),
-    imgs:driveImgs(r.image), alias:"", stock, out:stock<=0,
+    imgs:driveImgs(r.image), rawImg:String(r.image||"").trim(), alias:"", stock, out:stock<=0,
     disc:Math.min(100,num(r.disc)), minq:Math.max(1,Math.floor(num(r.minq))||1), incl:Math.floor(num(r.incl)) };
 }
 function parseCSV(t){
@@ -83,6 +92,7 @@ async function loadProducts(){
         const txt = await r.text(); ok++;
         if(seen.has(txt)) continue; seen.add(txt);
         const vals = parseCSV(txt), keys = (vals[0]||[]).map(hdrKey);
+        if(ti===0) window.__HDR = (vals[0]||[]).map((h,i)=>String(h).trim()+"→"+(keys[i]||"؟")).join(" | ");
         vals.slice(1).forEach(v=>{ const o = Object.fromEntries(keys.map((k,i)=>[k||("x"+i),v[i]])); if(ti && o.id) o.id = "t"+ti+"-"+o.id; out.push(o); });
       }catch(e){}
     }
@@ -491,6 +501,7 @@ function popHTML(p){
         <button data-pa="us" class="${isS?"on":""}"><b>شريط</b><small>${fmt(stripPrice(p))}</small></button></div>`:""}
       <div class="plabel">الكمية</div>
       <div class="qbig"><button data-pa="dec" ${d} aria-label="نقص">−</button><input class="pqin" data-pa="inp" inputmode="numeric" value="${n2(pk.n)}" ${d}><button data-pa="inc" ${d} aria-label="زيادة">+</button></div>
+      ${DEBUG?`<pre class="dbg" id="dbgimg">${esc(dbgText(p))}</pre>`:""}
     </div>
   </div>
   <div class="pfoot"><div class="ptot"><small>الإجمالي</small><b>${fmt(tot)}</b>${save>0?`<em>وفّرت ${fmt(save)}</em>`:""}</div>
@@ -626,6 +637,8 @@ $("scanRes").addEventListener("click", e=>{
 fillIcons(); boot();
 
 // ====== النسخة والتحديث (PWA) ======
+(()=>{ let n=0,t; $("ver").addEventListener("click",()=>{ n++; clearTimeout(t); t=setTimeout(()=>n=0,3000);
+  if(n>=5){ n=0; DEBUG=!DEBUG; try{ localStorage.setItem("mrad_debug",DEBUG?"1":"0"); }catch(e){} toast(DEBUG?"وضع الفحص: شغال":"وضع الفحص: مقفول"); } }); })();
 $("ver").textContent = "الإصدار " + (CFG.APP_VERSION||"1.0.0") + " · " + (CFG.BUILD||"dev");
 function showUpdate(w){
   $("upd").hidden = false;
