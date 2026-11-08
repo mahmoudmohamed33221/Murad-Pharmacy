@@ -79,11 +79,23 @@ jobs:
           }
           GRADLE
 
+      - name: Cache Gradle download
+        uses: actions/cache@v4
+        with:
+          path: ~/.gradle/wrapper
+          key: gradle-wrapper-v1
+
       - name: Build signed APK
         working-directory: android-app/android
         run: |
           chmod +x gradlew
-          ./gradlew assembleRelease --no-daemon
+          sed -i 's/networkTimeout=.*/networkTimeout=180000/' gradle/wrapper/gradle-wrapper.properties
+          for i in 1 2 3; do
+            ./gradlew assembleRelease --no-daemon && break
+            echo "Attempt $i failed"
+            [ "$i" = "3" ] && exit 1
+            sleep 20
+          done
 
       - uses: actions/upload-artifact@v4
         with:
