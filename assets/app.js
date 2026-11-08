@@ -45,8 +45,9 @@ function normProduct(r,i){
   const sh = /^\s*\d+(\.\d+)?\s*$/.test(String(r.sh||"")) ? num(r.sh) : 0;     // رقم أكبر من صفر فقط = في شرايط
   const k = sh>0 ? Math.max(1,Math.floor(sh)) : 1;
   const stock = Math.max(0,Math.floor(/^\s*\d+\s*$/.test(String(r.stock||"")) ? num(r.stock) : 0));   // فاضي/كلام = غير متوفر
-  return { id:String(r.id||("p"+(i+1))).trim(), name, cat:"أدوية", price:num(r.price), strips:k, stripPrice:num(r.strip_price),
-    img:driveImg(r.image), alias:"", stock, out:stock<=0 };
+  return { id:String(r.id||("p"+(i+1))).trim(), name, cat:String(r.cat||"").trim()||"أخرى", price:num(r.price), strips:k, stripPrice:num(r.strip_price),
+    img:driveImg(r.image), alias:"", stock, out:stock<=0,
+    disc:Math.min(100,num(r.disc)), minq:Math.max(1,Math.floor(num(r.minq))||1), incl:Math.floor(num(r.incl)) };
 }
 function parseCSV(t){
   const rows=[]; let r=[], c="", q=false;
@@ -58,14 +59,23 @@ function parseCSV(t){
   if(c||r.length){ r.push(c); rows.push(r); }
   return rows;
 }
-const HK = {"الرقم":"id","اسم المنتج":"name","علبه":"stock","شرايط":"sh","سعر العلبه":"price","سعر الشريط":"strip_price","رابط الصوره":"image"};
+const HK = {"الرقم":"id","اسم المنتج":"name","القسم":"cat","خصم":"disc","قيمه الخصم":"disc","الكميه":"minq","الحد الادني":"minq","تقطيع":"incl","العدد المشمول":"incl","علبه":"stock","شرايط":"sh","سعر العلبه":"price","سعر الشريط":"strip_price","رابط الصوره":"image"};
 async function loadProducts(){
   const KEY = "mrad_products_cache", S = CFG.SHEET || {};
   const fromSheet = async ()=>{
-    const r = await fetch(`https://docs.google.com/spreadsheets/d/${S.ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(S.TAB||"Products")}`);
-    if(!r.ok) throw new Error("sheet");
-    const vals = parseCSV(await r.text()), keys = (vals[0]||[]).map(x=>HK[norm(String(x)).replace(/\s+/g," ")]||"");
-    return vals.slice(1).map(v=>Object.fromEntries(keys.map((k,i)=>[k||("x"+i),v[i]])));
+    const tabs = S.TABS || [S.TAB||"Products"], out = [], seen = new Set(); let ok = 0;
+    for(let ti=0; ti<tabs.length; ti++){
+      try{
+        const r = await fetch(`https://docs.google.com/spreadsheets/d/${S.ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tabs[ti])}`);
+        if(!r.ok) throw new Error("sheet");
+        const txt = await r.text(); ok++;
+        if(seen.has(txt)) continue; seen.add(txt);
+        const vals = parseCSV(txt), keys = (vals[0]||[]).map(x=>HK[norm(String(x)).replace(/\s+/g," ")]||"");
+        vals.slice(1).forEach(v=>{ const o = Object.fromEntries(keys.map((k,i)=>[k||("x"+i),v[i]])); if(ti && o.id) o.id = "t"+ti+"-"+o.id; out.push(o); });
+      }catch(e){}
+    }
+    if(!ok) throw new Error("sheet");
+    return out;
   };
   const fromJson = async ()=>{ const r = await fetch(CFG.PRODUCTS_JSON||"data/products.json",{cache:"no-cache"}); if(!r.ok) throw new Error("json"); const j = await r.json(); return j.products||j; };
   let raw = null;
@@ -108,7 +118,7 @@ function cardHTML(p){
     const q = cart[p.id]||0;
     return `<div class="card ${q?"sel":""}" data-id="${p.id}">
       <div class="ico">${thumb(p)}</div><div class="cat">${p.cat}</div>
-      <div class="nm">${p.name}</div><div class="pr">${p.price.toLocaleString("ar-EG")} <small>${CURRENCY}</small></div>
+      <div class="nm">${p.name}</div><div class="pr">${p.price.toLocaleString("ar-EG")} <small>${CURRENCY}</small></div>${discNote(p)}
       ${q? `<div class="qty"><button data-a="plus" data-i="${p.id}" aria-label="زيادة">+</button><span>${q.toLocaleString("ar-EG")}</span><button data-a="minus" data-i="${p.id}" aria-label="نقص">−</button></div>`
          : `<button class="add" ${p.out?"disabled":""} data-a="plus" data-i="${p.id}">${p.out?"غير متوفر":"أضف للسلة"}</button>`}
     </div>`;}
@@ -125,8 +135,16 @@ function grid(){
 const parseK = k => { const [id,u] = String(k).split(":"); return {p:P(id), u:u==="s"?"s":"b"}; };
 const unitPrice = k => { const {p,u} = parseK(k); return u==="s" ? stripPrice(p) : p.price; };
 const label = k => { const {p,u} = parseK(k); return p.name + (u==="s" ? " (شريط)" : ""); };
+function priceCalc(p,u,q){
+  const up = u==="s" ? stripPrice(p) : p.price;
+  if(u==="s" || !(p.disc>0) || q<p.minq) return q*up;
+  const d = p.incl>0 ? Math.min(p.incl,q) : q;
+  return Math.round((d*up*(1-p.disc/100) + (q-d)*up)*100)/100;
+}
+const lineTotal = k => { const {p,u} = parseK(k); return priceCalc(p,u,cart[k]); };
+const discNote = p => p.disc>0 ? `<span class="dsc">خصم ${p.disc.toLocaleString("ar-EG")}٪${p.minq>1?" عند شراء "+p.minq.toLocaleString("ar-EG")+" علب فأكثر":""}${p.incl>0?" على "+p.incl.toLocaleString("ar-EG")+" علبة":""}</span>` : "";
 function totals(){
-  let n=0,s=0; for(const k in cart){ n+=cart[k]; s+=cart[k]*unitPrice(k); }
+  let n=0,s=0; for(const k in cart){ n+=cart[k]; s+=lineTotal(k); }
   return {n,s};
 }
 function refresh(skip){
@@ -163,7 +181,7 @@ function cartView(){
   const ids = Object.keys(cart), {s} = totals();
   $("sheet").innerHTML = `<h2>سلة المشتريات <button class="x" data-a="close" aria-label="إغلاق">✕</button></h2>` +
   (ids.length ? ids.map(id=>{const p=parseK(id).p;return `<div class="row"><div class="e">${thumb(p)}</div>
-     <div class="t">${label(id)}<small>${fmt(unitPrice(id))}</small></div>
+     <div class="t">${label(id)}<small>${fmt(unitPrice(id))}${lineTotal(id)<cart[id]*unitPrice(id)?" · بعد الخصم "+fmt(lineTotal(id)):""}</small></div>
      <div class="qty"><button data-a="plus" data-i="${id}">+</button><span>${cart[id].toLocaleString("ar-EG")}</span><button data-a="minus" data-i="${id}">−</button></div></div>`}).join("") +
      `<div class="total"><span>الإجمالي</span><span>${fmt(s)}</span></div>
       <button class="go" data-a="checkout">متابعة لإتمام الطلب</button>
@@ -189,7 +207,7 @@ function send(){
   if(!n||!p||!a){ $("err").style.display="block"; return; }
   const {s} = totals();
   let msg = `*طلب جديد - صيدليات د/ مراد صادق*\n\n`;
-  for(const id in cart) msg += `• ${label(id)} × ${cart[id]} = ${cart[id]*unitPrice(id)} ${CURRENCY}\n`;
+  for(const id in cart) msg += `• ${label(id)} × ${cart[id]} = ${lineTotal(id)} ${CURRENCY}\n`;
   msg += `\n*الإجمالي: ${s} ${CURRENCY}*\n\nالاسم: ${n}\nالموبايل: ${p}\nالعنوان: ${a}` + (o?`\nملاحظات: ${o}`:"");
   window.open(`https://wa.me/${PHARMACY_PHONE}?text=${encodeURIComponent(msg)}`,"_blank");
   saveOrder(s); sv("mrad_profile",{name:n,phone:p,addr:a});
@@ -200,10 +218,15 @@ function send(){
 }
 
 // ====== الأحداث ======
+function openCat(c){
+  const list = PRODUCTS.filter(p=>p.cat===c);
+  $("catTitle").textContent = c; $("catCount").textContent = list.length.toLocaleString("ar-EG")+" منتج";
+  $("catlist").innerHTML = list.map(rowHTML).join("");
+  $("catpage").hidden = false; $("catpage").scrollTop = 0;
+}
+$("catBack").onclick = ()=>{ $("catpage").hidden = true; };
 $("cats").addEventListener("click", e=>{
-  const b = e.target.closest("[data-c]"); if(!b) return;
-  cat = (cat===b.dataset.c) ? "الكل" : b.dataset.c; term=""; $("q").value="";
-  grid(); $("prodHead").scrollIntoView({behavior:"smooth",block:"start"});
+  const b = e.target.closest("[data-c]"); if(b) openCat(b.dataset.c);
 });
 $("allBtn").onclick = ()=>{ cat="الكل"; term=""; $("q").value=""; grid(); };
 $("openCart").onclick = cartView;
@@ -342,6 +365,7 @@ function accountView(){
 }
 const VIEWS = ["home","search","account","settings"];
 function show(v){
+  $("catpage").hidden = true;
   VIEWS.forEach(x=>{ $("v-"+x).hidden = (x!==v); });
   document.body.dataset.view = v;
   $("nav").querySelectorAll("button").forEach(b=>b.classList.toggle("on", b.dataset.v===v));
@@ -376,10 +400,10 @@ const getPick = id => pick[id] || (pick[id] = {u:"b", n:1});
 function rowHTML(p){
   const pk = getPick(p.id), k = p.strips, isS = pk.u==="s" && k>1, up = isS ? stripPrice(p) : p.price, d = p.out?"disabled":"";
   return `<div class="rw pc" data-id="${p.id}"><div class="pimg">${thumb(p)}</div><b class="pn">${esc(p.name)}</b>
-    <span class="rp">${fmt(up)} <small>/ ${isS?"شريط":"علبة"}</small></span>
+    <span class="rp">${fmt(up)} <small>/ ${isS?"شريط":"علبة"}</small></span>${discNote(p)}
     <div class="prow"><div class="qty"><button data-r="inc" ${d}>+</button><input class="qin" data-r="inp" inputmode="numeric" value="${pk.n}" ${d}><button data-r="dec" ${d}>−</button></div>
       ${k>1?`<div class="seg sm"><button data-r="ub" class="${isS?"":"on"}">علبة</button><button data-r="us" class="${isS?"on":""}">شريط</button></div>`:""}</div>
-    <button class="add" data-r="add" ${d}>${p.out?"غير متوفر":"أضف "+fmt(up*pk.n)}</button></div>`;
+    <button class="add" data-r="add" ${d}>${p.out?"غير متوفر":"أضف "+fmt(priceCalc(p,pk.u,pk.n))}</button></div>`;
 }
 const toNum = s => parseInt(String(s).replace(/[٠-٩]/g,x=>"٠١٢٣٤٥٦٧٨٩".indexOf(x)).replace(/\D/g,""),10)||1;
 function fixPick(p,pk){
@@ -405,13 +429,13 @@ function pickAct(row,r,val){
   if(r==="add") n.classList.add("pop");
   row.replaceWith(n);
 }
-$("v-search").addEventListener("click", e=>{
+["v-search","catpage"].forEach(id=>$(id).addEventListener("click", e=>{
   const b = e.target.closest("[data-r]"); if(!b || b.tagName==="INPUT") return;
   pickAct(b.closest(".rw"), b.dataset.r);
-});
-$("v-search").addEventListener("change", e=>{
+}));
+["v-search","catpage"].forEach(id=>$(id).addEventListener("change", e=>{
   if(e.target.dataset && e.target.dataset.r==="inp") pickAct(e.target.closest(".rw"), "inp", e.target.value);
-});
+}));
 function nameSearch(){
   const raw = $("q").value, t = norm(raw).split(/\s+/).filter(Boolean), box = $("sres");
   if(!t.length){ box.innerHTML = `<div class="empty"><b>${svg("search")}</b>اكتب اسم الدواء أو المنتج (عربي أو إنجليزي)</div>`; return; }
