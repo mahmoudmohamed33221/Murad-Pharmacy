@@ -309,3 +309,41 @@ img.logo{filter:drop-shadow(0 0 8px rgba(200,162,74,.55))}
 .cback{background:var(--wh);border:1.5px solid var(--or);color:var(--or-d);border-radius:12px;padding:7px 12px;font:700 .85rem Cairo,sans-serif;cursor:pointer}
 #v-cat .search{margin-bottom:12px}
 #v-cat .search input{border:1.5px solid var(--ln);box-shadow:0 3px 14px rgba(20,20,20,.06)}
+
+/* ===== كروت المنتجات الطولية (٢ في الصف) ===== */
+#sres,#cres,.pgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;align-items:stretch}
+@media(min-width:720px){#sres,#cres,.pgrid{grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}}
+#sres>.empty,#cres>.empty{grid-column:1/-1}
+.pgrid{margin-bottom:12px}
+.pcard{background:var(--wh);border:2px solid var(--or);border-radius:18px;padding:10px;display:flex;flex-direction:column;gap:6px;cursor:pointer;text-align:center;min-height:270px;box-shadow:0 3px 14px rgba(245,124,0,.15);transition:transform .15s var(--ease),box-shadow .2s}
+.pcard:active{transform:scale(.97)}
+.pcard.out{opacity:.6;cursor:default}
+.pcard .pimg{position:relative;height:140px;border-radius:12px;overflow:hidden;background:#fff;display:block}
+.pcard .pimg .th{width:100%;height:100%}
+.pcard .pn{font-size:.98rem;line-height:1.35;margin-top:2px;flex:0 0 auto}
+.pp{display:flex;flex-direction:column;align-items:center;gap:0;line-height:1.3}
+.pp .pv{font-weight:800;font-size:1.15rem;color:var(--or-d)}
+.pp s{color:var(--gr);font-size:.85rem;margin-inline-end:6px}
+.pp.big{flex-direction:row;justify-content:center;align-items:baseline;gap:6px;margin:8px 0}
+.pd{margin-top:auto;font-size:.76rem;font-weight:700;color:#7a5a00;background:linear-gradient(135deg,#FFF6D6,#F7E7A8);border-radius:10px;padding:5px 6px;line-height:1.45}
+.pout{position:absolute;inset:auto 0 0 0;background:rgba(20,20,20,.75);color:#fff;font-weight:700;font-size:.8rem;padding:4px}
+/* شاشة المنتج */
+.pimg.big{position:relative;height:210px;border-radius:16px;overflow:hidden;background:#fff;border:2px solid var(--or)}
+.pimg.big .th{width:100%;height:100%}
+.sheet .qin{width:100%;min-width:0;text-align:center;background:none;border:0;color:#fff;font:800 1.05rem Cairo,sans-serif}
+.sheet .prow{display:flex;gap:10px;align-items:center;margin-top:10px}
+.sheet .prow .qty{flex:1;margin:0}
+.inc{text-align:center;color:var(--gr);font-size:.85rem;margin-bottom:4px}
+.ofr{margin-top:10px;border:1.5px solid var(--gold);background:linear-gradient(135deg,#FFFBEA,#FBF0C8);border-radius:14px;padding:10px 12px;display:flex;flex-direction:column;gap:6px;text-align:right}
+.ofr b{display:flex;align-items:center;gap:6px;color:#7a5a00;font-weight:800}
+.ofr b svg{width:15px;height:15px;fill:#C8A24A;stroke:#9C7A2B}
+.ofr span{font-size:.86rem;color:#5b4500;line-height:1.5}
+.ofr.on{border-color:#2e9e4f;background:linear-gradient(135deg,#F1FBF3,#DDF3E2)}
+.need{background:var(--gold-g);color:#2b2000;border:0;border-radius:10px;padding:9px 10px;font:800 .84rem Cairo,sans-serif;cursor:pointer;margin-top:4px}
+.need:active{filter:brightness(.92)}
+.okk{font-style:normal;font-weight:800;font-size:.84rem;color:#1f7a3a}
+.row .t .need{display:block;margin-top:6px;padding:6px 10px;font-size:.76rem}
+.row .t .okk{display:block;margin-top:4px;font-size:.76rem}
+.row .t s{color:var(--gr);margin-inline-end:4px}
+.save{display:flex;align-items:center;gap:8px;justify-content:center;margin:12px 0 4px;padding:10px 12px;border-radius:12px;background:#E5F6EA;color:#1b7a38;font-weight:800;border:1.5px solid #8fd3a3}
+.save svg{width:20px;height:20px;flex:none}
