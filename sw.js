@@ -1,6 +1,6 @@
 // Service Worker: بيخلي التطبيق يشتغل أوفلاين وبيدير التحديثات.
 // BUILD بيتغير تلقائي مع كل نشر => المتصفح يكتشف النسخة الجديدة ويعرض زرار "حدّث الآن".
-const BUILD = "apk-28";
+const BUILD = "apk-29";
 const CACHE = "murad-pharmacy-" + BUILD;
 const IMG_CACHE = "murad-img-v1";
 const SHELL = ["./", "index.html", "config.js", "assets/style.css", "assets/app.js", "assets/logo.png",
