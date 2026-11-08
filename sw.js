@@ -1,9 +1,8 @@
 // Service Worker: بيخلي التطبيق يشتغل أوفلاين وبيدير التحديثات.
 // BUILD بيتغير تلقائي مع كل نشر => المتصفح يكتشف النسخة الجديدة ويعرض زرار "حدّث الآن".
-const BUILD = "__BUILD__";
+const BUILD = "apk-25";
 const CACHE = "murad-pharmacy-" + BUILD;
 const IMG_CACHE = "murad-img-v1";
-const FONT_CACHE = "murad-fonts-v1";
 const SHELL = ["./", "index.html", "config.js", "assets/style.css", "assets/app.js", "assets/logo.png",
   "manifest.webmanifest", "assets/icons/icon-192.png", "assets/icons/icon-512.png"];
 
@@ -26,15 +25,6 @@ self.addEventListener("fetch", e => {
   const req = e.request;
   if (req.method !== "GET") return;
   const url = new URL(req.url);
-  if (url.hostname === "fonts.googleapis.com" || url.hostname === "fonts.gstatic.com") {   // الخطوط: من الكاش فورًا وتتحدث في الخلفية
-    e.respondWith(caches.open(FONT_CACHE).then(async c => {
-      const hit = await c.match(req);
-      const net = fetch(req).then(res => { if (res && (res.ok || res.type === "opaque")) c.put(req, res.clone()); return res; });
-      if (hit) { e.waitUntil(net.catch(() => {})); return hit; }
-      return net;
-    }));
-    return;
-  }
   if (url.origin !== location.origin) return;            // خطوط جوجل وGoogle Sheets: من الشبكة مباشرة
 
   if (url.pathname.includes("/data/")) {                 // المنتجات: الشبكة أولًا (عشان الأسعار تتحدث) وبعدين الكاش
