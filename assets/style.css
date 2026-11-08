@@ -301,3 +301,11 @@ img.logo{filter:drop-shadow(0 0 8px rgba(200,162,74,.55))}
 .offer svg{width:13px;height:13px;fill:#7a5a00;stroke:#7a5a00;stroke-width:1}
 .offer::after{content:"";position:absolute;top:0;bottom:0;width:40%;left:-60%;transform:skewX(-20deg);background:linear-gradient(90deg,transparent,rgba(255,255,255,.75),transparent);animation:shine 2.8s infinite}
 @keyframes shine{0%,55%{left:-60%}100%{left:130%}}
+
+/* صفحة القسم */
+.chead{display:flex;align-items:center;gap:10px;margin:2px 2px 12px;flex-wrap:wrap}
+.chead h2{font-size:1.2rem;font-weight:800;flex:1;min-width:0}
+.chead .count{margin:0}
+.cback{background:var(--wh);border:1.5px solid var(--or);color:var(--or-d);border-radius:12px;padding:7px 12px;font:700 .85rem Cairo,sans-serif;cursor:pointer}
+#v-cat .search{margin-bottom:12px}
+#v-cat .search input{border:1.5px solid var(--ln);box-shadow:0 3px 14px rgba(20,20,20,.06)}
