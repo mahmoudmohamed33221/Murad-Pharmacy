@@ -1,9 +1,11 @@
 /* انترو التطبيق: لوجو فيد بطيء -> اسم الصيدليات فيد -> "صحتك أمانة عندنا" بتتكتب -> انتقال ناعم للتطبيق
    (الحركات كلها opacity/transform بس عشان تشتغل 60 فريم على الجي بي يو) */
 body.intro-lock{overflow:hidden;height:100vh}
+@keyframes iFailsafe{to{opacity:0;visibility:hidden;pointer-events:none}}
 #intro{position:fixed;inset:0;z-index:99999;background:#fff;overflow:hidden;
   transition:opacity .8s cubic-bezier(.4,0,.2,1),transform .8s cubic-bezier(.4,0,.2,1);
-  will-change:opacity,transform;transform:translateZ(0)}
+  will-change:opacity,transform;transform:translateZ(0);
+  animation:iFailsafe .01s 20s forwards}
 
 /* اللوجو في نص الشاشة بالظبط (أفقي ورأسي) */
 #intro .ilogo{position:absolute;left:50%;top:50%;width:min(94vw,540px);height:auto;
@@ -32,8 +34,8 @@ body.intro-lock{overflow:hidden;height:100vh}
   text-align:center;direction:rtl;padding:0 16px;
   text-shadow:0 0 14px rgba(255,255,255,.95),0 2px 10px rgba(217,104,0,.22)}
 #intro .itag .l{display:block;min-height:1.5em;line-height:1.5}
-#intro .itag .l1{font-weight:800;font-size:clamp(1.7rem,8.6vw,2.6rem);color:#D96800}
-#intro .itag .l2{margin-top:.5em;font-weight:700;font-size:clamp(1.3rem,6.6vw,2rem);color:#2b2118}
+#intro .itag .l1{font-weight:800;font-size:clamp(2.05rem,10.6vw,3.2rem);color:#D96800}
+#intro .itag .l2{margin-top:.5em;font-weight:700;font-size:clamp(1.65rem,8.4vw,2.55rem);color:#2b2118}
 #intro .cur::after{content:"";display:inline-block;width:3px;height:.95em;margin-inline-start:4px;
   vertical-align:-.12em;background:#D96800;animation:icaret .7s steps(1) infinite}
 @keyframes icaret{50%{opacity:0}}
