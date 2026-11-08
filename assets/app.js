@@ -28,13 +28,18 @@ const CAT_ICON = {"أدوية":"pill","عناية بالشعر":"drop","عناي
 const iconFor = c => CAT_ICON[c] || "box";
 const STAR = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5L2.5 9.4l6.6-.9z"/></svg>';
 const offerTag = p => p.offer ? `<span class="offer">${STAR}${esc(p.offer)}</span>` : "";
-const thumb = p => `<span class="th">${svg(iconFor(p.cat))}${p.img?`<img src="${esc(p.img)}" alt="" loading="lazy" onerror="this.remove()">`:""}</span>`;
+const thumb = p => `<span class="th">${svg(iconFor(p.cat))}${p.img?`<img src="${esc(p.img)}" data-alts="${esc((p.alts||[]).join("|"))}" alt="" referrerpolicy="no-referrer" onerror="imgFail(this)">`:""}</span>`;
 const fillIcons = () => document.querySelectorAll("[data-ic]").forEach(e=>{ e.innerHTML = svg(e.dataset.ic); });
 
 // ====== المنتجات: بتتحمل من data/products.json أو من Google Sheet ======
 let PRODUCTS = [], BY = {};
 const P = id => BY[id];
 const stripPrice = p => p.stripPrice || Math.round(p.price/p.strips);
+function driveAlts(u){
+  u=String(u||"").trim(); const m=u.match(/\/d\/([\w-]{10,})/)||u.match(/[?&]id=([\w-]{10,})/);
+  return (m && /drive\.google|docs\.google/.test(u)) ? ["https://lh3.googleusercontent.com/d/"+m[1]+"=w500","https://drive.google.com/uc?export=view&id="+m[1]] : [];
+}
+function imgFail(im){ const a=(im.dataset.alts||"").split("|").filter(Boolean); if(a.length){ im.dataset.alts=a.slice(1).join("|"); im.src=a[0]; } else im.remove(); }
 function driveImg(u){
   u=String(u||"").trim(); if(!u) return "";
   const m=u.match(/\/d\/([\w-]{10,})/)||u.match(/[?&]id=([\w-]{10,})/);
@@ -47,8 +52,8 @@ function normProduct(r,i){
   const sh = /^\s*\d+(\.\d+)?\s*$/.test(String(r.sh||"")) ? num(r.sh) : 0;     // رقم أكبر من صفر فقط = في شرايط
   const k = sh>0 ? Math.max(1,Math.floor(sh)) : 1;
   const stock = Math.max(0,Math.floor(/^\s*\d+\s*$/.test(String(r.stock||"")) ? num(r.stock) : 0));   // فاضي/كلام = غير متوفر
-  return { id:String(r.id||("p"+(i+1))).trim(), name, cat:String(r.cat||"").trim()||"أدوية", catLink:linkOf(r.cat_link), offer:offerOf(r.offer), price:num(r.price), strips:k, stripPrice:num(r.strip_price),
-    img:driveImg(r.image), alias:"", stock, out:stock<=0 };
+  return { id:String(r.id||("p"+(i+1))).trim(), name, cat:String(r.cat||"").replace(/\s+/g," ").trim(), offer:offerOf(r.offer), price:num(r.price), strips:k, stripPrice:num(r.strip_price),
+    img:driveImg(r.image), alts:driveAlts(r.image), alias:"", stock, out:stock<=0 };
 }
 function parseCSV(t){
   const rows=[]; let r=[], c="", q=false;
@@ -60,9 +65,8 @@ function parseCSV(t){
   if(c||r.length){ r.push(c); rows.push(r); }
   return rows;
 }
-// الأعمدة: "لينك القسم" بيتحط بعد "رابط الصوره" في الشيت. "القسم" و"عرض خاص" اختياريين.
-const HK = {"الرقم":"id","اسم المنتج":"name","علبه":"stock","شرايط":"sh","سعر العلبه":"price","سعر الشريط":"strip_price","رابط الصوره":"image","لينك القسم":"cat_link","رابط القسم":"cat_link","القسم":"cat","عرض خاص":"offer","عرض":"offer"};
-const linkOf = u => { u=String(u||"").trim(); if(!u) return ""; if(/^https?:/i.test(u)) return u; return /^[\w-]+(\.[\w-]+)+(\/|$)/.test(u) ? "https://"+u : ""; };
+// الأعمدة: عمود القسم ("لينك القسم" أو "القسم") بعد "رابط الصوره": اللي بيتكتب جنب كل منتج هو اسم القسم، والأقسام بتتكوّن منه تلقائي.
+const HK = {"الرقم":"id","اسم المنتج":"name","علبه":"stock","شرايط":"sh","سعر العلبه":"price","سعر الشريط":"strip_price","رابط الصوره":"image","لينك القسم":"cat","رابط القسم":"cat","القسم":"cat","لينك الصوره":"image","الصوره":"image","صوره":"image","عرض خاص":"offer","عرض":"offer"};
 // عمود "عرض خاص": أي قيمة معناها نعم => العرض شغال. لو اتكتب نص مخصص (مثلا "خصم ٢٠٪") بيظهر هو بدل "عرض خاص"
 const offerOf = v => { v=String(v==null?"":v).trim(); if(!v || /^(0|لا|no|false|-|x)$/i.test(norm(v))) return ""; return /^(1|نعم|yes|true|✓|✔|عرض|عرض خاص|اوفر|offer)$/i.test(norm(v)) ? "عرض خاص" : v; };
 async function loadProducts(){
@@ -86,6 +90,9 @@ async function loadProducts(){
 }
 async function boot(){
   PRODUCTS = await loadProducts();
+  // الأقسام من عمود القسم: نفس الاسم (بغض النظر عن الهمزة/المسافات) = قسم واحد. لو مفيش ولا قسم في الشيت => "أدوية"
+  const seen = {}, any = PRODUCTS.some(p=>p.cat);
+  PRODUCTS.forEach(p=>{ if(!p.cat) p.cat = any ? "أخرى" : "أدوية"; const k = norm(p.cat); p.cat = seen[k] || (seen[k] = p.cat); });
   BY = Object.fromEntries(PRODUCTS.map(p=>[p.id,p]));
   for(const k in cart){ if(!P(String(k).split(":")[0])) delete cart[k]; }
   refresh(); nameSearch();
@@ -109,7 +116,7 @@ function renderCats(){
   $("cats").innerHTML = cats.map(c=>`<button class="c" data-c="${esc(c)}">
     <div class="pic">${svg(iconFor(c))}</div><b>${esc(c)}</b><small>${PRODUCTS.filter(p=>p.cat===c).length.toLocaleString("ar-EG")} منتج</small></button>`).join("");
 }
-const catLinkOf = c => (PRODUCTS.find(p=>p.cat===c && p.catLink)||{}).catLink || "";
+
 function cardHTML(p){
     const q = cart[p.id]||0;
     return `<div class="card ${q?"sel":""}" data-id="${p.id}">
@@ -199,9 +206,7 @@ function send(){
 // ====== الأحداث ======
 $("cats").addEventListener("click", e=>{
   const b = e.target.closest("[data-c]"); if(!b) return;
-  const c = b.dataset.c, link = catLinkOf(c);
-  if(link){ window.open(link,"_blank","noopener"); return; }          // لينك القسم من الشيت
-  show("search"); setTab("name"); $("q").value = c; nameSearch();      // مفيش لينك: ندور باسم القسم
+  openCat(b.dataset.c);
 });
 $("openCart").onclick = cartView;
 $("barBtn").onclick = cartView;
@@ -339,10 +344,11 @@ function accountView(){
 }
 const VIEWS = ["home","search","account","settings"];
 function show(v){
-  VIEWS.forEach(x=>{ $("v-"+x).hidden = (x!==v); });
+  [...VIEWS,"cat"].forEach(x=>{ $("v-"+x).hidden = (x!==v); });
   document.body.dataset.view = v;
-  $("nav").querySelectorAll("button").forEach(b=>b.classList.toggle("on", b.dataset.v===v));
-  $("ind").style.transform = `translateX(${-100*VIEWS.indexOf(v)}%)`;
+  const nv = v==="cat" ? "home" : v;      // صفحة القسم تتحسب تحت "الرئيسية" في الشريط السفلي
+  $("nav").querySelectorAll("button").forEach(b=>b.classList.toggle("on", b.dataset.v===nv));
+  $("ind").style.transform = `translateX(${-100*VIEWS.indexOf(nv)}%)`;
   const vw=$("v-"+v); vw.style.animation="none"; void vw.offsetWidth; vw.style.animation="";
   window.scrollTo(0,0);
   if(v==="home"){ requestAnimationFrame(()=>{ jumpTo(1); schedule(AUTO_MS); }); } else stop();
@@ -416,6 +422,29 @@ function nameSearch(){
   box.innerHTML = list.length ? list.map(rowHTML).join("") : `<div class="empty"><b>${svg("search")}</b>مفيش نتيجة لـ "${esc(raw)}"<br>جرّب اسم تاني أو صوّر العلبة</div>`;
 }
 $("q").addEventListener("input", nameSearch);
+
+// ====== صفحة القسم: منتجات القسم + بحث خاص بالقسم بس ======
+let curCat = "";
+function catSearch(){
+  const t = norm($("cq").value).split(/\s+/).filter(Boolean);
+  const list = PRODUCTS.filter(p=>p.cat===curCat && t.every(w=>norm(p.name+" "+p.alias).includes(w)));
+  $("ccount").textContent = list.length ? list.length.toLocaleString("ar-EG")+" منتج" : "";
+  $("cres").innerHTML = list.length ? list.map(rowHTML).join("")
+    : `<div class="empty"><b>${svg("search")}</b>${t.length?`مفيش نتيجة لـ "${esc($("cq").value)}" في ${esc(curCat)}`:"مفيش منتجات في القسم ده"}</div>`;
+}
+function openCat(c){
+  curCat = c; $("ctitle").textContent = c; $("cq").value = "";
+  show("cat"); catSearch();
+}
+$("cq").addEventListener("input", catSearch);
+$("cback").onclick = ()=>show("home");
+$("v-cat").addEventListener("click", e=>{
+  const b = e.target.closest("[data-r]"); if(!b || b.tagName==="INPUT") return;
+  pickAct(b.closest(".rw"), b.dataset.r);
+});
+$("v-cat").addEventListener("change", e=>{
+  if(e.target.dataset && e.target.dataset.r==="inp") pickAct(e.target.closest(".rw"), "inp", e.target.value);
+});
 function setTab(t){
   $("stabs").querySelectorAll("button").forEach(b=>b.classList.toggle("on", b.dataset.t===t));
   $("t-name").hidden = t!=="name"; $("t-scan").hidden = t!=="scan";
