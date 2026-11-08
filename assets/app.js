@@ -26,7 +26,7 @@ const IC = {
 const svg = n => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${IC[n]||IC.box}</svg>`;
 const CAT_ICON = {"أدوية":"pill","عناية بالشعر":"drop","عناية بالبشرة":"sparkle","العناية اليومية":"bubbles","مكملات وفيتامينات":"leaf","الأم والطفل":"heart","أجهزة طبية":"pulse"};
 const iconFor = c => CAT_ICON[c] || "box";
-const thumb = p => `<span class="th">${svg(iconFor(p.cat))}${p.img?`<img src="${esc(p.img)}" alt="" loading="lazy" onerror="this.remove()">`:""}</span>`;
+const thumb = p => `<span class="th">${svg(iconFor(p.cat))}${p.img?`<img src="${esc(p.img)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`:""}</span>`;
 const fillIcons = () => document.querySelectorAll("[data-ic]").forEach(e=>{ e.innerHTML = svg(e.dataset.ic); });
 
 // ====== المنتجات: بتتحمل من data/products.json أو من Google Sheet ======
@@ -36,7 +36,7 @@ const stripPrice = p => p.stripPrice || Math.round(p.price/p.strips);
 function driveImg(u){
   u=String(u||"").trim(); if(!u) return "";
   const m=u.match(/\/d\/([\w-]{10,})/)||u.match(/[?&]id=([\w-]{10,})/);
-  if(m && /drive\.google|docs\.google/.test(u)) return "https://drive.google.com/thumbnail?id="+m[1]+"&sz=w500";
+  if(m && /drive\.google|docs\.google/.test(u)) return "https://lh3.googleusercontent.com/d/"+m[1]+"=w500";
   return /^https?:/.test(u) ? u : "assets/products/"+u;
 }
 function normProduct(r,i){
@@ -61,6 +61,7 @@ function parseCSV(t){
 }
 const hdrKey = x => { const h = norm(String(x)).replace(/\s+/g," ");
   if(HK[h]) return HK[h];
+  if(h.includes("صور")||h.includes("image")||h.includes("photo")) return "image";
   if(h.includes("خصم")) return "disc";
   if(h.includes("ادني")||h.startsWith("الحد")) return "minq";
   if(h.includes("مشمول")||h.includes("تقطيع")) return "incl";
