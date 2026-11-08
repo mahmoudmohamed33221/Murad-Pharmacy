@@ -6,11 +6,11 @@ window.APP_CONFIG = {
   CURRENCY: "ج.م",
 
   // مصدر المنتجات: "json" (ملف data/products.json) أو "sheet" (Google Sheet)
-  PRODUCTS_SOURCE: "json",
+  PRODUCTS_SOURCE: "sheet",
   PRODUCTS_JSON: "data/products.json",
   SHEET: {
-    ID: "",          // رقم الشيت: الجزء اللي بين /d/ و /edit في رابطه
-    TAB: "Products", // اسم الورقة (Tab) اللي فيها المنتجات
+    ID: "199-5mWgHEsepqmA8b5CmONGD8sBGctxKyoKBeFN-Otk",          // رقم الشيت: الجزء اللي بين /d/ و /edit في رابطه
+    TAB: "الادويه", // اسم الورقة (Tab) اللي فيها المنتجات
     API_KEY: ""      // مفتاح Google Sheets API (مقيّد بالقراءة وبرابط موقعك)
   },
 
