@@ -33,28 +33,44 @@ const fillIcons = () => document.querySelectorAll("[data-ic]").forEach(e=>{ e.in
 let PRODUCTS = [], BY = {};
 const P = id => BY[id];
 const stripPrice = p => p.stripPrice || Math.round(p.price/p.strips);
+function driveImg(u){
+  u=String(u||"").trim(); if(!u) return "";
+  const m=u.match(/\/d\/([\w-]{10,})/)||u.match(/[?&]id=([\w-]{10,})/);
+  if(m && /drive\.google|docs\.google/.test(u)) return "https://drive.google.com/thumbnail?id="+m[1]+"&sz=w500";
+  return /^https?:/.test(u) ? u : "assets/products/"+u;
+}
 function normProduct(r,i){
   const num = v => { const n = parseFloat(String(v==null?"":v).replace(/[^\d.]/g,"")); return isFinite(n)?n:0; };
-  const on = String(r.active==null?"true":r.active).trim().toLowerCase();
-  if(["false","no","0","لا","مخفي"].includes(on)) return null;
-  const name = String(r.name||r.name_ar||"").trim(); if(!name) return null;
-  const en = String(r.name_en||"").trim();
-  return { id:String(r.id||("p"+(i+1))).trim(), name, cat:String(r.category||"أخرى").trim(), price:num(r.price),
-    strips:Math.max(1,Math.floor(num(r.strips))||1), stripPrice:num(r.strip_price), img:String(r.image||"").trim(),
-    alias:(en+" "+String(r.keywords||"")).trim(), out:/^(0|out|no|false|نفذ|غير متوفر)$/i.test(String(r.stock||"").trim()) };
+  const name = String(r.name||"").trim(); if(!name) return null;
+  const sh = /^\s*\d+(\.\d+)?\s*$/.test(String(r.sh||"")) ? num(r.sh) : 0;     // رقم أكبر من صفر فقط = في شرايط
+  const k = sh>0 ? Math.max(1,Math.floor(num(r.cnt)||sh)) : 1;
+  const stock = Math.max(0,Math.floor(/^\s*\d+\s*$/.test(String(r.stock||"")) ? num(r.stock) : 0));   // فاضي/كلام = غير متوفر
+  return { id:String(r.id||("p"+(i+1))).trim(), name, cat:"أدوية", price:num(r.price), strips:k, stripPrice:num(r.strip_price),
+    img:driveImg(r.image), alias:"", stock, out:stock<=0 };
 }
+function parseCSV(t){
+  const rows=[]; let r=[], c="", q=false;
+  for(let i=0;i<t.length;i++){ const ch=t[i];
+    if(q){ if(ch==='"'){ if(t[i+1]==='"'){c+='"';i++;} else q=false; } else c+=ch; }
+    else if(ch==='"') q=true; else if(ch===","){ r.push(c); c=""; }
+    else if(ch==="\n"||ch==="\r"){ if(ch==="\r"&&t[i+1]==="\n") i++; r.push(c); rows.push(r); r=[]; c=""; }
+    else c+=ch; }
+  if(c||r.length){ r.push(c); rows.push(r); }
+  return rows;
+}
+const HK = {"الرقم":"id","اسم المنتج":"name","علبه":"stock","شرايط":"sh","عدد الشرايط":"cnt","سعر العلبه":"price","سعر الشريط":"strip_price","رابط الصوره":"image"};
 async function loadProducts(){
   const KEY = "mrad_products_cache", S = CFG.SHEET || {};
   const fromSheet = async ()=>{
-    const r = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${S.ID}/values/${encodeURIComponent(S.TAB||"Products")}?key=${S.API_KEY}`);
+    const r = await fetch(`https://docs.google.com/spreadsheets/d/${S.ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(S.TAB||"Products")}`);
     if(!r.ok) throw new Error("sheet");
-    const j = await r.json(), vals = j.values||[], keys = (vals[0]||[]).map(x=>String(x).trim().toLowerCase());
-    return vals.slice(1).map(v=>Object.fromEntries(keys.map((k,i)=>[k,v[i]])));
+    const vals = parseCSV(await r.text()), keys = (vals[0]||[]).map(x=>HK[norm(String(x)).replace(/\s+/g," ")]||"");
+    return vals.slice(1).map(v=>Object.fromEntries(keys.map((k,i)=>[k||("x"+i),v[i]])));
   };
   const fromJson = async ()=>{ const r = await fetch(CFG.PRODUCTS_JSON||"data/products.json",{cache:"no-cache"}); if(!r.ok) throw new Error("json"); const j = await r.json(); return j.products||j; };
   let raw = null;
   try{
-    raw = (CFG.PRODUCTS_SOURCE==="sheet" && S.ID && S.API_KEY) ? await fromSheet() : await fromJson();
+    raw = (CFG.PRODUCTS_SOURCE==="sheet" && S.ID) ? await fromSheet() : await fromJson();
     try{ localStorage.setItem(KEY, JSON.stringify(raw)); }catch(e){}
   }catch(e){
     try{ raw = JSON.parse(localStorage.getItem(KEY)||"null"); }catch(_){}
@@ -123,7 +139,11 @@ function refresh(skip){
   if(!skip) grid(); save();
 }
 function change(key,d){
-  cart[key] = (cart[key]||0)+d;
+  const pp = P(String(key).split(":")[0]), kk = pp.strips>1?pp.strips:1;
+  let q = (cart[key]||0)+d;
+  if(String(key).endsWith(":s") && q>=kk){ delete cart[key]; key = pp.id; q = Math.floor(q/kk); toast("تم التحويل إلى علبة"); }
+  if(key===pp.id && q>pp.stock){ q = pp.stock; toast("المتاح حاليًا: "+pp.stock.toLocaleString("ar-EG")); }
+  cart[key] = q;
   if(cart[key]<=0) delete cart[key];
   refresh(true);
   const pid = String(key).split(":")[0];
@@ -354,24 +374,43 @@ document.body.dataset.view = "home";
 const pick = {};
 const getPick = id => pick[id] || (pick[id] = {u:"b", n:1});
 function rowHTML(p){
-  const pk = getPick(p.id), isS = pk.u==="s" && p.strips>1;
-  const up = isS ? stripPrice(p) : p.price;
-  return `<div class="rw" data-id="${p.id}"><div class="ico2">${thumb(p)}</div>
-    <div class="rwi"><b>${p.name}</b><span class="rp">${fmt(up)} <small>/ ${isS?"شريط":"علبة"}</small></span>
-      ${p.strips>1?`<div class="seg sm"><button data-r="ub" class="${isS?"":"on"}">علبة</button><button data-r="us" class="${isS?"on":""}">شريط</button></div>`:""}</div>
-    <div class="rwa"><div class="qty"><button data-r="inc" aria-label="زيادة">+</button><span>${pk.n.toLocaleString("ar-EG")}</span><button data-r="dec" aria-label="نقص">−</button></div>
-      <button class="add" data-r="add" ${p.out?"disabled":""}>${p.out?"غير متوفر":"أضف "+fmt(up*pk.n)}</button></div></div>`;
+  const pk = getPick(p.id), k = p.strips, isS = pk.u==="s" && k>1, up = isS ? stripPrice(p) : p.price, d = p.out?"disabled":"";
+  return `<div class="rw pc" data-id="${p.id}"><div class="pimg">${thumb(p)}</div><b class="pn">${esc(p.name)}</b>
+    <span class="rp">${fmt(up)} <small>/ ${isS?"شريط":"علبة"}</small></span>
+    <div class="prow"><div class="qty"><button data-r="inc" ${d}>+</button><input class="qin" data-r="inp" inputmode="numeric" value="${pk.n}" ${d}><button data-r="dec" ${d}>−</button></div>
+      ${k>1?`<div class="seg sm"><button data-r="ub" class="${isS?"":"on"}">علبة</button><button data-r="us" class="${isS?"on":""}">شريط</button></div>`:""}</div>
+    <button class="add" data-r="add" ${d}>${p.out?"غير متوفر":"أضف "+fmt(up*pk.n)}</button></div>`;
 }
-$("v-search").addEventListener("click", e=>{
-  const b = e.target.closest("[data-r]"); if(!b) return;
-  const row = b.closest(".rw"), id = row.dataset.id, p = P(id), pk = getPick(id), r = b.dataset.r;
-  if(r==="ub") pk.u="b"; else if(r==="us") pk.u = p.strips>1 ? "s" : "b";
-  else if(r==="inc") pk.n = Math.min(99, pk.n+1);
-  else if(r==="dec") pk.n = Math.max(1, pk.n-1);
-  else if(r==="add"){ change(pk.u==="s" ? id+":s" : id, pk.n); pk.n = 1; }
+const toNum = s => parseInt(String(s).replace(/[٠-٩]/g,x=>"٠١٢٣٤٥٦٧٨٩".indexOf(x)).replace(/\D/g,""),10)||1;
+function fixPick(p,pk){
+  const k = p.strips>1?p.strips:1, max = p.stock*(pk.u==="s"?k:1);
+  pk.n = Math.max(1,pk.n);
+  if(pk.n>max){ pk.n = Math.max(1,max); toast("المتاح حاليًا: "+(pk.u==="s"?max:p.stock).toLocaleString("ar-EG")); }
+  if(pk.u==="s" && pk.n>=k){ pk.u="b"; pk.n = Math.floor(pk.n/k); toast("تم التحويل إلى علبة"); }
+}
+function addPick(p,pk){
+  const k = p.strips>1?p.strips:1, id = p.id;
+  let T = (cart[id]||0)*k + (cart[id+":s"]||0) + (pk.u==="s"?pk.n:pk.n*k);
+  if(T>p.stock*k){ T = p.stock*k; toast("المتاح حاليًا: "+p.stock.toLocaleString("ar-EG")); }
+  delete cart[id]; delete cart[id+":s"];
+  if(k>1 && T<k) cart[id+":s"] = T; else cart[id] = Math.floor(T/k);
+  refresh(); toast("تمت إضافة "+p.name);
+}
+function pickAct(row,r,val){
+  const id = row.dataset.id, p = P(id), pk = getPick(id);
+  if(r==="ub"){ pk.u="b"; pk.n=1; } else if(r==="us"){ pk.u = p.strips>1?"s":"b"; pk.n=1; }
+  else if(r==="inc") pk.n++; else if(r==="dec") pk.n--; else if(r==="inp") pk.n = toNum(val);
+  if(r==="add"){ addPick(p,pk); pk.n=1; pk.u="b"; } else fixPick(p,pk);
   const t = document.createElement("div"); t.innerHTML = rowHTML(p); const n = t.firstElementChild;
   if(r==="add") n.classList.add("pop");
   row.replaceWith(n);
+}
+$("v-search").addEventListener("click", e=>{
+  const b = e.target.closest("[data-r]"); if(!b || b.tagName==="INPUT") return;
+  pickAct(b.closest(".rw"), b.dataset.r);
+});
+$("v-search").addEventListener("change", e=>{
+  if(e.target.dataset && e.target.dataset.r==="inp") pickAct(e.target.closest(".rw"), "inp", e.target.value);
 });
 function nameSearch(){
   const raw = $("q").value, t = norm(raw).split(/\s+/).filter(Boolean), box = $("sres");
@@ -461,7 +500,7 @@ $("scanRes").addEventListener("click", e=>{
   if(e.target.id==="toName"){ setTab("name"); $("q").focus(); }
   if(e.target.id==="addAll"){
     const list = $("scanRes")._list || []; let n=0;
-    list.forEach(p=>{ const pk=getPick(p.id); change(pk.u==="s"?p.id+":s":String(p.id), pk.n); pk.n=1; n++; });
+    list.forEach(p=>{ if(p.out) return; const pk=getPick(p.id); addPick(p,pk); pk.n=1; pk.u="b"; n++; });
     $("scanRes").querySelectorAll(".rw").forEach(r=>{ const t=document.createElement("div"); t.innerHTML=rowHTML(P(r.dataset.id)); r.replaceWith(t.firstElementChild); });
     toast("تمت إضافة "+n.toLocaleString("ar-EG")+" صنف للسلة");
   }
