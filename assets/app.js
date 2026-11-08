@@ -195,11 +195,11 @@ let toastT;
 function toast(m){ const t=$("toast"); t.textContent=m; t.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),1500); }
 
 // ====== السلة وإتمام الشراء ======
-function open(v){ $("sheet").dataset.v=v; $("ov").classList.add("show"); }
+function openSheet(v){ $("sheet").dataset.v=v; $("ov").classList.add("show"); }
 function close(){ $("ov").classList.remove("show"); }
 const saveLine = sav => sav>0 ? `<div class="save"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l3 3 5-6"/></svg>وفرت ${fmt(sav)} من إجمالي المبلغ</div>` : "";
 function cartView(){
-  open("cart");
+  openSheet("cart");
   const ids = Object.keys(cart), {s,sav} = totals();
   $("sheet").innerHTML = `<h2>سلة المشتريات <button class="x" data-a="close" aria-label="إغلاق">✕</button></h2>` +
   (ids.length ? ids.map(id=>{
@@ -216,7 +216,7 @@ function cartView(){
    : `<div class="empty"><b>${svg("cart")}</b>السلة فاضية، ابحث عن منتج وأضفه</div>`);
 }
 function checkoutView(){
-  open("checkout");
+  openSheet("checkout");
   $("sheet").innerHTML = `<h2>بيانات الطلب <button class="x" data-a="close" aria-label="إغلاق">✕</button></h2>
    ${saveLine(totals().sav)}<div class="total"><span>الإجمالي</span><span>${fmt(totals().s)}</span></div>
    <div class="f">
@@ -443,7 +443,7 @@ function addPick(p,pk){
 // ====== شاشة المنتج (تظهر لما تدوس على الكارت) ======
 let pvId = null;
 function productView(id){
-  const p = P(id); if(!p) return; pvId = id; open("product");
+  const p = P(id); if(!p) return; pvId = id; openSheet("product");
   const pk = getPick(id), k = p.strips>1?p.strips:1, isS = pk.u==="s" && k>1, inCart = cart[id]||0;
   const boxes = inCart + (isS?0:pk.n), d = saveOf(p,boxes), add = isS ? 0 : d - saveOf(p,inCart);
   const line = (isS ? stripPrice(p) : p.price)*pk.n - add;
