@@ -263,3 +263,22 @@ img.logo{filter:drop-shadow(0 0 8px rgba(200,162,74,.55))}
 .btn2{border:1.5px solid var(--or);background:none;color:var(--or-d);border-radius:10px;padding:8px 14px;cursor:pointer;font-weight:600;font-family:inherit}
 .upd{position:fixed;top:calc(env(safe-area-inset-top,0px) + 10px);left:12px;right:12px;max-width:520px;margin:auto;z-index:60;background:var(--bk);color:#fff;border:1px solid var(--gold);border-radius:16px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;box-shadow:0 10px 28px rgba(0,0,0,.35);animation:rise .35s var(--ease)}
 .upd button{background:var(--gold-g);color:#1a1a1a;border:0;border-radius:10px;padding:8px 14px;font-weight:800;cursor:pointer;font-family:inherit}
+
+/* سلة عايمة */
+.cartbtn.fab{position:fixed;left:14px;bottom:calc(var(--nav) + 14px + env(safe-area-inset-bottom,0px));z-index:17;width:54px;height:54px;background:var(--or);box-shadow:0 6px 18px rgba(245,124,0,.45)}
+.bar.show ~ .cartbtn.fab{bottom:calc(var(--nav) + 84px + env(safe-area-inset-bottom,0px))}
+.cartbtn.fab i{top:-4px;left:-4px}
+/* كارت البحث الطولي */
+.rw.pc{display:flex;flex-direction:column;gap:8px;padding:12px;align-items:stretch;text-align:center}
+.pc .pimg{height:150px;border-radius:12px;overflow:hidden;background:#f4f4f4;display:grid;place-items:center}
+.pc .th{width:100%;height:100%;display:grid;place-items:center;position:relative}
+.pc .th img{width:100%;height:100%;object-fit:contain;position:absolute;inset:0;background:#fff}
+.pc .th .ic{width:56px;height:56px;fill:none;stroke:var(--gr);stroke-width:1.5}
+.pc .pn{font-size:1.02rem}
+.pc .rp{font-weight:800;color:var(--or-d)}
+.pc .prow{display:flex;gap:8px;align-items:center;justify-content:center}
+.pc .qty{margin:0;flex:1}
+.pc .qin{width:100%;min-width:0;text-align:center;background:none;border:0;color:#fff;font:800 1.05rem Cairo,sans-serif}
+.pc .qin:focus{outline:2px solid #fff;border-radius:6px}
+.pc .add{margin:0}
+.pc button:disabled,.pc .qin:disabled{opacity:.5}
