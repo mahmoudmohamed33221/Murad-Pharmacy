@@ -13,27 +13,29 @@ body.intro-lock{overflow:hidden;height:100vh}
 
 #intro .itext{position:absolute;left:0;right:0;top:50%;z-index:2;display:flex;flex-direction:column;
   align-items:center;text-align:center;padding:0 16px;direction:rtl;
-  transform:translate3d(0,-150%,0)}   /* ناحية فوق نص اللوجو */
+  transform:translate3d(0,-56%,0)}   /* الكتلة كلها (الاسم + الجملة) متوسطة حوالي نص الشاشة */
 
-#intro .ititle{font-weight:800;font-size:clamp(1.6rem,7.4vw,2.5rem);line-height:1.5;color:#2b2118;
-  opacity:0;transform:scale(.97);will-change:opacity,transform;
-  text-shadow:0 0 14px rgba(255,255,255,.95),0 2px 10px rgba(217,104,0,.25),0 8px 22px rgba(20,20,20,.14);
-  transition:opacity 2s cubic-bezier(.25,.5,.3,1),transform 2.4s cubic-bezier(.22,.8,.24,1)}
-#intro.s2 .ititle{opacity:1;transform:none}
+/* الاسم بيتكتب حرف حرف: النسخة الشفافة (ghost) بتحجز المكان والعرض، والنسخة المكتوبة فوقها */
+#intro .ititle{position:relative;display:block;width:fit-content;max-width:100%;font-weight:800;
+  font-size:clamp(1.6rem,7.4vw,2.5rem);line-height:1.5;color:#2b2118;white-space:nowrap;
+  text-shadow:0 0 14px rgba(255,255,255,.95),0 2px 10px rgba(217,104,0,.25),0 8px 22px rgba(20,20,20,.14)}
+#intro .ititle .gh{visibility:hidden}
+#intro .ititle .tw{position:absolute;right:0;top:0;white-space:nowrap}
 
-#intro .iline{width:min(56vw,240px);height:2px;margin:8px 0 0;border-radius:2px;transform:scaleX(0);
-  background:linear-gradient(90deg,transparent,#F57C00,transparent);opacity:.9;
-  transition:transform 1.4s cubic-bezier(.22,.8,.24,1) .5s}
-#intro.s2 .iline{transform:scaleX(1)}
+/* الشريط البرتقالي: بيتملي بنفس سرعة الكتابة من اليمين لليسار (الـ JS هو اللي بيتحكم في scaleX) */
+#intro .iline{height:3px;margin:6px 0 0;border-radius:3px;transform:scaleX(0);transform-origin:right center;
+  background:linear-gradient(270deg,#F57C00,rgba(245,124,0,.15));will-change:transform;
+  box-shadow:0 2px 8px rgba(245,124,0,.25)}
 
-/* الجملة المكتوبة: أكبر وأسرع. مكانها تحت اللوجو في نفس العمود عشان متتحركش وهي بتتكتب */
-#intro .itag{position:absolute;left:0;right:0;top:50%;transform:translate3d(0,150%,0);z-index:2;
-  text-align:center;direction:rtl;min-height:1.6em;font-weight:800;
-  font-size:clamp(1.7rem,9vw,2.7rem);color:#D96800;
-  text-shadow:0 0 14px rgba(255,255,255,.95),0 2px 10px rgba(217,104,0,.25)}
-#intro .itag::after{content:"";display:inline-block;width:3px;height:1em;margin-inline-start:5px;
-  vertical-align:-.12em;background:#D96800;opacity:0}
-#intro.typing .itag::after{opacity:.9;animation:icaret .7s steps(1) infinite}
+/* الجملة المكتوبة: سطرين، التاني تحت الأول بشوية. بتتكتب سطر ورا سطر */
+#intro .itag{position:relative;width:100%;margin-top:clamp(20px,4.5vh,38px);transform:translate3d(0,0,0);z-index:2;
+  text-align:center;direction:rtl;padding:0 16px;
+  text-shadow:0 0 14px rgba(255,255,255,.95),0 2px 10px rgba(217,104,0,.22)}
+#intro .itag .l{display:block;min-height:1.5em;line-height:1.5}
+#intro .itag .l1{font-weight:800;font-size:clamp(1.7rem,8.6vw,2.6rem);color:#D96800}
+#intro .itag .l2{margin-top:.5em;font-weight:700;font-size:clamp(1.3rem,6.6vw,2rem);color:#2b2118}
+#intro .cur::after{content:"";display:inline-block;width:3px;height:.95em;margin-inline-start:4px;
+  vertical-align:-.12em;background:#D96800;animation:icaret .7s steps(1) infinite}
 @keyframes icaret{50%{opacity:0}}
 
 /* الانتقال للتطبيق: اللوجو يكبّر كأننا داخلين منه، النصوص تطلع وتختفي، والخلفية تفتح على الرئيسية */
@@ -41,8 +43,8 @@ body.intro-lock{overflow:hidden;height:100vh}
 #intro.out{opacity:0;pointer-events:none}
 #intro.out .ilogo{opacity:0;transform:translate3d(-50%,-50%,0) scale(2.6);
   transition:opacity .9s ease-in .1s,transform 1.25s cubic-bezier(.5,0,.2,1)}
-#intro.out .itext{opacity:0;transform:translate3d(0,-185%,0);transition:opacity .5s ease,transform .8s cubic-bezier(.5,0,.2,1)}
-#intro.out .itag{opacity:0;transform:translate3d(0,185%,0);transition:opacity .5s ease,transform .8s cubic-bezier(.5,0,.2,1)}
+#intro.out .itext{opacity:0;transform:translate3d(0,-70%,0);transition:opacity .5s ease,transform .8s cubic-bezier(.5,0,.2,1)}
+
 
 /* دخول الصفحة الرئيسية: فيد بس، وكل عنصر متأخر شوية عن اللي قبله */
 body.intro-done header{animation:iFade 1s ease-out .6s both}
