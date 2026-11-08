@@ -9,7 +9,6 @@ jobs:
   apk:
     runs-on: ubuntu-latest
     env:
-      KS_PATH: ${{ runner.temp }}/murad-release.jks
       KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
       KS_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
       KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
@@ -42,9 +41,11 @@ jobs:
           python3 tools/make_android_icons.py android-app/android/app/src/main/res
 
       - name: Decode signing key
-        run: echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > "$KS_PATH"
+        run: |
+          echo "KS_PATH=$RUNNER_TEMP/murad-release.jks" >> "$GITHUB_ENV"
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/murad-release.jks"
 
-      - name: Signing + version (versionCode يزيد مع كل بناء)
+      - name: Signing and version
         run: |
           cat >> android-app/android/app/build.gradle <<'GRADLE'
 
