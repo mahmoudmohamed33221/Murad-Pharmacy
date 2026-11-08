@@ -4,6 +4,7 @@ const BUILD = "apk-32";
 const CACHE = "murad-pharmacy-" + BUILD;
 const IMG_CACHE = "murad-img-v1";
 const SHELL = ["./", "index.html", "config.js", "assets/style.css", "assets/app.js", "assets/logo.png",
+  "assets/intro.css", "assets/intro.js", "assets/intro-logo.png",
   "manifest.webmanifest", "assets/icons/icon-192.png", "assets/icons/icon-512.png"];
 
 self.addEventListener("install", e => {
