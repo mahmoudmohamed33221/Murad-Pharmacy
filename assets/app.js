@@ -4,7 +4,6 @@ const CFG = window.APP_CONFIG || {};
 const PHARMACY_PHONE = CFG.PHARMACY_PHONE || "";
 const CURRENCY = CFG.CURRENCY || "ج.م";
 const RECOGNIZE_URL = CFG.RECOGNIZE_URL || "";
-let DEBUG = false; try{ DEBUG = localStorage.getItem("mrad_debug")==="1" || /[?&]debug=1/.test(location.search); }catch(e){}
 
 // ====== الأيقونات (خطوط بسيطة بدل الإيموجي) ======
 const IC = {
@@ -27,31 +26,20 @@ const IC = {
 const svg = n => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${IC[n]||IC.box}</svg>`;
 const CAT_ICON = {"أدوية":"pill","عناية بالشعر":"drop","عناية بالبشرة":"sparkle","العناية اليومية":"bubbles","مكملات وفيتامينات":"leaf","الأم والطفل":"heart","أجهزة طبية":"pulse"};
 const iconFor = c => CAT_ICON[c] || "box";
-const thumb = p => `<span class="th">${svg(iconFor(p.cat))}${p.imgs&&p.imgs[0]?`<img src="${esc(p.imgs[0])}" data-pid="${esc(p.id)}" data-i="0" alt="" loading="lazy" referrerpolicy="no-referrer" onload="imgOk(this)" onerror="imgFail(this)">`:""}</span>`;
+const STAR = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5L2.5 9.4l6.6-.9z"/></svg>';
+const offerTag = p => p.offer ? `<span class="offer">${STAR}${esc(p.offer)}</span>` : "";
+const thumb = p => `<span class="th">${svg(iconFor(p.cat))}${p.img?`<img src="${esc(p.img)}" alt="" loading="lazy" onerror="this.remove()">`:""}</span>`;
 const fillIcons = () => document.querySelectorAll("[data-ic]").forEach(e=>{ e.innerHTML = svg(e.dataset.ic); });
 
 // ====== المنتجات: بتتحمل من data/products.json أو من Google Sheet ======
 let PRODUCTS = [], BY = {};
 const P = id => BY[id];
 const stripPrice = p => p.stripPrice || Math.round(p.price/p.strips);
-function driveImgs(u){
-  u=String(u||"").trim(); if(!u) return [];
+function driveImg(u){
+  u=String(u||"").trim(); if(!u) return "";
   const m=u.match(/\/d\/([\w-]{10,})/)||u.match(/[?&]id=([\w-]{10,})/);
-  if(m && /drive\.google|docs\.google|googleusercontent/.test(u)){ const id=m[1];
-    return ["https://lh3.googleusercontent.com/d/"+id+"=w800","https://drive.google.com/thumbnail?id="+id+"&sz=w800","https://drive.google.com/uc?export=view&id="+id]; }
-  return [/^https?:/.test(u) ? u : "assets/products/"+u];
-}
-const IMGLOG = {};
-const dbgText = p => "خلية الصورة: "+(p.rawImg||"(فاضية)")+"\nالأعمدة: "+(window.__HDR||"-")+"\n"+(IMGLOG[p.id]||[]).slice(-8).join("\n");
-function imgNote(pid,msg){
-  if(!DEBUG) return; (IMGLOG[pid] = IMGLOG[pid]||[]).push(msg);
-  const d = document.getElementById("dbgimg"), p = P(pid); if(d && p && popId===pid) d.textContent = dbgText(p);
-}
-function imgOk(el){ imgNote(el.dataset.pid, "✓ اتحملت: "+el.currentSrc); }
-function imgFail(el){
-  const p = P(el.dataset.pid), i = (+el.dataset.i||0)+1;
-  imgNote(el.dataset.pid, "✗ فشل: "+el.src);
-  if(p && p.imgs && p.imgs[i]){ el.dataset.i = i; el.src = p.imgs[i]; } else el.remove();
+  if(m && /drive\.google|docs\.google/.test(u)) return "https://drive.google.com/thumbnail?id="+m[1]+"&sz=w500";
+  return /^https?:/.test(u) ? u : "assets/products/"+u;
 }
 function normProduct(r,i){
   const num = v => { const n = parseFloat(String(v==null?"":v).replace(/[^\d.]/g,"")); return isFinite(n)?n:0; };
@@ -59,9 +47,8 @@ function normProduct(r,i){
   const sh = /^\s*\d+(\.\d+)?\s*$/.test(String(r.sh||"")) ? num(r.sh) : 0;     // رقم أكبر من صفر فقط = في شرايط
   const k = sh>0 ? Math.max(1,Math.floor(sh)) : 1;
   const stock = Math.max(0,Math.floor(/^\s*\d+\s*$/.test(String(r.stock||"")) ? num(r.stock) : 0));   // فاضي/كلام = غير متوفر
-  return { id:String(r.id||("p"+(i+1))).trim(), name, cat:String(r.cat||"").trim()||"أخرى", price:num(r.price), strips:k, stripPrice:num(r.strip_price),
-    imgs:driveImgs(r.image), rawImg:String(r.image||"").trim(), alias:"", stock, out:stock<=0,
-    disc:Math.min(100,num(r.disc)), minq:Math.max(1,Math.floor(num(r.minq))||1), incl:Math.floor(num(r.incl)) };
+  return { id:String(r.id||("p"+(i+1))).trim(), name, cat:String(r.cat||"").trim()||"أدوية", catLink:linkOf(r.cat_link), offer:offerOf(r.offer), price:num(r.price), strips:k, stripPrice:num(r.strip_price),
+    img:driveImg(r.image), alias:"", stock, out:stock<=0 };
 }
 function parseCSV(t){
   const rows=[]; let r=[], c="", q=false;
@@ -73,31 +60,18 @@ function parseCSV(t){
   if(c||r.length){ r.push(c); rows.push(r); }
   return rows;
 }
-const hdrKey = x => { const h = norm(String(x)).replace(/\s+/g," ");
-  if(HK[h]) return HK[h];
-  if(h.includes("صور")||h.includes("image")||h.includes("photo")) return "image";
-  if(h.includes("خصم")) return "disc";
-  if(h.includes("ادني")||h.startsWith("الحد")) return "minq";
-  if(h.includes("مشمول")||h.includes("تقطيع")) return "incl";
-  return ""; };
-const HK = {"الرقم":"id","اسم المنتج":"name","القسم":"cat","خصم":"disc","قيمه الخصم":"disc","الكميه":"minq","الحد الادني":"minq","تقطيع":"incl","العدد المشمول":"incl","علبه":"stock","شرايط":"sh","سعر العلبه":"price","سعر الشريط":"strip_price","رابط الصوره":"image"};
+// الأعمدة: "لينك القسم" بيتحط بعد "رابط الصوره" في الشيت. "القسم" و"عرض خاص" اختياريين.
+const HK = {"الرقم":"id","اسم المنتج":"name","علبه":"stock","شرايط":"sh","سعر العلبه":"price","سعر الشريط":"strip_price","رابط الصوره":"image","لينك القسم":"cat_link","رابط القسم":"cat_link","القسم":"cat","عرض خاص":"offer","عرض":"offer"};
+const linkOf = u => { u=String(u||"").trim(); if(!u) return ""; if(/^https?:/i.test(u)) return u; return /^[\w-]+(\.[\w-]+)+(\/|$)/.test(u) ? "https://"+u : ""; };
+// عمود "عرض خاص": أي قيمة معناها نعم => العرض شغال. لو اتكتب نص مخصص (مثلا "خصم ٢٠٪") بيظهر هو بدل "عرض خاص"
+const offerOf = v => { v=String(v==null?"":v).trim(); if(!v || /^(0|لا|no|false|-|x)$/i.test(norm(v))) return ""; return /^(1|نعم|yes|true|✓|✔|عرض|عرض خاص|اوفر|offer)$/i.test(norm(v)) ? "عرض خاص" : v; };
 async function loadProducts(){
   const KEY = "mrad_products_cache", S = CFG.SHEET || {};
   const fromSheet = async ()=>{
-    const tabs = S.TABS || [S.TAB||"Products"], out = [], seen = new Set(); let ok = 0;
-    for(let ti=0; ti<tabs.length; ti++){
-      try{
-        const r = await fetch(`https://docs.google.com/spreadsheets/d/${S.ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tabs[ti])}&_=${Date.now()}`,{cache:"no-store"});
-        if(!r.ok) throw new Error("sheet");
-        const txt = await r.text(); ok++;
-        if(seen.has(txt)) continue; seen.add(txt);
-        const vals = parseCSV(txt), keys = (vals[0]||[]).map(hdrKey);
-        if(ti===0) window.__HDR = (vals[0]||[]).map((h,i)=>String(h).trim()+"→"+(keys[i]||"؟")).join(" | ");
-        vals.slice(1).forEach(v=>{ const o = Object.fromEntries(keys.map((k,i)=>[k||("x"+i),v[i]])); if(ti && o.id) o.id = "t"+ti+"-"+o.id; out.push(o); });
-      }catch(e){}
-    }
-    if(!ok) throw new Error("sheet");
-    return out;
+    const r = await fetch(`https://docs.google.com/spreadsheets/d/${S.ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(S.TAB||"Products")}`);
+    if(!r.ok) throw new Error("sheet");
+    const vals = parseCSV(await r.text()), keys = (vals[0]||[]).map(x=>HK[norm(String(x)).replace(/\s+/g," ")]||"");
+    return vals.slice(1).map(v=>Object.fromEntries(keys.map((k,i)=>[k||("x"+i),v[i]])));
   };
   const fromJson = async ()=>{ const r = await fetch(CFG.PRODUCTS_JSON||"data/products.json",{cache:"no-cache"}); if(!r.ok) throw new Error("json"); const j = await r.json(); return j.products||j; };
   let raw = null;
@@ -110,50 +84,20 @@ async function loadProducts(){
   }
   return raw.map(normProduct).filter(Boolean);
 }
-let lastSig = "", syncing = false, syncTimer = null;
-const sig = list => JSON.stringify(list);
-async function syncProducts(){
-  if(syncing || document.hidden) return; syncing = true;
-  try{
-    const fresh = await loadProducts();
-    if(!fresh.length) return;
-    const sg = sig(fresh); if(sg === lastSig) return;
-    const a = document.activeElement;
-    if(a && /^(INPUT|TEXTAREA)$/.test(a.tagName) && a.id!=="q") return;   // المستخدم بيكتب كمية: نأجل للدورة الجاية
-    lastSig = sg; PRODUCTS = fresh; BY = Object.fromEntries(PRODUCTS.map(p=>[p.id,p]));
-    for(const k in cart){ if(!P(String(k).split(":")[0])) delete cart[k]; }
-    refresh(); nameSearch();
-    if(popId) renderPop();
-    if(openCatName) { const y = $("catpage").scrollTop; renderCatList(openCatName); $("catpage").scrollTop = y; }
-    if($("ov").classList.contains("show") && $("sheet").dataset.v==="cart") cartView();
-    toast("تم تحديث الأسعار والمنتجات");
-  }catch(e){} finally{ syncing = false; }
-}
-function startSync(){
-  if(startSync.on) return; startSync.on = true;
-  const ms = Math.max(10, +(CFG.SYNC_SECONDS||30)) * 1000;
-  syncTimer = setInterval(syncProducts, ms);
-  document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) syncProducts(); });
-  window.addEventListener("online", syncProducts);
-  window.addEventListener("focus", syncProducts);
-}
 async function boot(){
-  $("grid").innerHTML = `<div class="empty" style="grid-column:1/-1">جاري تحميل المنتجات...</div>`;
   PRODUCTS = await loadProducts();
   BY = Object.fromEntries(PRODUCTS.map(p=>[p.id,p]));
   for(const k in cart){ if(!P(String(k).split(":")[0])) delete cart[k]; }
-  refresh(); nameSearch(); setHH();
-  lastSig = sig(PRODUCTS); startSync();
+  refresh(); nameSearch();
 }
 
 // ====== الحالة ======
-let cart = {}, cat = "الكل", term = "";
+let cart = {};
 try{ cart = JSON.parse(localStorage.getItem("mrad_cart")||"{}"); }catch(e){}
 const $ = id => document.getElementById(id);
 
 const save = () => { try{ localStorage.setItem("mrad_cart", JSON.stringify(cart)); }catch(e){} };
 const fmt = n => n.toLocaleString("ar-EG") + " " + CURRENCY;
-const n2 = v => Number(v).toLocaleString("ar-EG");
 
 // تطبيع النص العربي عشان البحث يلاقي رغم اختلاف الهمزات والتشكيل
 const norm = s => s.toLowerCase().replace(/[\u064B-\u0652\u0640]/g,"")
@@ -162,41 +106,24 @@ const norm = s => s.toLowerCase().replace(/[\u064B-\u0652\u0640]/g,"")
 // ====== العرض ======
 function renderCats(){
   const cats = [...new Set(PRODUCTS.map(p=>p.cat))];
-  $("cats").innerHTML = cats.map(c=>`<button class="c ${c===cat?"on":""}" data-c="${c}">
-    <div class="pic">${svg(iconFor(c))}</div><b>${c}</b><small>${PRODUCTS.filter(p=>p.cat===c).length.toLocaleString("ar-EG")} منتج</small></button>`).join("");
+  $("cats").innerHTML = cats.map(c=>`<button class="c" data-c="${esc(c)}">
+    <div class="pic">${svg(iconFor(c))}</div><b>${esc(c)}</b><small>${PRODUCTS.filter(p=>p.cat===c).length.toLocaleString("ar-EG")} منتج</small></button>`).join("");
 }
+const catLinkOf = c => (PRODUCTS.find(p=>p.cat===c && p.catLink)||{}).catLink || "";
 function cardHTML(p){
-  const q = (cart[p.id]||0) + (cart[p.id+":s"]||0);
-  return `<div class="pcard ${p.out?"out":""}" data-open="${esc(p.id)}">
-    <div class="pimg2">${thumb(p)}${p.out?`<span class="soldout">غير متوفر</span>`:""}${q?`<span class="incart">في السلة × ${n2(q)}</span>`:""}</div>
-    <div class="pinfo"><b class="pn2">${esc(p.name)}</b>
-    <div class="pp">${n2(p.price)} <small>${CURRENCY}</small></div></div>${discNote(p)}
-  </div>`;
-}
-function grid(){
-  renderCats();
-  $("prodTitle").textContent = term ? "نتائج البحث" : (cat==="الكل" ? "كل المنتجات" : cat);
-  $("allBtn").hidden = (cat==="الكل" && !term);
-  const t = norm(term);
-  const list = PRODUCTS.filter(p => (cat==="الكل"||p.cat===cat) && (!t || norm(p.name).includes(t) || norm(p.cat).includes(t)));
-  $("count").textContent = list.length ? `${list.length.toLocaleString("ar-EG")} منتج` : "";
-  $("grid").innerHTML = list.length ? list.map(cardHTML).join("")
-  : `<div class="empty" style="grid-column:1/-1"><b>${svg("search")}</b>مفيش نتيجة لـ "${term}"<br>جرّب اسم تاني أو اختار قسم مختلف</div>`;
-}
+    const q = cart[p.id]||0;
+    return `<div class="card ${q?"sel":""}" data-id="${p.id}">
+      <div class="ico">${thumb(p)}${offerTag(p)}</div><div class="cat">${esc(p.cat)}</div>
+      <div class="nm">${esc(p.name)}</div><div class="pr"><small class="pl">سعر العبوة الواحدة</small> ${fmt(p.price)}</div>
+      ${q? `<div class="qty"><button data-a="plus" data-i="${p.id}" aria-label="زيادة">+</button><span>${q.toLocaleString("ar-EG")}</span><button data-a="minus" data-i="${p.id}" aria-label="نقص">−</button></div>`
+         : `<button class="add" ${p.out?"disabled":""} data-a="plus" data-i="${p.id}">${p.out?"غير متوفر":"أضف للسلة"}</button>`}
+    </div>`;}
+function grid(){ renderCats(); }   // الرئيسية: الأقسام بس، من غير منتجات تحتها
 const parseK = k => { const [id,u] = String(k).split(":"); return {p:P(id), u:u==="s"?"s":"b"}; };
 const unitPrice = k => { const {p,u} = parseK(k); return u==="s" ? stripPrice(p) : p.price; };
 const label = k => { const {p,u} = parseK(k); return p.name + (u==="s" ? " (شريط)" : ""); };
-function priceCalc(p,u,q){
-  const up = u==="s" ? stripPrice(p) : p.price;
-  if(u==="s" || !(p.disc>0) || q<p.minq) return q*up;
-  const d = p.incl>0 ? Math.min(p.incl,q) : q;
-  return Math.round((d*up*(1-p.disc/100) + (q-d)*up)*100)/100;
-}
-const lineTotal = k => { const {p,u} = parseK(k); return priceCalc(p,u,cart[k]); };
-const discCond = p => ((p.minq>1?"عند شراء "+n2(p.minq)+" علب فأكثر":"") + (p.incl>0?" على "+n2(p.incl)+" علبة":"")).trim();
-const discNote = p => p.disc>0 ? `<span class="dsc"><b>خصم ${n2(p.disc)}٪</b>${discCond(p)?`<small>${discCond(p)}</small>`:""}</span>` : "";
 function totals(){
-  let n=0,s=0; for(const k in cart){ n+=cart[k]; s+=lineTotal(k); }
+  let n=0,s=0; for(const k in cart){ n+=cart[k]; s+=cart[k]*unitPrice(k); }
   return {n,s};
 }
 function refresh(skip){
@@ -217,7 +144,7 @@ function change(key,d){
   if(cart[key]<=0) delete cart[key];
   refresh(true);
   const pid = String(key).split(":")[0];
-  document.querySelectorAll(`.pcard[data-open="${pid}"]`).forEach(el=>{ const t=document.createElement("div"); t.innerHTML=cardHTML(P(pid)); const n=t.firstElementChild; n.classList.add("pop"); el.replaceWith(n); });
+  document.querySelectorAll(`.card[data-id="${pid}"]`).forEach(el=>{ const t=document.createElement("div"); t.innerHTML=cardHTML(P(pid)); const n=t.firstElementChild; n.classList.add("pop"); el.replaceWith(n); });
   const b=$("badge"); b.classList.remove("bump"); void b.offsetWidth; b.classList.add("bump");
   if(d>0 && cart[key]===d) toast("تمت إضافة "+label(key));
   if($("ov").classList.contains("show") && $("sheet").dataset.v==="cart") cartView();
@@ -233,7 +160,7 @@ function cartView(){
   const ids = Object.keys(cart), {s} = totals();
   $("sheet").innerHTML = `<h2>سلة المشتريات <button class="x" data-a="close" aria-label="إغلاق">✕</button></h2>` +
   (ids.length ? ids.map(id=>{const p=parseK(id).p;return `<div class="row"><div class="e">${thumb(p)}</div>
-     <div class="t">${label(id)}<small>${fmt(unitPrice(id))}${lineTotal(id)<cart[id]*unitPrice(id)?" · بعد الخصم "+fmt(lineTotal(id)):""}</small></div>
+     <div class="t">${label(id)}<small>${fmt(unitPrice(id))}</small></div>
      <div class="qty"><button data-a="plus" data-i="${id}">+</button><span>${cart[id].toLocaleString("ar-EG")}</span><button data-a="minus" data-i="${id}">−</button></div></div>`}).join("") +
      `<div class="total"><span>الإجمالي</span><span>${fmt(s)}</span></div>
       <button class="go" data-a="checkout">متابعة لإتمام الطلب</button>
@@ -259,7 +186,7 @@ function send(){
   if(!n||!p||!a){ $("err").style.display="block"; return; }
   const {s} = totals();
   let msg = `*طلب جديد - صيدليات د/ مراد صادق*\n\n`;
-  for(const id in cart) msg += `• ${label(id)} × ${cart[id]} = ${lineTotal(id)} ${CURRENCY}\n`;
+  for(const id in cart) msg += `• ${label(id)} × ${cart[id]} = ${cart[id]*unitPrice(id)} ${CURRENCY}\n`;
   msg += `\n*الإجمالي: ${s} ${CURRENCY}*\n\nالاسم: ${n}\nالموبايل: ${p}\nالعنوان: ${a}` + (o?`\nملاحظات: ${o}`:"");
   window.open(`https://wa.me/${PHARMACY_PHONE}?text=${encodeURIComponent(msg)}`,"_blank");
   saveOrder(s); sv("mrad_profile",{name:n,phone:p,addr:a});
@@ -270,26 +197,12 @@ function send(){
 }
 
 // ====== الأحداث ======
-let openCatName = null;
-const setHH = () => { const h = document.querySelector("header"); if(h) document.documentElement.style.setProperty("--hh", h.offsetHeight+"px"); };
-window.addEventListener("resize", setHH); window.addEventListener("load", setHH);
-function renderCatList(c){
-  const list = PRODUCTS.filter(p=>p.cat===c);
-  $("catTitle").textContent = c; $("catCount").textContent = list.length.toLocaleString("ar-EG")+" منتج";
-  $("catlist").innerHTML = list.map(rowHTML).join("");
-}
-function openCat(c){
-  openCatName = c; setHH();
-  const list = PRODUCTS.filter(p=>p.cat===c);
-  $("catTitle").textContent = c; $("catCount").textContent = list.length.toLocaleString("ar-EG")+" منتج";
-  $("catlist").innerHTML = list.map(rowHTML).join("");
-  $("catpage").hidden = false; $("catpage").scrollTop = 0;
-}
-$("catBack").onclick = ()=>{ $("catpage").hidden = true; openCatName = null; };
 $("cats").addEventListener("click", e=>{
-  const b = e.target.closest("[data-c]"); if(b) openCat(b.dataset.c);
+  const b = e.target.closest("[data-c]"); if(!b) return;
+  const c = b.dataset.c, link = catLinkOf(c);
+  if(link){ window.open(link,"_blank","noopener"); return; }          // لينك القسم من الشيت
+  show("search"); setTab("name"); $("q").value = c; nameSearch();      // مفيش لينك: ندور باسم القسم
 });
-$("allBtn").onclick = ()=>{ cat="الكل"; term=""; $("q").value=""; grid(); };
 $("openCart").onclick = cartView;
 $("barBtn").onclick = cartView;
 $("ov").addEventListener("click", e=>{ if(e.target.id==="ov") close(); });
@@ -426,7 +339,6 @@ function accountView(){
 }
 const VIEWS = ["home","search","account","settings"];
 function show(v){
-  $("catpage").hidden = true; openCatName = null;
   VIEWS.forEach(x=>{ $("v-"+x).hidden = (x!==v); });
   document.body.dataset.view = v;
   $("nav").querySelectorAll("button").forEach(b=>b.classList.toggle("on", b.dataset.v===v));
@@ -458,7 +370,14 @@ document.body.dataset.view = "home";
 // ====== البحث بالاسم + التصوير ======
 const pick = {};
 const getPick = id => pick[id] || (pick[id] = {u:"b", n:1});
-function rowHTML(p){ return cardHTML(p); }
+function rowHTML(p){
+  const pk = getPick(p.id), k = p.strips, isS = pk.u==="s" && k>1, up = isS ? stripPrice(p) : p.price, d = p.out?"disabled":"";
+  return `<div class="rw pc" data-id="${p.id}"><div class="pimg">${thumb(p)}${offerTag(p)}</div><b class="pn">${esc(p.name)}</b>
+    <span class="rp"><small class="pl">${isS?"سعر الشريط الواحد":"سعر العبوة الواحدة"}</small> <span class="pv">${fmt(up)}</span></span>
+    <div class="prow"><div class="qty"><button data-r="inc" ${d}>+</button><input class="qin" data-r="inp" inputmode="numeric" value="${pk.n}" ${d}><button data-r="dec" ${d}>−</button></div>
+      ${k>1?`<div class="seg sm"><button data-r="ub" class="${isS?"":"on"}">علبة</button><button data-r="us" class="${isS?"on":""}">شريط</button></div>`:""}</div>
+    <button class="add" data-r="add" ${d}>${p.out?"غير متوفر":"أضف "+fmt(up*pk.n)}</button></div>`;
+}
 const toNum = s => parseInt(String(s).replace(/[٠-٩]/g,x=>"٠١٢٣٤٥٦٧٨٩".indexOf(x)).replace(/\D/g,""),10)||1;
 function fixPick(p,pk){
   const k = p.strips>1?p.strips:1, max = p.stock*(pk.u==="s"?k:1);
@@ -474,71 +393,21 @@ function addPick(p,pk){
   if(k>1 && T<k) cart[id+":s"] = T; else cart[id] = Math.floor(T/k);
   refresh(); toast("تمت إضافة "+p.name);
 }
-// ====== نافذة المنتج المكبّرة ======
-let popId = null;
-function popHTML(p){
-  const pk = getPick(p.id), k = p.strips, isS = pk.u==="s" && k>1, up = isS ? stripPrice(p) : p.price;
-  const tot = priceCalc(p,pk.u,pk.n), save = Math.round((pk.n*up - tot)*100)/100, d = p.out?"disabled":"";
-  let dsc = "";
-  if(p.disc>0){
-    let st;
-    if(isS) st = `<em class="off">الخصم على العلب فقط</em>`;
-    else if(pk.n>=p.minq) st = `<em>✓ تم تطبيق الخصم على طلبك</em>`;
-    else st = `<em class="off">زوّد ${n2(p.minq-pk.n)} ${p.minq-pk.n<=10?"علب":"علبة"} كمان عشان تاخد الخصم</em>`;
-    dsc = `<div class="dsc big"><b>خصم ${n2(p.disc)}٪</b>${discCond(p)?`<small>${discCond(p)}</small>`:""}${st}</div>`;
-  }
-  const low = !p.out && p.stock<=5 ? `<div class="stocknote">متبقي ${n2(p.stock)} فقط</div>` : "";
-  return `<button class="pclose" data-pa="close" aria-label="إغلاق">✕</button>
-  <div class="pscroll">
-    <div class="pbig">${thumb(p)}</div>
-    <div class="pbody">
-      <div class="pcat">${esc(p.cat)}</div>
-      <h3 class="ptitle">${esc(p.name)}</h3>
-      <div class="pprice">${n2(up)} <small>${CURRENCY} / ${isS?"شريط":"علبة"}</small></div>
-      ${low}${dsc}
-      ${k>1?`<div class="plabel">اشتري بـ</div><div class="useg">
-        <button data-pa="ub" class="${isS?"":"on"}"><b>علبة</b><small>${fmt(p.price)}</small></button>
-        <button data-pa="us" class="${isS?"on":""}"><b>شريط</b><small>${fmt(stripPrice(p))}</small></button></div>`:""}
-      <div class="plabel">الكمية</div>
-      <div class="qbig"><button data-pa="dec" ${d} aria-label="نقص">−</button><input class="pqin" data-pa="inp" inputmode="numeric" value="${n2(pk.n)}" ${d}><button data-pa="inc" ${d} aria-label="زيادة">+</button></div>
-      ${DEBUG?`<pre class="dbg" id="dbgimg">${esc(dbgText(p))}</pre>`:""}
-    </div>
-  </div>
-  <div class="pfoot"><div class="ptot"><small>الإجمالي</small><b>${fmt(tot)}</b>${save>0?`<em>وفّرت ${fmt(save)}</em>`:""}</div>
-    <button class="padd" data-pa="add" ${d}>${p.out?"غير متوفر":"أضف للسلة"}</button></div>`;
+function pickAct(row,r,val){
+  const id = row.dataset.id, p = P(id), pk = getPick(id);
+  if(r==="ub"){ pk.u="b"; pk.n=1; } else if(r==="us"){ pk.u = p.strips>1?"s":"b"; pk.n=1; }
+  else if(r==="inc") pk.n++; else if(r==="dec") pk.n--; else if(r==="inp") pk.n = toNum(val);
+  if(r==="add"){ addPick(p,pk); pk.n=1; pk.u="b"; } else fixPick(p,pk);
+  const t = document.createElement("div"); t.innerHTML = rowHTML(p); const n = t.firstElementChild;
+  if(r==="add") n.classList.add("pop");
+  row.replaceWith(n);
 }
-function renderPop(){
-  const p = P(popId); if(!p){ closePop(); return; }
-  const old = $("psheet").querySelector(".pscroll"), y = old ? old.scrollTop : 0;
-  $("psheet").innerHTML = popHTML(p);
-  $("psheet").querySelector(".pscroll").scrollTop = y;
-}
-function openProduct(id){
-  const p = P(id); if(!p) return;
-  popId = id; const pk = getPick(id); pk.n = 1; pk.u = "b";
-  renderPop(); $("pov").classList.add("show");
-}
-function rerenderLists(){
-  if(openCatName){ const y = $("catpage").scrollTop; renderCatList(openCatName); $("catpage").scrollTop = y; }
-  nameSearch(); grid();
-}
-function closePop(){ popId = null; $("pov").classList.remove("show"); rerenderLists(); }
-$("pov").addEventListener("click", e=>{ if(e.target.id==="pov") closePop(); });
-$("psheet").addEventListener("click", e=>{
-  const b = e.target.closest("[data-pa]"); if(!b || b.tagName==="INPUT") return;
-  const a = b.dataset.pa, p = P(popId); if(!p) return;
-  const pk = getPick(popId);
-  if(a==="close"){ closePop(); return; }
-  if(a==="ub"){ pk.u="b"; pk.n=1; } else if(a==="us"){ pk.u = p.strips>1?"s":"b"; pk.n=1; }
-  else if(a==="inc") pk.n++; else if(a==="dec") pk.n--;
-  if(a==="add"){ addPick(p,pk); pk.n=1; pk.u="b"; closePop(); return; }
-  fixPick(p,pk); renderPop();
+$("v-search").addEventListener("click", e=>{
+  const b = e.target.closest("[data-r]"); if(!b || b.tagName==="INPUT") return;
+  pickAct(b.closest(".rw"), b.dataset.r);
 });
-$("psheet").addEventListener("change", e=>{
-  if(e.target.dataset && e.target.dataset.pa==="inp"){ const p = P(popId); if(!p) return; const pk = getPick(popId); pk.n = toNum(e.target.value); fixPick(p,pk); renderPop(); }
-});
-document.addEventListener("click", e=>{
-  const c = e.target.closest("[data-open]"); if(c) openProduct(c.dataset.open);
+$("v-search").addEventListener("change", e=>{
+  if(e.target.dataset && e.target.dataset.r==="inp") pickAct(e.target.closest(".rw"), "inp", e.target.value);
 });
 function nameSearch(){
   const raw = $("q").value, t = norm(raw).split(/\s+/).filter(Boolean), box = $("sres");
@@ -629,7 +498,7 @@ $("scanRes").addEventListener("click", e=>{
   if(e.target.id==="addAll"){
     const list = $("scanRes")._list || []; let n=0;
     list.forEach(p=>{ if(p.out) return; const pk=getPick(p.id); addPick(p,pk); pk.n=1; pk.u="b"; n++; });
-    $("scanRes").querySelectorAll(".pcard").forEach(r=>{ const t=document.createElement("div"); t.innerHTML=cardHTML(P(r.dataset.open)); r.replaceWith(t.firstElementChild); });
+    $("scanRes").querySelectorAll(".rw").forEach(r=>{ const t=document.createElement("div"); t.innerHTML=rowHTML(P(r.dataset.id)); r.replaceWith(t.firstElementChild); });
     toast("تمت إضافة "+n.toLocaleString("ar-EG")+" صنف للسلة");
   }
 });
@@ -637,8 +506,6 @@ $("scanRes").addEventListener("click", e=>{
 fillIcons(); boot();
 
 // ====== النسخة والتحديث (PWA) ======
-(()=>{ let n=0,t; $("ver").addEventListener("click",()=>{ n++; clearTimeout(t); t=setTimeout(()=>n=0,3000);
-  if(n>=5){ n=0; DEBUG=!DEBUG; try{ localStorage.setItem("mrad_debug",DEBUG?"1":"0"); }catch(e){} toast(DEBUG?"وضع الفحص: شغال":"وضع الفحص: مقفول"); } }); })();
 $("ver").textContent = "الإصدار " + (CFG.APP_VERSION||"1.0.0") + " · " + (CFG.BUILD||"dev");
 function showUpdate(w){
   $("upd").hidden = false;
