@@ -59,4 +59,3 @@ footer.ft{padding:0;margin-top:30px;color:inherit;font-size:1rem;text-align:cent
 /* في باقي الصفحات (غير الرئيسية) بيظهر الحقوق بس */
 body:not([data-view="home"]) .ft-gold.g1,
 body:not([data-view="home"]) .ft-contact{display:none}
-
