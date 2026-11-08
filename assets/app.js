@@ -49,7 +49,9 @@ function driveImg(u){
 function normProduct(r,i){
   const num = v => { const n = parseFloat(String(v==null?"":v).replace(/[^\d.]/g,"")); return isFinite(n)?n:0; };
   const name = String(r.name||"").trim(); if(!name) return null;
-  const drw = String(r.disc==null?"":r.disc), dpct = /[%٪]|مئ|مائ/.test(drw), dv = num(drw);
+  const drw = String(r.disc==null?"":r.disc);
+  // الخصم دايمًا نسبة مئوية: ١٠ أو ١٠٪ = ١٠٪، وكمان ٠.١ (اللي جوجل شيت بيطلعه لخلية نسبة) = ١٠٪
+  let dv = num(drw); if(!/[%٪]/.test(drw) && dv>0 && dv<1) dv = Math.round(dv*100); dv = Math.min(100,dv); const dpct = true;
   const sh = /^\s*\d+(\.\d+)?\s*$/.test(String(r.sh||"")) ? num(r.sh) : 0;     // رقم أكبر من صفر فقط = في شرايط
   const k = sh>0 ? Math.max(1,Math.floor(sh)) : 1;
   const stock = Math.max(0,Math.floor(/^\s*\d+\s*$/.test(String(r.stock||"")) ? num(r.stock) : 0));   // فاضي/كلام = غير متوفر
@@ -151,7 +153,17 @@ const covered = (p,boxes) => p.inc>0 ? Math.min(p.inc,boxes) : boxes;
 const saveOf = (p,boxes) => (p.disc>0 && boxes>=p.min) ? covered(p,boxes)*perBox(p) : 0;
 const discTxt = p => p.discPct ? ar(p.disc)+"٪" : fmt(p.disc);
 const boxWord = n => n>2 && n<11 ? "علب" : (n===2 ? "علبتين" : "علبة");
-const offerLine = p => `خصم ${discTxt(p)} ${p.inc>0?"على "+(p.inc===1?"علبة واحدة":p.inc===2?"علبتين":ar(p.inc)+" "+boxWord(p.inc)):"على كل علبة"} عند شراء ${ar(p.min)} ${boxWord(p.min)} أو أكتر`;
+const cnt = n => n===1 ? "علبة واحدة" : n===2 ? "علبتين" : ar(n)+" "+boxWord(n);
+const offerLine = p => p.inc>0 ? `اشتري ${cnt(p.min)} أو أكتر: خصم ${discTxt(p)} على ${cnt(p.inc)} فقط` : `اشتري ${cnt(p.min)} أو أكتر: خصم ${discTxt(p)} على كل العلب`;
+// شرح العرض بالتفصيل (من غير لبس) مع مثال محسوب
+function offerExplain(p){
+  const pb = perBox(p);
+  if(!(p.inc>0)) return `<div>لما تشتري <b>${cnt(p.min)} أو أكتر</b> بتاخد خصم <b>${discTxt(p)}</b> على <b>كل العلب</b>.</div>`;
+  const ex = p.min + p.inc, rest = ex - p.inc;
+  return `<div>لما تشتري <b>${cnt(p.min)} أو أكتر</b> بتاخد خصم <b>${discTxt(p)}</b> على <b>${cnt(p.inc)} فقط</b>.</div>
+    <div>أي علب زيادة عن كده بتتحسب <b>بسعرها العادي من غير خصم</b>.</div>
+    <div class="ex">مثال: لو اشتريت ${cnt(ex)} → الخصم على ${cnt(p.inc)} = <b>${fmt(p.inc*pb)}</b>، و${cnt(rest)} الباقيين بسعرهم العادي. ولو اشتريت ${ar(Math.max(50,ex))} علبة، الخصم برضه على ${cnt(p.inc)} بس.</div>`;
+}
 const label = k => { const {p,u} = parseK(k); return p.name + (u==="s" ? " (شريط)" : ""); };
 const lineTotal = k => { const {p,u}=parseK(k), q=cart[k]||0; return u==="s" ? q*stripPrice(p) : q*p.price - saveOf(p,q); };
 function totals(){
@@ -195,7 +207,7 @@ function cartView(){
   (ids.length ? ids.map(id=>{
      const {p,u}=parseK(id), q=cart[id], d = u==="b" ? saveOf(p,q) : 0;
      let hint = "";
-     if(u==="b" && p.disc>0) hint = q>=p.min ? `<em class="okk">تم تطبيق العرض ✓ وفرت ${fmt(d)}</em>` : `<em class="hintx">اشتري ${ar(p.min-q)} ${boxWord(p.min-q)} كمان وتستفيد من العرض</em>`;
+     if(u==="b" && p.disc>0) hint = q>=p.min ? `<em class="okk">العرض شغال ✓ وفرت ${fmt(d)} على ${cnt(covered(p,q))}${p.inc>0&&q>p.inc?" — والباقي بالسعر العادي":""}</em>` : `<em class="hintx">ناقصك ${cnt(p.min-q)} عشان العرض يشتغل</em>`;
      return `<div class="row"><div class="e">${thumb(p)}</div>
      <div class="t">${label(id)}<small>${d>0?`<s>${fmt(q*p.price)}</s> `:""}${fmt(lineTotal(id))}</small>${hint}</div>
      <div class="qty"><button data-a="plus" data-i="${id}">+</button><span>${ar(q)}</span><button data-a="minus" data-i="${id}">−</button></div></div>`}).join("") +
@@ -439,10 +451,10 @@ function productView(id){
   const line = (isS ? stripPrice(p) : p.price)*pk.n - add;
   let ofr = "";
   if(p.disc>0){
-    const need = p.min - boxes;
-    ofr = `<div class="ofr ${need<=0?"on":""}"><b>${esc(p.offer)}</b><span>${offerLine(p)}</span>`+
-      (need>0 ? `<em class="hintx">اشتري ${ar(need)} ${boxWord(need)} كمان وتستفيد من العرض</em>`
-              : `<em class="okk">تم تفعيل العرض ✓ هتوفر ${fmt(d)}</em>`)+`</div>`;
+    const need = p.min - boxes, over = p.inc>0 ? Math.max(0, boxes-p.inc) : 0;
+    ofr = `<div class="ofr ${need<=0?"on":""}"><b>${esc(p.offer)}</b>${offerExplain(p)}`+
+      (need>0 ? `<em class="hintx">لسه ناقصك ${cnt(need)} عشان العرض يشتغل</em>`
+              : `<em class="okk">العرض شغال ✓ وفرت ${fmt(d)} على ${cnt(covered(p,boxes))}${over>0?" — و"+cnt(over)+" الزيادة بالسعر العادي":""}</em>`)+`</div>`;
   }
   const dis = p.out?"disabled":"";
   $("sheet").innerHTML = `<h2>${esc(p.name)} <button class="x" data-a="close" aria-label="إغلاق">✕</button></h2>
