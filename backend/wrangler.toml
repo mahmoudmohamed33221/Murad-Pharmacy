@@ -1,0 +1,8 @@
+name = "murad-pharmacy-ai"
+main = "worker.js"
+compatibility_date = "2025-01-01"
+
+[vars]
+# غيّر USERNAME لاسم حسابك على GitHub. https://localhost ده لتطبيق الأندرويد (APK).
+ALLOWED_ORIGINS = "https://USERNAME.github.io,https://localhost"
+MODEL = "claude-sonnet-5-5"
