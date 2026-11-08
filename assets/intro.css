@@ -1,46 +1,65 @@
-/* انترو التطبيق: لوجو يظهر تدريجيًا -> اسم الصيدليات -> "صحتك تهمنا" بتتكتب -> انتقال ناعم للتطبيق */
+/* انترو التطبيق: لوجو فيد بطيء -> اسم الصيدليات فيد -> "صحتك أمانة عندنا" بتتكتب -> انتقال ناعم للتطبيق
+   (الحركات كلها opacity/transform بس عشان تشتغل 60 فريم على الجي بي يو) */
 body.intro-lock{overflow:hidden;height:100vh}
 #intro{position:fixed;inset:0;z-index:99999;background:#fff;overflow:hidden;
-  display:flex;align-items:center;justify-content:center;
-  transition:opacity .9s cubic-bezier(.4,0,.2,1),transform .9s cubic-bezier(.4,0,.2,1),filter .9s ease;
-  will-change:opacity,transform}
-/* هالة برتقالية خفيفة جدًا ورا اللوجو */
-#intro::before{content:"";position:absolute;width:120vmax;height:120vmax;left:50%;top:50%;transform:translate(-50%,-50%);
-  background:radial-gradient(circle,rgba(245,124,0,.07) 0,rgba(245,124,0,0) 42%);opacity:0;transition:opacity 2s ease}
-#intro.s1::before{opacity:1}
+  transition:opacity .8s cubic-bezier(.4,0,.2,1),transform .8s cubic-bezier(.4,0,.2,1);
+  will-change:opacity,transform;transform:translateZ(0)}
 
-#intro .ilogo{position:absolute;left:50%;top:50%;width:min(80vw,380px);height:auto;
-  transform:translate(-50%,-50%) scale(.92);opacity:0;
-  transition:opacity 2s cubic-bezier(.3,.6,.3,1),transform 2.6s cubic-bezier(.22,.8,.24,1)}
-#intro.s1 .ilogo{opacity:.30;transform:translate(-50%,-50%) scale(1)}   /* بيوصل لـ 30% بس */
+/* اللوجو في نص الشاشة بالظبط (أفقي ورأسي) */
+#intro .ilogo{position:absolute;left:50%;top:50%;width:min(94vw,540px);height:auto;
+  transform:translate3d(-50%,-50%,0) scale(.94);opacity:0;will-change:opacity,transform;
+  transition:opacity 2.6s cubic-bezier(.25,.5,.3,1),transform 3.2s cubic-bezier(.22,.8,.24,1)}
+#intro.s1 .ilogo{opacity:.5;transform:translate3d(-50%,-50%,0) scale(1)}
 
-#intro .itext{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;
-  text-align:center;padding:0 20px;margin-top:-18vh;direction:rtl}
-#intro .ititle{font-weight:800;font-size:clamp(1.55rem,7.2vw,2.4rem);line-height:1.5;color:#2b2118;
-  letter-spacing:.04em;opacity:0;transform:translateY(14px);filter:blur(7px);
-  text-shadow:0 1px 0 rgba(255,255,255,.9),0 3px 10px rgba(217,104,0,.22),0 8px 22px rgba(20,20,20,.12);
-  transition:opacity 1.3s ease,transform 1.3s cubic-bezier(.22,.8,.24,1),filter 1.3s ease,letter-spacing 1.6s ease}
-#intro.s2 .ititle{opacity:1;transform:none;filter:blur(0);letter-spacing:0}
+#intro .itext{position:absolute;left:0;right:0;top:50%;z-index:2;display:flex;flex-direction:column;
+  align-items:center;text-align:center;padding:0 16px;direction:rtl;
+  transform:translate3d(0,-150%,0)}   /* ناحية فوق نص اللوجو */
 
-#intro .iline{width:0;height:2px;margin:10px 0 6px;border-radius:2px;
-  background:linear-gradient(90deg,transparent,#F57C00,transparent);opacity:.85;
-  transition:width 1.2s cubic-bezier(.22,.8,.24,1) .2s}
-#intro.s2 .iline{width:min(56vw,230px)}
+#intro .ititle{font-weight:800;font-size:clamp(1.6rem,7.4vw,2.5rem);line-height:1.5;color:#2b2118;
+  opacity:0;transform:scale(.97);will-change:opacity,transform;
+  text-shadow:0 0 14px rgba(255,255,255,.95),0 2px 10px rgba(217,104,0,.25),0 8px 22px rgba(20,20,20,.14);
+  transition:opacity 2s cubic-bezier(.25,.5,.3,1),transform 2.4s cubic-bezier(.22,.8,.24,1)}
+#intro.s2 .ititle{opacity:1;transform:none}
 
-#intro .itag{min-height:2.2em;font-weight:600;font-size:clamp(1.05rem,4.8vw,1.45rem);color:#D96800;
-  text-shadow:0 2px 8px rgba(217,104,0,.18);letter-spacing:.02em}
-#intro .itag::after{content:"";display:inline-block;width:2px;height:1.05em;margin-inline-start:4px;
-  vertical-align:-.15em;background:#D96800;opacity:0}
-#intro.typing .itag::after{opacity:.9;animation:icaret .8s steps(1) infinite}
+#intro .iline{width:min(56vw,240px);height:2px;margin:8px 0 0;border-radius:2px;transform:scaleX(0);
+  background:linear-gradient(90deg,transparent,#F57C00,transparent);opacity:.9;
+  transition:transform 1.4s cubic-bezier(.22,.8,.24,1) .5s}
+#intro.s2 .iline{transform:scaleX(1)}
+
+/* الجملة المكتوبة: أكبر وأسرع. مكانها تحت اللوجو في نفس العمود عشان متتحركش وهي بتتكتب */
+#intro .itag{position:absolute;left:0;right:0;top:50%;transform:translate3d(0,150%,0);z-index:2;
+  text-align:center;direction:rtl;min-height:1.6em;font-weight:800;
+  font-size:clamp(1.7rem,9vw,2.7rem);color:#D96800;
+  text-shadow:0 0 14px rgba(255,255,255,.95),0 2px 10px rgba(217,104,0,.25)}
+#intro .itag::after{content:"";display:inline-block;width:3px;height:1em;margin-inline-start:5px;
+  vertical-align:-.12em;background:#D96800;opacity:0}
+#intro.typing .itag::after{opacity:.9;animation:icaret .7s steps(1) infinite}
 @keyframes icaret{50%{opacity:0}}
 
-/* الانتقال للتطبيق */
-#intro.out{opacity:0;transform:scale(1.06);filter:blur(8px);pointer-events:none}
+/* الانتقال للتطبيق: اللوجو يكبّر كأننا داخلين منه، النصوص تطلع وتختفي، والخلفية تفتح على الرئيسية */
+#intro{transition:opacity .9s cubic-bezier(.4,0,.2,1) .45s}
+#intro.out{opacity:0;pointer-events:none}
+#intro.out .ilogo{opacity:0;transform:translate3d(-50%,-50%,0) scale(2.6);
+  transition:opacity .9s ease-in .1s,transform 1.25s cubic-bezier(.5,0,.2,1)}
+#intro.out .itext{opacity:0;transform:translate3d(0,-185%,0);transition:opacity .5s ease,transform .8s cubic-bezier(.5,0,.2,1)}
+#intro.out .itag{opacity:0;transform:translate3d(0,185%,0);transition:opacity .5s ease,transform .8s cubic-bezier(.5,0,.2,1)}
 
-/* دخول التطبيق بنعومة بعد الانترو */
-body.intro-done header,body.intro-done main:not([hidden]),body.intro-done .nav{animation:introIn .8s cubic-bezier(.22,.8,.24,1) both}
-body.intro-done main:not([hidden]){animation-delay:.08s}
-@keyframes introIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+/* دخول الصفحة الرئيسية بشكل متتابع */
+body.intro-done header{animation:iHead .8s cubic-bezier(.22,.8,.24,1) .35s both}
+body.intro-done .offers{animation:iPop .9s cubic-bezier(.22,.8,.24,1) .5s both}
+body.intro-done .sec{animation:iUp .7s cubic-bezier(.22,.8,.24,1) .7s both}
+body.intro-done .cats>*{animation:iUp .7s cubic-bezier(.22,.8,.24,1) both;animation-delay:calc(.75s + var(--i,0)*70ms)}
+body.intro-done .cats>*:nth-child(1){--i:0}body.intro-done .cats>*:nth-child(2){--i:1}
+body.intro-done .cats>*:nth-child(3){--i:2}body.intro-done .cats>*:nth-child(4){--i:3}
+body.intro-done .cats>*:nth-child(5){--i:4}body.intro-done .cats>*:nth-child(6){--i:5}
+body.intro-done .cats>*:nth-child(n+7){--i:6}
+body.intro-done .nav{animation:iNav .8s cubic-bezier(.22,.8,.24,1) .9s both}
+body.intro-done #openCart,body.intro-done #bar{animation:iPop .7s cubic-bezier(.22,.8,.24,1) 1s both}
+body.intro-done main:not(#v-home):not([hidden]){animation:iUp .7s cubic-bezier(.22,.8,.24,1) .5s both}
+@keyframes iHead{from{opacity:0;transform:translate3d(0,-100%,0)}to{opacity:1;transform:none}}
+@keyframes iPop{from{opacity:0;transform:scale(.92) translate3d(0,10px,0)}to{opacity:1;transform:none}}
+@keyframes iUp{from{opacity:0;transform:translate3d(0,26px,0)}to{opacity:1;transform:none}}
+@keyframes iNav{from{opacity:0;transform:translate3d(0,100%,0)}to{opacity:1;transform:none}}
 
 @media (prefers-reduced-motion:reduce){
   #intro,#intro *{transition-duration:.01s!important;animation:none!important}
