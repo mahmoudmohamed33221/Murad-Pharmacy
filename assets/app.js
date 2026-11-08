@@ -27,7 +27,7 @@ const svg = n => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${IC[n]
 const CAT_ICON = {"أدوية":"pill","عناية بالشعر":"drop","عناية بالبشرة":"sparkle","العناية اليومية":"bubbles","مكملات وفيتامينات":"leaf","الأم والطفل":"heart","أجهزة طبية":"pulse"};
 const iconFor = c => CAT_ICON[c] || "box";
 const STAR = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5L2.5 9.4l6.6-.9z"/></svg>';
-const offerTag = p => p.offer ? `<span class="offer">${STAR}${esc(p.offer)}</span>` : "";
+const offerTag = p => p.offer ? `<span class="offer">${esc(p.offer)}</span>` : "";
 const thumb = p => `<span class="th">${svg(iconFor(p.cat))}${p.img?`<img src="${esc(p.img)}" data-alts="${esc((p.alts||[]).join("|"))}" alt="" referrerpolicy="no-referrer" onerror="imgFail(this)">`:""}</span>`;
 const fillIcons = () => document.querySelectorAll("[data-ic]").forEach(e=>{ e.innerHTML = svg(e.dataset.ic); });
 
@@ -53,7 +53,7 @@ function normProduct(r,i){
   const sh = /^\s*\d+(\.\d+)?\s*$/.test(String(r.sh||"")) ? num(r.sh) : 0;     // رقم أكبر من صفر فقط = في شرايط
   const k = sh>0 ? Math.max(1,Math.floor(sh)) : 1;
   const stock = Math.max(0,Math.floor(/^\s*\d+\s*$/.test(String(r.stock||"")) ? num(r.stock) : 0));   // فاضي/كلام = غير متوفر
-  return { id:String(r.id||("p"+(i+1))).trim(), name, cat:String(r.cat||"").replace(/\s+/g," ").trim(), offer:offerOf(r.offer)||(dv>0?"عرض خاص":""), disc:dv, discPct:dpct, min:Math.max(1,Math.floor(num(r.min))||1), price:num(r.price), strips:k, stripPrice:num(r.strip_price),
+  return { id:String(r.id||("p"+(i+1))).trim(), name, cat:String(r.cat||"").replace(/\s+/g," ").trim(), offer:offerOf(r.offer)||(dv>0?"عرض خاص":""), disc:dv, discPct:dpct, min:Math.max(1,Math.floor(num(r.min))||1), inc:Math.max(0,Math.floor(num(r.inc))||0), price:num(r.price), strips:k, stripPrice:num(r.strip_price),
     img:driveImg(r.image), alts:driveAlts(r.image), alias:String(r.alias||"").trim(), stock, out:stock<=0 };
 }
 function parseCSV(t){
@@ -67,7 +67,7 @@ function parseCSV(t){
   return rows;
 }
 // الأعمدة: عمود القسم ("لينك القسم" أو "القسم") بعد "رابط الصوره": اللي بيتكتب جنب كل منتج هو اسم القسم، والأقسام بتتكوّن منه تلقائي.
-const HK = {"الرقم":"id","اسم المنتج":"name","علبه":"stock","شرايط":"sh","سعر العلبه":"price","سعر الشريط":"strip_price","رابط الصوره":"image","لينك القسم":"cat","رابط القسم":"cat","القسم":"cat","لينك الصوره":"image","الصوره":"image","صوره":"image","عرض خاص":"offer","عرض":"offer","قيمه الخصم":"disc","الخصم":"disc","الحد الادني":"min","الحد الادنى":"min","الحد الاقصي":"x_max","الاسم بالانجليزي":"alias","الاسم الانجليزي":"alias","اسم انجليزي":"alias","الاسم العلمي":"alias","الاسم التجاري":"alias","english":"alias","name_en":"alias"};
+const HK = {"الرقم":"id","اسم المنتج":"name","علبه":"stock","شرايط":"sh","سعر العلبه":"price","سعر الشريط":"strip_price","رابط الصوره":"image","لينك القسم":"cat","رابط القسم":"cat","القسم":"cat","لينك الصوره":"image","الصوره":"image","صوره":"image","عرض خاص":"offer","عرض":"offer","قيمه الخصم":"disc","الخصم":"disc","الحد الادني":"min","الحد الادنى":"min","العدد المشمول":"inc","العدد المشمول بالخصم":"inc","عدد العلب المشمول":"inc","الاسم بالانجليزي":"alias","الاسم الانجليزي":"alias","اسم انجليزي":"alias","الاسم العلمي":"alias","الاسم التجاري":"alias","english":"alias","name_en":"alias"};
 // عمود "عرض خاص": أي قيمة معناها نعم => العرض شغال. لو اتكتب نص مخصص (مثلا "خصم ٢٠٪") بيظهر هو بدل "عرض خاص"
 const offerOf = v => { v=String(v==null?"":v).trim(); if(!v || /^(0|لا|no|false|-|x)$/i.test(norm(v))) return ""; return /^(1|نعم|yes|true|✓|✔|عرض|عرض خاص|اوفر|offer)$/i.test(norm(v)) ? "عرض خاص" : v; };
 async function loadProducts(){
@@ -144,15 +144,18 @@ function cardHTML(p){
 function grid(){ renderCats(); }   // الرئيسية: الأقسام بس، من غير منتجات تحتها
 const parseK = k => { const [id,u] = String(k).split(":"); return {p:P(id), u:u==="s"?"s":"b"}; };
 const ar = v => Number(v).toLocaleString("ar-EG");
-// الخصم على العلبة الواحدة: بيشتغل لما عدد العلب يوصل للحد الأدنى. رقم عادي = جنيه لكل علبة، ولو مكتوب معاه % = نسبة
-const discOf = (p,boxes) => (p.disc>0 && boxes>=p.min) ? (p.discPct ? Math.round(p.price*p.disc)/100 : Math.min(p.disc,p.price)) : 0;
-const boxPrice = (p,boxes) => Math.max(0, p.price - discOf(p,boxes));
+// نظام الخصم: لو العميل اشترى "الحد الأدنى" علب أو أكتر، الخصم بيتطبق على "العدد المشمول" علب بس والباقي بسعره العادي
+// (لو العدد المشمول فاضي = الخصم على كل العلب). قيمة الخصم: ١٠٪ = نسبة، ورقم عادي = جنيه لكل علبة
+const perBox = p => p.discPct ? Math.round(p.price*p.disc)/100 : Math.min(p.disc,p.price);
+const covered = (p,boxes) => p.inc>0 ? Math.min(p.inc,boxes) : boxes;
+const saveOf = (p,boxes) => (p.disc>0 && boxes>=p.min) ? covered(p,boxes)*perBox(p) : 0;
 const discTxt = p => p.discPct ? ar(p.disc)+"٪" : fmt(p.disc);
 const boxWord = n => n>2 && n<11 ? "علب" : (n===2 ? "علبتين" : "علبة");
-const unitPrice = k => { const {p,u} = parseK(k); return u==="s" ? stripPrice(p) : boxPrice(p, cart[k]||1); };
+const offerLine = p => `خصم ${discTxt(p)} ${p.inc>0?"على "+(p.inc===1?"علبة واحدة":p.inc===2?"علبتين":ar(p.inc)+" "+boxWord(p.inc)):"على كل علبة"} عند شراء ${ar(p.min)} ${boxWord(p.min)} أو أكتر`;
 const label = k => { const {p,u} = parseK(k); return p.name + (u==="s" ? " (شريط)" : ""); };
+const lineTotal = k => { const {p,u}=parseK(k), q=cart[k]||0; return u==="s" ? q*stripPrice(p) : q*p.price - saveOf(p,q); };
 function totals(){
-  let n=0,s=0,sav=0; for(const k in cart){ n+=cart[k]; s+=cart[k]*unitPrice(k); const {p,u}=parseK(k); if(u==="b") sav+=cart[k]*discOf(p,cart[k]); }
+  let n=0,s=0,sav=0; for(const k in cart){ n+=cart[k]; s+=lineTotal(k); const {p,u}=parseK(k); if(u==="b") sav+=saveOf(p,cart[k]); }
   return {n,s,sav};
 }
 function refresh(skip){
@@ -190,12 +193,11 @@ function cartView(){
   const ids = Object.keys(cart), {s,sav} = totals();
   $("sheet").innerHTML = `<h2>سلة المشتريات <button class="x" data-a="close" aria-label="إغلاق">✕</button></h2>` +
   (ids.length ? ids.map(id=>{
-     const {p,u}=parseK(id), q=cart[id], d = u==="b" ? discOf(p,q) : 0;
+     const {p,u}=parseK(id), q=cart[id], d = u==="b" ? saveOf(p,q) : 0;
      let hint = "";
-     if(u==="b" && p.disc>0) hint = q>=p.min ? `<em class="okk">تم تطبيق العرض ✓ وفرت ${fmt(d*q)}</em>`
-        : `<button class="need" data-a="need" data-i="${id}" data-n="${p.min-q}">ضيف ${ar(p.min-q)} ${boxWord(p.min-q)} كمان للاستفادة من العرض</button>`;
+     if(u==="b" && p.disc>0) hint = q>=p.min ? `<em class="okk">تم تطبيق العرض ✓ وفرت ${fmt(d)}</em>` : `<em class="hintx">اشتري ${ar(p.min-q)} ${boxWord(p.min-q)} كمان وتستفيد من العرض</em>`;
      return `<div class="row"><div class="e">${thumb(p)}</div>
-     <div class="t">${label(id)}<small>${d>0?`<s>${fmt(p.price)}</s> `:""}${fmt(unitPrice(id))}</small>${hint}</div>
+     <div class="t">${label(id)}<small>${d>0?`<s>${fmt(q*p.price)}</s> `:""}${fmt(lineTotal(id))}</small>${hint}</div>
      <div class="qty"><button data-a="plus" data-i="${id}">+</button><span>${ar(q)}</span><button data-a="minus" data-i="${id}">−</button></div></div>`}).join("") +
      saveLine(sav)+
      `<div class="total"><span>الإجمالي</span><span>${fmt(s)}</span></div>
@@ -222,7 +224,7 @@ function send(){
   if(!n||!p||!a){ $("err").style.display="block"; return; }
   const {s,sav} = totals();
   let msg = `*طلب جديد - صيدليات د/ مراد صادق*\n\n`;
-  for(const id in cart) msg += `• ${label(id)} × ${cart[id]} = ${cart[id]*unitPrice(id)} ${CURRENCY}\n`;
+  for(const id in cart) msg += `• ${label(id)} × ${cart[id]} = ${lineTotal(id)} ${CURRENCY}\n`;
   if(sav>0) msg += `\nوفّر العميل: ${sav} ${CURRENCY}\n`;
   msg += `\n*الإجمالي: ${s} ${CURRENCY}*\n\nالاسم: ${n}\nالموبايل: ${p}\nالعنوان: ${a}` + (o?`\nملاحظات: ${o}`:"");
   window.open(`https://wa.me/${PHARMACY_PHONE}?text=${encodeURIComponent(msg)}`,"_blank");
@@ -411,7 +413,7 @@ function rowHTML(p){
   return `<div class="pcard ${p.out?"out":""}" data-id="${esc(p.id)}"><div class="pimg">${thumb(p)}${offerTag(p)}${p.out?'<span class="pout">غير متوفر</span>':""}</div>
     <b class="pn">${esc(p.name)}</b>
     <div class="pp"><small class="pl">سعر العبوة الواحدة</small><span class="pv">${fmt(p.price)}</span></div>
-    ${p.disc>0?`<div class="pd">خصم ${discTxt(p)} للعلبة عند شراء ${ar(p.min)} ${boxWord(p.min)} أو أكتر</div>`:""}</div>`;
+    ${p.disc>0?`<div class="pd">${offerLine(p)}</div>`:""}</div>`;
 }
 const toNum = s => parseInt(String(s).replace(/[٠-٩]/g,x=>"٠١٢٣٤٥٦٧٨٩".indexOf(x)).replace(/\D/g,""),10)||1;
 function fixPick(p,pk){
@@ -433,18 +435,19 @@ let pvId = null;
 function productView(id){
   const p = P(id); if(!p) return; pvId = id; open("product");
   const pk = getPick(id), k = p.strips>1?p.strips:1, isS = pk.u==="s" && k>1, inCart = cart[id]||0;
-  const boxes = inCart + (isS?0:pk.n), d = isS?0:discOf(p,boxes), unit = isS ? stripPrice(p) : p.price-d, line = unit*pk.n;
+  const boxes = inCart + (isS?0:pk.n), d = saveOf(p,boxes), add = isS ? 0 : d - saveOf(p,inCart);
+  const line = (isS ? stripPrice(p) : p.price)*pk.n - add;
   let ofr = "";
   if(p.disc>0){
     const need = p.min - boxes;
-    ofr = `<div class="ofr ${need<=0?"on":""}"><b>${STAR}${esc(p.offer)}</b><span>خصم ${discTxt(p)} على كل علبة عند شراء ${ar(p.min)} ${boxWord(p.min)} أو أكتر</span>`+
-      (need>0 ? `<button class="need" data-pv="need" data-n="${need}">ضيف ${ar(need)} ${boxWord(need)} كمان للاستفادة من العرض</button>`
-              : `<em class="okk">تم تفعيل العرض ✓ هتوفر ${fmt(d*boxes)}</em>`)+`</div>`;
+    ofr = `<div class="ofr ${need<=0?"on":""}"><b>${esc(p.offer)}</b><span>${offerLine(p)}</span>`+
+      (need>0 ? `<em class="hintx">اشتري ${ar(need)} ${boxWord(need)} كمان وتستفيد من العرض</em>`
+              : `<em class="okk">تم تفعيل العرض ✓ هتوفر ${fmt(d)}</em>`)+`</div>`;
   }
   const dis = p.out?"disabled":"";
   $("sheet").innerHTML = `<h2>${esc(p.name)} <button class="x" data-a="close" aria-label="إغلاق">✕</button></h2>
     <div class="pimg big">${thumb(p)}${offerTag(p)}</div>
-    <div class="pp big"><small class="pl">${isS?"سعر الشريط الواحد":"سعر العبوة الواحدة"}</small>${d>0?`<s>${fmt(p.price)}</s>`:""}<span class="pv">${fmt(unit)}</span></div>
+    <div class="pp big"><small class="pl">${isS?"سعر الشريط الواحد":"سعر العبوة الواحدة"}</small><span class="pv">${fmt(isS?stripPrice(p):p.price)}</span></div>
     ${inCart?`<div class="inc">في سلتك: ${ar(inCart)} ${boxWord(inCart)}</div>`:""}
     ${ofr}
     <div class="prow"><div class="qty"><button data-pv="inc" ${dis}>+</button><input class="qin" data-pv="inp" inputmode="numeric" value="${pk.n}" ${dis}><button data-pv="dec" ${dis}>−</button></div>
