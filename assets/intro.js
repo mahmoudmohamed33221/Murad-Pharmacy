@@ -22,7 +22,7 @@
     el.classList.add("out");                 // انتقال ناعم (fade + blur + تكبير خفيف)
     body.classList.remove("intro-lock");
     body.classList.add("intro-done");        // دخول التطبيق
-    setTimeout(function () { el.remove(); body.classList.remove("intro-done"); }, 2300);
+    setTimeout(function () { el.remove(); body.classList.remove("intro-done"); }, 3500);
   }
 
   // الكتابة بتتحسب بالوقت جوه requestAnimationFrame => ناعمة ومتزامنة مع 60 فريم في الثانية
