@@ -73,7 +73,7 @@ async function loadProducts(){
     const tabs = S.TABS || [S.TAB||"Products"], out = [], seen = new Set(); let ok = 0;
     for(let ti=0; ti<tabs.length; ti++){
       try{
-        const r = await fetch(`https://docs.google.com/spreadsheets/d/${S.ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tabs[ti])}`);
+        const r = await fetch(`https://docs.google.com/spreadsheets/d/${S.ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tabs[ti])}&_=${Date.now()}`,{cache:"no-store"});
         if(!r.ok) throw new Error("sheet");
         const txt = await r.text(); ok++;
         if(seen.has(txt)) continue; seen.add(txt);
@@ -95,12 +95,39 @@ async function loadProducts(){
   }
   return raw.map(normProduct).filter(Boolean);
 }
+let lastSig = "", syncing = false, syncTimer = null;
+const sig = list => JSON.stringify(list);
+async function syncProducts(){
+  if(syncing || document.hidden) return; syncing = true;
+  try{
+    const fresh = await loadProducts();
+    if(!fresh.length) return;
+    const sg = sig(fresh); if(sg === lastSig) return;
+    const a = document.activeElement;
+    if(a && /^(INPUT|TEXTAREA)$/.test(a.tagName) && a.id!=="q") return;   // المستخدم بيكتب كمية: نأجل للدورة الجاية
+    lastSig = sg; PRODUCTS = fresh; BY = Object.fromEntries(PRODUCTS.map(p=>[p.id,p]));
+    for(const k in cart){ if(!P(String(k).split(":")[0])) delete cart[k]; }
+    refresh(); nameSearch();
+    if(openCatName) { const y = $("catpage").scrollTop; renderCatList(openCatName); $("catpage").scrollTop = y; }
+    if($("ov").classList.contains("show") && $("sheet").dataset.v==="cart") cartView();
+    toast("تم تحديث الأسعار والمنتجات");
+  }catch(e){} finally{ syncing = false; }
+}
+function startSync(){
+  if(startSync.on) return; startSync.on = true;
+  const ms = Math.max(10, +(CFG.SYNC_SECONDS||30)) * 1000;
+  syncTimer = setInterval(syncProducts, ms);
+  document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) syncProducts(); });
+  window.addEventListener("online", syncProducts);
+  window.addEventListener("focus", syncProducts);
+}
 async function boot(){
   $("grid").innerHTML = `<div class="empty" style="grid-column:1/-1">جاري تحميل المنتجات...</div>`;
   PRODUCTS = await loadProducts();
   BY = Object.fromEntries(PRODUCTS.map(p=>[p.id,p]));
   for(const k in cart){ if(!P(String(k).split(":")[0])) delete cart[k]; }
-  refresh(); nameSearch();
+  refresh(); nameSearch(); setHH();
+  lastSig = sig(PRODUCTS); startSync();
 }
 
 // ====== الحالة ======
@@ -149,7 +176,10 @@ function priceCalc(p,u,q){
   return Math.round((d*up*(1-p.disc/100) + (q-d)*up)*100)/100;
 }
 const lineTotal = k => { const {p,u} = parseK(k); return priceCalc(p,u,cart[k]); };
-const discNote = p => p.disc>0 ? `<span class="dsc">خصم ${p.disc.toLocaleString("ar-EG")}٪${p.minq>1?" عند شراء "+p.minq.toLocaleString("ar-EG")+" علب فأكثر":""}${p.incl>0?" على "+p.incl.toLocaleString("ar-EG")+" علبة":""}</span>` : "";
+const discNote = p => { if(!(p.disc>0)) return "";
+  const n = v => v.toLocaleString("ar-EG");
+  const cond = ((p.minq>1?"عند شراء "+n(p.minq)+" علب فأكثر":"") + (p.incl>0?" على "+n(p.incl)+" علبة":"")).trim();
+  return `<span class="dsc"><b>خصم ${n(p.disc)}٪</b>${cond?`<small>${cond}</small>`:""}</span>`; };
 function totals(){
   let n=0,s=0; for(const k in cart){ n+=cart[k]; s+=lineTotal(k); }
   return {n,s};
@@ -225,13 +255,22 @@ function send(){
 }
 
 // ====== الأحداث ======
+let openCatName = null;
+const setHH = () => { const h = document.querySelector("header"); if(h) document.documentElement.style.setProperty("--hh", h.offsetHeight+"px"); };
+window.addEventListener("resize", setHH); window.addEventListener("load", setHH);
+function renderCatList(c){
+  const list = PRODUCTS.filter(p=>p.cat===c);
+  $("catTitle").textContent = c; $("catCount").textContent = list.length.toLocaleString("ar-EG")+" منتج";
+  $("catlist").innerHTML = list.map(rowHTML).join("");
+}
 function openCat(c){
+  openCatName = c; setHH();
   const list = PRODUCTS.filter(p=>p.cat===c);
   $("catTitle").textContent = c; $("catCount").textContent = list.length.toLocaleString("ar-EG")+" منتج";
   $("catlist").innerHTML = list.map(rowHTML).join("");
   $("catpage").hidden = false; $("catpage").scrollTop = 0;
 }
-$("catBack").onclick = ()=>{ $("catpage").hidden = true; };
+$("catBack").onclick = ()=>{ $("catpage").hidden = true; openCatName = null; };
 $("cats").addEventListener("click", e=>{
   const b = e.target.closest("[data-c]"); if(b) openCat(b.dataset.c);
 });
@@ -372,7 +411,7 @@ function accountView(){
 }
 const VIEWS = ["home","search","account","settings"];
 function show(v){
-  $("catpage").hidden = true;
+  $("catpage").hidden = true; openCatName = null;
   VIEWS.forEach(x=>{ $("v-"+x).hidden = (x!==v); });
   document.body.dataset.view = v;
   $("nav").querySelectorAll("button").forEach(b=>b.classList.toggle("on", b.dataset.v===v));
