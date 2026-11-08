@@ -1,0 +1,6 @@
+{
+  "appId": "com.muradpharmacy.app",
+  "appName": "Murad Pharmacy",
+  "webDir": "www",
+  "server": { "androidScheme": "https" }
+}
