@@ -292,3 +292,34 @@ img.logo{filter:drop-shadow(0 0 8px rgba(200,162,74,.55))}
 .chead span{color:var(--gr);font-size:.85rem}
 .dsc{display:inline-block;background:#e8f7ec;color:#1b7a3a;font-weight:700;font-size:.78rem;border-radius:8px;padding:3px 8px;line-height:1.5}
 .card .dsc{margin-top:4px}
+
+
+/* ===== تحديث: الخط + الهيدر الثابت + الكروت الطولية + شكل الخصم ===== */
+:root{--font:"Tajawal",Tahoma,sans-serif}
+body,button,input,textarea{font-family:var(--font)}
+.pc .qin{font:800 1.05rem var(--font)}
+
+/* صفحة القسم تبدأ تحت الهيدر عشان الاسم واللوجو يفضلوا ظاهرين */
+#catpage{inset:var(--hh,76px) 0 calc(var(--nav) + env(safe-area-inset-bottom,0px)) 0;z-index:19;padding-top:0}
+.chead{padding:10px 0}
+
+/* كروت طولية: كارتين جنب بعض */
+#sres,#catlist,#scanRes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;align-items:stretch}
+#sres>:not(.rw),#catlist>:not(.rw),#scanRes>:not(.rw){grid-column:1/-1}
+@media(min-width:720px){#sres,#catlist,#scanRes{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.rw.pc{margin-bottom:0;padding:10px;gap:7px;min-width:0}
+.pc .pimg{height:118px}
+.pc .pn{font-size:.95rem;line-height:1.35;min-height:2.7em;display:flex;align-items:center;justify-content:center}
+.pc .rp{font-size:.95rem}
+.pc .prow{flex-direction:column-reverse;align-items:stretch;gap:6px;margin-top:auto}
+.pc .seg.sm{margin-top:0}
+.pc .seg.sm button{flex:1;padding:5px 4px}
+.pc .qty{flex:none;width:100%;height:38px}
+.pc .qty button{width:38px;height:36px}
+.pc .add{margin:0;padding:10px 4px;font-size:.9rem}
+
+/* ملاحظة الخصم */
+.dsc{display:flex;flex-direction:column;align-items:center;gap:1px;background:linear-gradient(135deg,#FFF8E8,#FCEBC6);color:#7a5200;border:1px solid #EBCB86;border-radius:12px;padding:6px 10px;line-height:1.35;text-align:center;font-weight:600;font-size:.72rem}
+.dsc b{display:inline-flex;align-items:center;gap:5px;font-size:.86rem;font-weight:800;color:#B35C00}
+.dsc b::before{content:"٪";display:grid;place-items:center;width:18px;height:18px;border-radius:50%;background:var(--or);color:#fff;font-size:.68rem;font-weight:800}
+.dsc small{font-size:.7rem;font-weight:500;color:#8a6a2a}
