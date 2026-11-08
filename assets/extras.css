@@ -1,0 +1,57 @@
+/* ===== تكبير الهيدر + العروض مستطيلة بعرض الشاشة + فوتر (من نحن / تواصل / حقوق) ===== */
+
+/* --- الهيدر: أكبر --- */
+header{border-radius:0 0 30px 30px}
+.top{padding:22px 20px 24px}
+.brand{gap:16px}
+.logo,img.logo{width:78px;height:78px;flex:none}
+.brand b{font-size:clamp(1.4rem,6.4vw,1.8rem);line-height:1.3}
+.brand small{font-size:clamp(.95rem,4vw,1.1rem);margin-top:3px}
+
+/* --- العروض: مستطيل ملي عرض الشاشة --- */
+.offers{margin-inline:-16px}
+.track{border-radius:0}
+.slide{border-radius:0;box-shadow:none;min-height:236px;padding:30px 24px}
+.slide h3{font-size:clamp(1.6rem,7.2vw,2.1rem);line-height:1.35}
+.slide p{font-size:1.1rem;margin-top:8px}
+.slide em{font-size:1.05rem;padding:10px 22px;margin-top:16px}
+.slide .big svg{width:100px;height:100px}
+.dots{margin-top:12px}
+
+/* --- الفوتر --- */
+body{padding-bottom:0!important}
+footer.ft{padding:0;margin-top:30px;color:inherit;font-size:1rem;text-align:center}
+.ft-gold{height:3px;width:100%;background:linear-gradient(90deg,#A8842E,#EBD695,#C8A24A,#EBD695,#A8842E)}
+
+.ft-about{background:#fff;padding:46px 22px 44px}
+.ft-k{display:inline-flex;align-items:center;gap:12px;color:var(--or-d);font-weight:800;font-size:1.2rem}
+.ft-k::before,.ft-k::after{content:"";width:34px;height:2px;border-radius:2px;background:var(--gold-g)}
+.ft-big{margin:20px auto 16px;max-width:15em;font-size:clamp(2rem,9.4vw,2.8rem);line-height:1.5;font-weight:800;color:#141414}
+.ft-big em{font-style:normal;color:var(--or)}
+.ft-sm{max-width:30em;margin:0 auto;font-size:1.12rem;line-height:1.95;color:#555}
+
+.ft-contact{background:#141414;padding:40px 20px 38px}
+.ft-t{color:#fff;font-size:1.45rem;font-weight:800;line-height:1.5;margin-bottom:18px}
+.ft-t span{color:var(--or)}
+.ft-t.sup{margin-top:38px}
+.ft-t.sup span{color:var(--or)}
+.ft-row{display:flex;gap:12px;align-items:stretch;max-width:460px;margin:0 auto}
+.ft-btn{flex:1;display:flex;align-items:center;justify-content:center;gap:10px;min-height:60px;border-radius:18px;
+  font-weight:800;font-size:1.15rem;text-decoration:none;font-family:inherit}
+.ft-btn svg{width:28px;height:28px;flex:none}
+.ft-btn.wa{background:var(--or);color:#fff;box-shadow:0 6px 18px rgba(245,124,0,.32)}
+.ft-btn.wa svg{fill:#fff}
+.ft-btn.wa.w{background:#fff;color:var(--or-d);box-shadow:none}
+.ft-btn.wa.w svg{fill:var(--or-d)}
+.ft-call{flex:0 0 64px;display:grid;place-items:center;border-radius:18px;border:2px solid var(--or);color:var(--or);text-decoration:none}
+.ft-call svg{width:28px;height:28px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ft-call.w{border-color:#fff;color:#fff}
+
+.ft-copy{background:#141414;padding:28px 16px calc(var(--nav,56px) + 100px + env(safe-area-inset-bottom,0px))}
+.ft-copy .c1{color:#fff;font-weight:700;font-size:1.05rem}
+.ft-copy .c2{margin-top:8px;color:#9a9a9a;font-size:.84rem}
+
+/* في باقي الصفحات (غير الرئيسية) بيظهر الحقوق بس */
+body:not([data-view="home"]) .ft-about,
+body:not([data-view="home"]) .ft-gold.g1,
+body:not([data-view="home"]) .ft-contact{display:none}
