@@ -53,7 +53,7 @@ function normProduct(r,i){
   const k = sh>0 ? Math.max(1,Math.floor(sh)) : 1;
   const stock = Math.max(0,Math.floor(/^\s*\d+\s*$/.test(String(r.stock||"")) ? num(r.stock) : 0));   // فاضي/كلام = غير متوفر
   return { id:String(r.id||("p"+(i+1))).trim(), name, cat:String(r.cat||"").replace(/\s+/g," ").trim(), offer:offerOf(r.offer), price:num(r.price), strips:k, stripPrice:num(r.strip_price),
-    img:driveImg(r.image), alts:driveAlts(r.image), alias:"", stock, out:stock<=0 };
+    img:driveImg(r.image), alts:driveAlts(r.image), alias:String(r.alias||"").trim(), stock, out:stock<=0 };
 }
 function parseCSV(t){
   const rows=[]; let r=[], c="", q=false;
@@ -66,13 +66,13 @@ function parseCSV(t){
   return rows;
 }
 // الأعمدة: عمود القسم ("لينك القسم" أو "القسم") بعد "رابط الصوره": اللي بيتكتب جنب كل منتج هو اسم القسم، والأقسام بتتكوّن منه تلقائي.
-const HK = {"الرقم":"id","اسم المنتج":"name","علبه":"stock","شرايط":"sh","سعر العلبه":"price","سعر الشريط":"strip_price","رابط الصوره":"image","لينك القسم":"cat","رابط القسم":"cat","القسم":"cat","لينك الصوره":"image","الصوره":"image","صوره":"image","عرض خاص":"offer","عرض":"offer"};
+const HK = {"الرقم":"id","اسم المنتج":"name","علبه":"stock","شرايط":"sh","سعر العلبه":"price","سعر الشريط":"strip_price","رابط الصوره":"image","لينك القسم":"cat","رابط القسم":"cat","القسم":"cat","لينك الصوره":"image","الصوره":"image","صوره":"image","عرض خاص":"offer","عرض":"offer","الاسم بالانجليزي":"alias","الاسم الانجليزي":"alias","اسم انجليزي":"alias","الاسم العلمي":"alias","الاسم التجاري":"alias","english":"alias","name_en":"alias"};
 // عمود "عرض خاص": أي قيمة معناها نعم => العرض شغال. لو اتكتب نص مخصص (مثلا "خصم ٢٠٪") بيظهر هو بدل "عرض خاص"
 const offerOf = v => { v=String(v==null?"":v).trim(); if(!v || /^(0|لا|no|false|-|x)$/i.test(norm(v))) return ""; return /^(1|نعم|yes|true|✓|✔|عرض|عرض خاص|اوفر|offer)$/i.test(norm(v)) ? "عرض خاص" : v; };
 async function loadProducts(){
   const KEY = "mrad_products_cache", S = CFG.SHEET || {};
   const fromSheet = async ()=>{
-    const r = await fetch(`https://docs.google.com/spreadsheets/d/${S.ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(S.TAB||"Products")}`);
+    const r = await fetch(`https://docs.google.com/spreadsheets/d/${S.ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(S.TAB||"Products")}&_=${Date.now()}`,{cache:"no-store"});
     if(!r.ok) throw new Error("sheet");
     const vals = parseCSV(await r.text()), keys = (vals[0]||[]).map(x=>HK[norm(String(x)).replace(/\s+/g," ")]||"");
     return vals.slice(1).map(v=>Object.fromEntries(keys.map((k,i)=>[k||("x"+i),v[i]])));
@@ -88,15 +88,30 @@ async function loadProducts(){
   }
   return raw.map(normProduct).filter(Boolean);
 }
-async function boot(){
-  PRODUCTS = await loadProducts();
-  // الأقسام من عمود القسم: نفس الاسم (بغض النظر عن الهمزة/المسافات) = قسم واحد. لو مفيش ولا قسم في الشيت => "أدوية"
-  const seen = {}, any = PRODUCTS.some(p=>p.cat);
-  PRODUCTS.forEach(p=>{ if(!p.cat) p.cat = any ? "أخرى" : "أدوية"; const k = norm(p.cat); p.cat = seen[k] || (seen[k] = p.cat); });
-  BY = Object.fromEntries(PRODUCTS.map(p=>[p.id,p]));
-  for(const k in cart){ if(!P(String(k).split(":")[0])) delete cart[k]; }
-  refresh(); nameSearch();
+// تحديث فوري: بنسحب الشيت كل ١٠ ثواني وكل ما التطبيق يرجع للشاشة، ولو في تغيير بنحدّث الأقسام والمنتجات من غير ما تقفل التطبيق
+let lastSig = "", syncing = false;
+async function syncProducts(){
+  if(syncing) return; syncing = true;
+  try{
+    const list = await loadProducts(), sig = JSON.stringify(list);
+    if(sig === lastSig) return;                 // مفيش تغيير: متلمسش الشاشة
+    lastSig = sig; PRODUCTS = list;
+    // الأقسام من عمود القسم: نفس الاسم (بغض النظر عن الهمزة/المسافات) = قسم واحد. لو مفيش ولا قسم في الشيت => "أدوية"
+    const seen = {}, any = PRODUCTS.some(p=>p.cat);
+    PRODUCTS.forEach(p=>{ if(!p.cat) p.cat = any ? "أخرى" : "أدوية"; const k = norm(p.cat); p.cat = seen[k] || (seen[k] = p.cat); });
+    BY = Object.fromEntries(PRODUCTS.map(p=>[p.id,p]));
+    for(const k in cart){ if(!P(String(k).split(":")[0])) delete cart[k]; }
+    refresh();
+    if(!$("v-search").hidden) nameSearch();
+    if(!$("v-cat").hidden){ if(PRODUCTS.some(p=>p.cat===curCat)) catSearch(); else show("home"); }
+    if($("ov").classList.contains("show") && $("sheet").dataset.v==="cart") cartView();
+  } finally { syncing = false; }
 }
+const boot = () => syncProducts().catch(()=>{});
+setInterval(()=>{ if(!document.hidden) syncProducts().catch(()=>{}); }, 10000);
+document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) syncProducts().catch(()=>{}); });
+window.addEventListener("focus", ()=>syncProducts().catch(()=>{}));
+window.addEventListener("online", ()=>syncProducts().catch(()=>{}));
 
 // ====== الحالة ======
 let cart = {};
@@ -453,7 +468,21 @@ $("stabs").addEventListener("click", e=>{ const b=e.target.closest("[data-t]"); 
 nameSearch();
 
 // --- التعرف على الأسماء من النص ---
-const STOP = new Set(["مجم","قرص","اقراص","شراب","كبسولات","مضاد","حيوي","للشعر","للقشرة","للبرد","للوجه","للبشره","كريم","زيت","جهاز","سيروم","معجون","اسنان","بلسم","غسول","قياس","اطفال","فيتامين","vitamin","شامبو","tablets","tablet"]);
+// "بصمة صوتية": بنحوّل الاسم (عربي أو إنجليزي) لهيكل حروفه الساكنة عشان "Panadol" و"بنادول" يطلعوا نفس البصمة (bndl)
+const AR_K = {"ب":"b","ت":"t","ط":"t","ث":"s","س":"s","ص":"s","ج":"j","غ":"j","ح":"h","خ":"h","ه":"h","ة":"h","د":"d","ض":"d","ذ":"z","ز":"z","ظ":"z","ر":"r","ش":"X","ك":"k","ق":"k","ل":"l","م":"m","ن":"n","ف":"f"};
+function skel(w){
+  w = norm(String(w)).replace(/[^a-zء-ي]/g,"");
+  w = w.replace(/ph/g,"f").replace(/sh/g,"X").replace(/ch/g,"X").replace(/th/g,"t").replace(/ck/g,"k").replace(/x/g,"ks").replace(/c(?=[eiy])/g,"s");
+  let o = "";
+  for(const ch of w){
+    let k = AR_K[ch];
+    if(k===undefined){ if(/[a-z]/.test(ch)) k = {p:"b",v:"f",q:"k",c:"k",g:"j",w:"",y:"",a:"",e:"",i:"",o:"",u:""}[ch] ?? ch; else k = ""; }
+    if(k && o[o.length-1]!==k) o += k;
+  }
+  return o;
+}
+const STOPW = ["مجم","ملجم","قرص","اقراص","شراب","كبسولات","مضاد","حيوي","للشعر","للقشرة","للبرد","للوجه","للبشره","كريم","زيت","جهاز","سيروم","معجون","اسنان","بلسم","غسول","قياس","اطفال","فيتامين","vitamin","شامبو","tablets","tablet","capsules","cream","gel","syrup","drops","mg","extra","اكسترا","forte","فورت","plus","بلس","advance","كولد","cold","flu","new","for","and","the"];
+const STOP = new Set(STOPW.map(norm)), STOPK = new Set(STOPW.map(skel).filter(Boolean));
 function lev(a,b){
   if(Math.abs(a.length-b.length)>2) return 9;
   const m=[...Array(b.length+1).keys()];
@@ -461,11 +490,20 @@ function lev(a,b){
   return m[b.length];
 }
 function matchText(text){
-  const nt = norm(text), words = [...new Set(nt.split(/[^a-z0-9\u0621-\u064A]+/).filter(w=>w.length>=4))], out = [];
+  const nt = norm(text), raw = nt.split(/[^a-z0-9ء-ي]+/).filter(w=>w.length>=3);
+  const words = [...new Set(raw.filter(w=>w.length>=4))];
+  const wk = [...new Set(raw.map(skel).filter(k=>k.length>=3))], out = [];
   PRODUCTS.forEach(p=>{
-    const toks = [...new Set(norm(p.name+" "+p.alias).split(/\s+/).filter(t=>t.length>=4 && !/^\d+$/.test(t) && !STOP.has(t)))];
+    const toks = [...new Set(norm(p.name+" "+p.alias).split(/\s+/).filter(t=>t.length>=3 && !/^\d+$/.test(t) && !STOP.has(t)))];
     let sc = 0;
-    toks.forEach(t=>{ if(nt.includes(t)) sc+=2; else if(t.length>=5 && words.some(w=>lev(w,t) <= (t.length>=7?2:1))) sc+=1; });
+    toks.forEach(t=>{
+      if(t.length>=4 && nt.includes(t)){ sc+=3; return; }
+      const k = skel(t);
+      if(k.length<3 || STOPK.has(k)){ return; }
+      if(wk.includes(k)) sc += 3;                                                    // نفس البصمة الصوتية (عربي/إنجليزي)
+      else if(k.length>=4 && wk.some(x=>lev(x,k)<=1)) sc += 2;                       // قريبة بحرف واحد (أخطاء القراءة)
+      else if(t.length>=5 && words.some(w=>lev(w,t) <= (t.length>=7?2:1))) sc += 1;
+    });
     if(sc>0) out.push({p,sc});
   });
   return out.sort((a,b)=>b.sc-a.sc).slice(0,10).map(r=>r.p);
@@ -475,19 +513,39 @@ let tesLoad = null;
 function loadTes(){
   return tesLoad || (tesLoad = new Promise((res,rej)=>{
     if(window.Tesseract) return res();
-    const sc = document.createElement("script");
-    sc.src = "https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.1/tesseract.min.js";
-    sc.onload = res; sc.onerror = ()=>{ tesLoad=null; rej(new Error("load")); };
-    document.head.appendChild(sc);
+    const urls = ["https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.1/tesseract.min.js","https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"];
+    const next = i => {
+      if(i>=urls.length){ tesLoad=null; return rej(new Error("load")); }
+      const sc = document.createElement("script"); sc.src = urls[i];
+      sc.onload = res; sc.onerror = ()=>{ sc.remove(); next(i+1); };
+      document.head.appendChild(sc);
+    };
+    next(0);
   }));
 }
+// تجهيز الصورة: تكبير الصغيرة، رمادي + رفع التباين (بيحسّن قراءة العلب والروشتات)
 function prepImage(file){
   return new Promise((res,rej)=>{
     const u = URL.createObjectURL(file), im = new Image();
-    im.onload = ()=>{ const k = Math.min(1, 1600/Math.max(im.width,im.height)), c = document.createElement("canvas");
-      c.width = Math.round(im.width*k); c.height = Math.round(im.height*k); c.getContext("2d").drawImage(im,0,0,c.width,c.height); URL.revokeObjectURL(u); res(c); };
+    im.onload = ()=>{
+      const m = Math.max(im.width,im.height), k = m>2000 ? 2000/m : (m<1200 ? 1200/m : 1), c = document.createElement("canvas");
+      c.width = Math.round(im.width*k); c.height = Math.round(im.height*k);
+      const x = c.getContext("2d"); x.drawImage(im,0,0,c.width,c.height); URL.revokeObjectURL(u);
+      const d = x.getImageData(0,0,c.width,c.height), a = d.data; let lo=255, hi=0;
+      for(let i=0;i<a.length;i+=4){ const g = (a[i]*.299+a[i+1]*.587+a[i+2]*.114)|0; a[i]=a[i+1]=a[i+2]=g; if(g<lo)lo=g; if(g>hi)hi=g; }
+      const sp = Math.max(40,hi-lo);
+      for(let i=0;i<a.length;i+=4){ const v = Math.max(0,Math.min(255,((a[i]-lo)*255/sp)|0)); a[i]=a[i+1]=a[i+2]=v; }
+      x.putImageData(d,0,0); res(c);
+    };
     im.onerror = rej; im.src = u;
   });
+}
+async function ocrLang(canvas, lang, base, span, prog){
+  const w = await Tesseract.createWorker(lang, 1, {logger:m=>{ if(m.status==="recognizing text") prog(base+m.progress*span,"جاري قراءة الصورة..."); }});
+  try{
+    try{ await w.setParameters({tessedit_pageseg_mode:"11"}); }catch(_){}      // نص متفرق: أنسب للعلب
+    return (await w.recognize(canvas)).data.text || "";
+  } finally { try{ await w.terminate(); }catch(_){} }
 }
 async function readText(canvas, prog){
   if(RECOGNIZE_URL){
@@ -496,8 +554,13 @@ async function readText(canvas, prog){
   }
   prog(0,"جاري تجهيز قارئ النصوص (أول مرة بياخد وقت)...");
   await loadTes();
-  const r = await Tesseract.recognize(canvas,"ara+eng",{logger:m=>{ if(m.status==="recognizing text") prog(m.progress,"جاري قراءة الصورة..."); }});
-  return r.data.text;
+  // قراءة إنجليزي وعربي كل واحدة لوحدها (أدق من دمجهم)، ولو واحدة فشلت نكمل بالتانية
+  let text = "", ok = 0, err = null;
+  for(const [lang,base] of [["eng",0],["ara",.5]]){
+    try{ text += "\n" + await ocrLang(canvas, lang, base, .5, prog); ok++; }catch(e){ err = e; }
+  }
+  if(!ok) throw err || new Error("ocr");
+  return text;
 }
 async function scan(file){
   if(!file) return;
