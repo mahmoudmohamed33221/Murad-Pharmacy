@@ -169,8 +169,8 @@ function cardHTML(p){
   const q = (cart[p.id]||0) + (cart[p.id+":s"]||0);
   return `<div class="pcard ${p.out?"out":""}" data-open="${esc(p.id)}">
     <div class="pimg2">${thumb(p)}${p.out?`<span class="soldout">غير متوفر</span>`:""}${q?`<span class="incart">في السلة × ${n2(q)}</span>`:""}</div>
-    <b class="pn2">${esc(p.name)}</b>
-    <div class="pp">${n2(p.price)} <small>${CURRENCY}</small></div>${discNote(p)}
+    <div class="pinfo"><b class="pn2">${esc(p.name)}</b>
+    <div class="pp">${n2(p.price)} <small>${CURRENCY}</small></div></div>${discNote(p)}
   </div>`;
 }
 function grid(){
