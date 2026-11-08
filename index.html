@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#141414">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Murad Pharmacy">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="assets/icons/icon-192.png">
+<link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+<title>Murad Pharmacy | صيدليات د/ مراد صادق</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body data-view="home">
+<div class="wm" id="wm" aria-hidden="true"></div>
+
+<header>
+  <div class="top">
+    <div class="brand"><img class="logo" id="logoImg" src="assets/logo.png" alt="شعار صيدليات د/ مراد صادق"><b>صيدليات د/ مراد صادق<small>صحتك أمانة عندنا</small></b></div>
+    <button class="cartbtn" id="openCart" aria-label="السلة"><svg viewBox="0 0 24 24"><path d="M3 4h2.2l2.3 11.1a1 1 0 0 0 1 .8h8.9a1 1 0 0 0 1-.8L20 8.5H6.2"/><circle cx="9.5" cy="20" r="1.4"/><circle cx="17" cy="20" r="1.4"/></svg><i id="badge" hidden>0</i></button>
+  </div>
+</header>
+
+<main id="v-home">
+  <section class="offers" aria-label="العروض">
+    <div class="track" id="track">
+      <button class="slide s1" data-q="شامبو"><div><h3>خصم ٢٠٪ على منتجات الشعر</h3><p>شامبو وبلسم وسيروم بأسعار مخفضة</p><em>تسوق الآن</em></div><div class="big" data-ic="drop"></div></button>
+      <button class="slide s2" data-q="فيتامين"><div><h3>الفيتامينات والمكملات</h3><p>اشترِ قطعتين واحصل على هدية</p><em>اكتشف العرض</em></div><div class="big" data-ic="leaf"></div></button>
+      <button class="slide s3" data-q="بشرة"><div><h3>بشرتك تستاهل روتين مضاعف</h3><p>غسول وكريم وواقي شمس</p><em>تسوق الآن</em></div><div class="big" data-ic="sparkle"></div></button>
+      <button class="slide s4" data-q="جهاز"><div><h3>الأجهزة الطبية</h3><p>ضغط وسكر وترمومتر بضمان</p><em>شاهد المنتجات</em></div><div class="big" data-ic="pulse"></div></button>
+    </div>
+    <div class="dots" id="dots"></div>
+  </section>
+  <div class="sec"><h2>الأقسام</h2></div>
+  <div class="cats" id="cats"></div>
+  <div class="sec" id="prodHead"><h2 id="prodTitle">كل المنتجات</h2><button class="all" id="allBtn" hidden>عرض الكل</button></div>
+  <div class="count" id="count"></div>
+  <div class="grid" id="grid"></div>
+</main>
+
+
+<main class="view" id="v-search" hidden>
+  <div class="tabs" id="stabs"><button data-t="name" class="on">بحث بالاسم</button><button data-t="scan"><span class="ti" data-ic="camera"></span>تصوير روشتة / علبة</button></div>
+  <section id="t-name">
+    <div class="search"><input id="q" type="search" placeholder="ابحث عن المطلوب بالاسم" autocomplete="off"></div>
+    <div id="sres"></div>
+  </section>
+  <section id="t-scan" hidden>
+    <p class="hint">صوّر الروشتة أو علبة الدواء (عربي أو إنجليزي) وهنتعرف على اسم الدواء ونعرضه لك بسعره.</p>
+    <div class="cams">
+      <label class="cam"><span data-ic="camera"></span>تصوير بالكاميرا<input type="file" id="fcam" accept="image/*" capture="environment" hidden></label>
+      <label class="cam"><span data-ic="image"></span>من المعرض<input type="file" id="fgal" accept="image/*" hidden></label>
+    </div>
+    <img id="prev" class="prev" alt="" hidden>
+    <div id="stat" class="stat" hidden><div class="pg"><i id="pgb"></i></div><div id="stx"></div></div>
+    <div id="scanRes"></div>
+  </section>
+</main>
+
+<main class="view" id="v-account" hidden>
+  <div class="sec"><h2>حسابي</h2></div>
+  <div class="panel f">
+    <input id="an" placeholder="الاسم بالكامل" autocomplete="name">
+    <input id="ap" type="tel" inputmode="tel" placeholder="رقم الموبايل" autocomplete="tel">
+    <textarea id="aa" rows="3" placeholder="العنوان بالتفصيل"></textarea>
+    <button class="go" id="saveProfile">حفظ البيانات</button>
+    <div class="ok" id="pok"></div>
+  </div>
+  <div class="sec"><h2>طلباتي السابقة</h2></div>
+  <div class="panel" id="orders"></div>
+</main>
+
+<main class="view" id="v-settings" hidden>
+  <div class="sec"><h2>الإعدادات</h2></div>
+  <div class="panel">
+    <div class="srow"><span>حجم الخط</span><div class="seg" id="fsz"><button data-f="14">صغير</button><button data-f="16">متوسط</button><button data-f="18">كبير</button></div></div>
+    <div class="srow"><span>تواصل مع الصيدلية</span><span><a class="lnk w" id="waLink" target="_blank" rel="noopener">واتساب</a><a class="lnk" id="telLink">اتصال</a></span></div>
+    <div class="srow"><span>تحديث التطبيق</span><button class="btn2" id="chkUpd">تحقق الآن</button></div>
+    <div class="srow"><span>مسح بياناتي والسلة المحفوظة</span><button class="danger" id="wipe">مسح</button></div>
+    <div class="srow"><span>صيدليات د/ مراد صادق</span><small id="ver" style="color:var(--gr)"></small></div>
+  </div>
+</main>
+
+<nav class="nav" id="nav" aria-label="التنقل">
+  <i class="ind" id="ind"></i>
+  <button data-v="home" class="on"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg>الرئيسية</button>
+  <button data-v="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>بحث</button>
+  <button data-v="account"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>حسابي</button>
+  <button data-v="settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>الإعدادات</button>
+</nav>
+
+<footer>© صيدليات د/ مراد صادق</footer>
+
+<div class="bar" id="bar"><button id="barBtn"><span id="barTxt"></span><span id="barTot"></span></button></div>
+
+<div class="toast" id="toast"></div>
+<div class="upd" id="upd" hidden><span>في نسخة جديدة من التطبيق</span><button id="updBtn">حدّث الآن</button></div>
+<div class="ov" id="ov"><div class="sheet" id="sheet"></div></div>
+
+<script src="config.js"></script>
+<script src="assets/app.js"></script>
+</body>
+</html>
