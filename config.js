@@ -10,7 +10,7 @@ window.APP_CONFIG = {
   PRODUCTS_JSON: "data/products.json",
   SHEET: {
     ID: "199-5mWgHEsepqmA8b5CmONGD8sBGctxKyoKBeFN-Otk",          // رقم الشيت: الجزء اللي بين /d/ و /edit في رابطه
-    TAB: "الادويه", // اسم الورقة (Tab) اللي فيها المنتجات
+    TABS: ["الادويه","مستحضرات التجميل"], // أسماء الورقات (Tabs) اللي فيها المنتجات
     API_KEY: ""      // مفتاح Google Sheets API (مقيّد بالقراءة وبرابط موقعك)
   },
 
