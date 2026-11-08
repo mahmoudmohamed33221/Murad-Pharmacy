@@ -294,32 +294,78 @@ img.logo{filter:drop-shadow(0 0 8px rgba(200,162,74,.55))}
 .card .dsc{margin-top:4px}
 
 
-/* ===== تحديث: الخط + الهيدر الثابت + الكروت الطولية + شكل الخصم ===== */
-:root{--font:"Tajawal",Tahoma,sans-serif}
+/* ===== تحديث v2: خط حديث + هيدر ثابت + كروت بسيطة + نافذة المنتج + خصم أخضر ===== */
+:root{--font:"IBM Plex Sans Arabic","Noto Sans Arabic",Tahoma,sans-serif;--gn:#16a34a;--gn-d:#0c6a31;--gn-l:#eefaf2}
 body,button,input,textarea{font-family:var(--font)}
-.pc .qin{font:800 1.05rem var(--font)}
+body{font-size:1.02rem;line-height:1.5}
 
-/* صفحة القسم تبدأ تحت الهيدر عشان الاسم واللوجو يفضلوا ظاهرين */
+/* صفحة القسم تبدأ تحت الهيدر */
 #catpage{inset:var(--hh,76px) 0 calc(var(--nav) + env(safe-area-inset-bottom,0px)) 0;z-index:19;padding-top:0}
 .chead{padding:10px 0}
+.chead b{font-size:1.3rem;font-weight:700}
 
-/* كروت طولية: كارتين جنب بعض */
-#sres,#catlist,#scanRes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;align-items:stretch}
-#sres>:not(.rw),#catlist>:not(.rw),#scanRes>:not(.rw){grid-column:1/-1}
-@media(min-width:720px){#sres,#catlist,#scanRes{grid-template-columns:repeat(4,minmax(0,1fr))}}
-.rw.pc{margin-bottom:0;padding:10px;gap:7px;min-width:0}
-.pc .pimg{height:118px}
-.pc .pn{font-size:.95rem;line-height:1.35;min-height:2.7em;display:flex;align-items:center;justify-content:center}
-.pc .rp{font-size:.95rem}
-.pc .prow{flex-direction:column-reverse;align-items:stretch;gap:6px;margin-top:auto}
-.pc .seg.sm{margin-top:0}
-.pc .seg.sm button{flex:1;padding:5px 4px}
-.pc .qty{flex:none;width:100%;height:38px}
-.pc .qty button{width:38px;height:36px}
-.pc .add{margin:0;padding:10px 4px;font-size:.9rem}
+/* شبكات المنتجات: كارتين جنب بعض */
+.grid,#sres,#catlist,#scanRes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;align-items:stretch}
+#sres>:not(.pcard),#catlist>:not(.pcard),#scanRes>:not(.pcard),.grid>:not(.pcard){grid-column:1/-1}
+@media(min-width:720px){.grid,#sres,#catlist,#scanRes{grid-template-columns:repeat(4,minmax(0,1fr))}}
 
-/* ملاحظة الخصم */
-.dsc{display:flex;flex-direction:column;align-items:center;gap:1px;background:linear-gradient(135deg,#FFF8E8,#FCEBC6);color:#7a5200;border:1px solid #EBCB86;border-radius:12px;padding:6px 10px;line-height:1.35;text-align:center;font-weight:600;font-size:.72rem}
-.dsc b{display:inline-flex;align-items:center;gap:5px;font-size:.86rem;font-weight:800;color:#B35C00}
-.dsc b::before{content:"٪";display:grid;place-items:center;width:18px;height:18px;border-radius:50%;background:var(--or);color:#fff;font-size:.68rem;font-weight:800}
-.dsc small{font-size:.7rem;font-weight:500;color:#8a6a2a}
+/* كارت المنتج: صورة + اسم + سعر + خصم */
+.pcard{background:#fff;border-radius:20px;padding:10px;display:flex;flex-direction:column;gap:9px;box-shadow:0 4px 16px rgba(20,20,20,.07);cursor:pointer;min-width:0;transition:transform .15s var(--ease),box-shadow .2s;user-select:none;-webkit-user-select:none}
+.pcard:active{transform:scale(.97)}
+.pcard.out{opacity:.75}
+.pimg2{position:relative;aspect-ratio:1/1;border-radius:14px;overflow:hidden;background:#f4f4f4}
+.pimg2 .th{position:absolute;inset:0;display:grid;place-items:center;width:auto;height:auto}
+.pimg2 .th img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#fff}
+.pimg2 .th .ic{width:64px;height:64px;fill:none;stroke:#b8b8b8;stroke-width:1.4}
+.pn2{font-size:1.1rem;font-weight:700;line-height:1.4;min-height:2.8em;text-align:center;display:flex;align-items:center;justify-content:center;word-break:break-word;color:var(--bk)}
+.pp{text-align:center;font-size:1.3rem;font-weight:700;color:var(--or-d);line-height:1.2}
+.pp small{font-size:.82rem;color:var(--gr);font-weight:500}
+.soldout{position:absolute;inset:auto 0 0 0;background:rgba(20,20,20,.78);color:#fff;text-align:center;font-weight:600;font-size:.85rem;padding:6px}
+.incart{position:absolute;top:8px;right:8px;z-index:2;background:var(--bk);color:#fff;font-size:.74rem;font-weight:600;padding:3px 10px;border-radius:20px}
+
+/* الخصم: أخضر */
+.dsc{display:block;border-radius:12px;overflow:hidden;border:1px solid #b7e4c7;background:var(--gn-l);text-align:center;padding:0;margin:0;font-size:inherit}
+.dsc b{display:block;background:linear-gradient(135deg,#22b25f,#0f8a3f);color:#fff;font-size:1rem;font-weight:700;padding:6px 8px;line-height:1.3}
+.dsc small{display:block;color:var(--gn-d);font-size:.82rem;font-weight:600;padding:6px 8px;line-height:1.45}
+
+/* نافذة المنتج */
+.pov{z-index:36}
+.psheet{padding:0;max-width:520px;border-radius:26px 26px 0 0;max-height:94vh;overflow:hidden;display:flex;flex-direction:column;overscroll-behavior:contain}
+.pov.show .psheet{animation:up .32s var(--ease)}
+.pclose{position:absolute;top:12px;left:12px;z-index:5;width:42px;height:42px;border-radius:50%;border:0;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.22);font-size:1.1rem;font-weight:700;cursor:pointer;color:var(--bk)}
+.pscroll{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+.pbig{position:relative;height:min(30vh,230px);background:#f4f4f4}
+.pbig .th{position:absolute;inset:0;display:grid;place-items:center;width:auto;height:auto}
+.pbig .th img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#fff}
+.pbig .th .ic{width:96px;height:96px;fill:none;stroke:#b8b8b8;stroke-width:1.3}
+.pbody{padding:16px 18px 10px}
+.pcat{color:var(--or-d);font-weight:600;font-size:.92rem}
+.ptitle{font-size:1.55rem;font-weight:700;line-height:1.35;margin:2px 0 6px}
+.pprice{font-size:1.9rem;font-weight:700;color:var(--or-d);line-height:1.2}
+.pprice small{font-size:1rem;color:var(--gr);font-weight:500}
+.stocknote{display:inline-block;margin-top:8px;background:#fff3e0;color:#b35c00;font-weight:600;font-size:.9rem;padding:4px 12px;border-radius:20px}
+.dsc.big{margin:14px 0 4px;border-radius:16px;border-width:1.5px}
+.dsc.big b{font-size:1.35rem;padding:11px}
+.dsc.big small{font-size:1rem;padding:10px 12px 8px}
+.dsc.big em{display:block;font-style:normal;font-size:.98rem;font-weight:700;padding:9px 12px 11px;color:var(--gn-d)}
+.dsc.big em.off{color:#8a5a00;background:#fff8e1}
+.plabel{font-size:1.05rem;font-weight:700;margin:18px 0 8px}
+.useg{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.useg button{border:2px solid var(--ln);background:#fff;border-radius:16px;padding:11px 6px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--bk)}
+.useg button b{font-size:1.2rem;font-weight:700}
+.useg button small{font-size:.95rem;color:var(--gr);font-weight:600}
+.useg button.on{border-color:var(--or);background:var(--or-l)}
+.useg button.on small{color:var(--or-d)}
+.qbig{display:flex;align-items:center;justify-content:space-between;background:#f2f2f2;border-radius:18px;padding:6px}
+.qbig button{width:62px;height:56px;border:0;border-radius:14px;background:var(--bk);color:#fff;font-size:1.8rem;font-weight:600;cursor:pointer;line-height:1;transition:transform .12s}
+.qbig button:active{transform:scale(.92)}
+.qbig button:disabled{opacity:.4}
+.qbig .pqin{flex:1;min-width:0;text-align:center;background:none;border:0;font-size:1.8rem;font-weight:700;color:var(--bk)}
+.pfoot{display:flex;align-items:center;gap:12px;padding:12px 18px calc(12px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--ln);background:#fff}
+.ptot{display:flex;flex-direction:column;line-height:1.25;min-width:100px}
+.ptot small{color:var(--gr);font-size:.85rem}
+.ptot b{font-size:1.35rem;font-weight:700}
+.ptot em{font-style:normal;color:var(--gn);font-weight:700;font-size:.88rem}
+.padd{flex:1;height:58px;border:0;border-radius:16px;background:var(--or);color:#fff;font-size:1.2rem;font-weight:700;cursor:pointer;box-shadow:0 6px 16px rgba(245,124,0,.35);transition:transform .12s}
+.padd:active{transform:scale(.96)}
+.padd:disabled{background:#cfcfcf;box-shadow:none;color:#777}
