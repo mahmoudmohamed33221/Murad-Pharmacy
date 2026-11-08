@@ -18,5 +18,5 @@ window.APP_CONFIG = {
   RECOGNIZE_URL: "",
 
   APP_VERSION: "1.0.0",
-  BUILD: "apk-26"   // بيتستبدل تلقائي عند كل نشر على GitHub
+  BUILD: "apk-28"   // بيتستبدل تلقائي عند كل نشر على GitHub
 };
