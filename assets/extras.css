@@ -116,3 +116,17 @@ html,body{overflow-x:hidden}
 .pimg.big.poster .th img{object-fit:contain;background:#fff}
 .dots.cnt{justify-content:center;color:#777;font-weight:800;font-size:.9rem;letter-spacing:.5px}
 
+
+/* كارت العرض: تفاصيل + زخرفة خفيفة فوق التدريج */
+.offer-card{position:relative;isolation:isolate}
+.offer-card::before,.offer-card::after{content:"";position:absolute;border-radius:50%;background:rgba(255,255,255,.13);z-index:0;pointer-events:none}
+.offer-card::before{width:210px;height:210px;left:-60px;top:-70px}
+.offer-card::after{width:140px;height:140px;left:70px;bottom:-60px;background:rgba(255,255,255,.09)}
+.offer-card .ofb{z-index:1;gap:2px}
+.offer-card .ofb h3{text-shadow:0 1px 6px rgba(0,0,0,.25);margin-bottom:6px}
+.offer-card .ofb p{margin:2px 0 0;font-size:1.05rem;line-height:1.7;opacity:1;text-shadow:0 1px 4px rgba(0,0,0,.22)}
+.offer-card .ofb p b{font-weight:800}
+.offer-card .ofb .otag{display:inline-block;background:rgba(255,255,255,.22);border-radius:12px;padding:1px 12px;font-size:.9rem}
+.offer-card .oprice{font-size:.95rem;font-weight:700;opacity:.95}
+.offer-card .oprice s{opacity:.75;margin-inline-end:4px}
+.offer-card .oimg{z-index:2}
