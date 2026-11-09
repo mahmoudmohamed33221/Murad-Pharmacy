@@ -566,12 +566,12 @@ setFs(ld("mrad_fs",16));
 function setTheme(t){
   t = t==="dark" ? "dark" : "light";
   if(t==="dark") document.documentElement.setAttribute("data-theme","dark"); else document.documentElement.removeAttribute("data-theme");
-  try{ localStorage.setItem("mrad_theme", t); }catch(e){}
+  try{ localStorage.setItem("mrad_theme2", t); }catch(e){}
   const m = document.querySelector('meta[name="theme-color"]'); if(m) m.setAttribute("content", "#141414");
   [...$("thm").children].forEach(b=>b.classList.toggle("on", b.dataset.t===t));
 }
 $("thm").addEventListener("click", e=>{ const b=e.target.closest("[data-t]"); if(b) setTheme(b.dataset.t); });
-setTheme((()=>{ try{ return localStorage.getItem("mrad_theme"); }catch(e){ return "light"; } })());
+setTheme((()=>{ try{ return localStorage.getItem("mrad_theme2") || "dark"; }catch(e){ return "dark"; } })());
 $("waLink").href = "https://wa.me/"+PHARMACY_PHONE;
 $("telLink").href = "tel:+"+PHARMACY_PHONE;
 $("wipe").onclick = ()=>{
