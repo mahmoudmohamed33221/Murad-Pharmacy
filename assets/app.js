@@ -21,12 +21,16 @@ const IC = {
  camera:'<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',
  image:'<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M21 16l-5-5-9 9"/>',
  alert:'<circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.5v.1"/>',
- check:'<circle cx="12" cy="12" r="9"/><path d="M8 12.5l3 3 5-6"/>'
+ check:'<circle cx="12" cy="12" r="9"/><path d="M8 12.5l3 3 5-6"/>',
+ tag:'<path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.2"/>',
+ building:'<path d="M4 21V5l8-3 8 3v16"/><path d="M9 21v-5h6v5M8 9h2M14 9h2M8 13h2M14 13h2"/>'
 };
 const svg = n => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${IC[n]||IC.box}</svg>`;
 const CAT_ICON = {"أدوية":"pill","عناية بالشعر":"drop","عناية بالبشرة":"sparkle","العناية اليومية":"bubbles","مكملات وفيتامينات":"leaf","الأم والطفل":"heart","أجهزة طبية":"pulse"};
 const iconFor = c => CAT_ICON[c] || "box";
 const STAR = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5L2.5 9.4l6.6-.9z"/></svg>';
+const coName = c => /^(شركة|شركه)/.test(c) ? c : "شركة "+c;
+const metaHTML = (p,big) => (p.type||p.company) ? `<div class="pm${big?" big":""}">${p.type?`<span class="ptype">${svg("tag")}${esc(p.type)}</span>`:""}${p.company?`<span class="pco">${svg("building")}${esc(coName(p.company))}</span>`:""}</div>` : "";
 const offerTag = p => p.offer ? `<span class="offer">${esc(p.offer)}</span>` : "";
 const thumb = p => `<span class="th">${svg(iconFor(p.cat))}${p.img?`<img src="${esc(p.img)}" data-alts="${esc((p.alts||[]).join("|"))}" alt="" referrerpolicy="no-referrer" onerror="imgFail(this)">`:""}</span>`;
 const fillIcons = () => document.querySelectorAll("[data-ic]").forEach(e=>{ e.innerHTML = svg(e.dataset.ic); });
@@ -56,7 +60,7 @@ function normProduct(r,i){
   const k = sh>0 ? Math.max(1,Math.floor(sh)) : 1;
   const stock = Math.max(0,Math.floor(/^\s*\d+\s*$/.test(String(r.stock||"")) ? num(r.stock) : 0));   // فاضي/كلام = غير متوفر
   return { id:String(r.id||("p"+(i+1))).trim(), name, cat:String(r.cat||"").replace(/\s+/g," ").trim(), offer:offerOf(r.offer)||(dv>0?"عرض خاص":""), disc:dv, discPct:dpct, min:Math.max(1,Math.floor(num(r.min))||1), inc:Math.max(0,Math.floor(num(r.inc))||0), price:num(r.price), strips:k, stripPrice:num(r.strip_price),
-    img:driveImg(r.image), alts:driveAlts(r.image), alias:String(r.alias||"").trim(), stock, out:stock<=0 };
+    img:driveImg(r.image), alts:driveAlts(r.image), alias:String(r.alias||"").trim(), type:String(r.type||"").replace(/\s+/g," ").trim(), company:String(r.company||"").replace(/\s+/g," ").trim(), stock, out:stock<=0 };
 }
 function parseCSV(t){
   const rows=[]; let r=[], c="", q=false;
@@ -69,7 +73,7 @@ function parseCSV(t){
   return rows;
 }
 // الأعمدة: عمود القسم ("لينك القسم" أو "القسم") بعد "رابط الصوره": اللي بيتكتب جنب كل منتج هو اسم القسم، والأقسام بتتكوّن منه تلقائي.
-const HK = {"الرقم":"id","اسم المنتج":"name","علبه":"stock","شرايط":"sh","سعر العلبه":"price","سعر الشريط":"strip_price","رابط الصوره":"image","لينك القسم":"cat","رابط القسم":"cat","القسم":"cat","لينك الصوره":"image","الصوره":"image","صوره":"image","عرض خاص":"offer","عرض":"offer","قيمه الخصم":"disc","الخصم":"disc","الحد الادني":"min","الحد الادنى":"min","العدد المشمول":"inc","العدد المشمول بالخصم":"inc","عدد العلب المشمول":"inc","الاسم بالانجليزي":"alias","الاسم الانجليزي":"alias","اسم انجليزي":"alias","الاسم العلمي":"alias","الاسم التجاري":"alias","english":"alias","name_en":"alias"};
+const HK = {"الرقم":"id","اسم المنتج":"name","علبه":"stock","شرايط":"sh","سعر العلبه":"price","سعر الشريط":"strip_price","رابط الصوره":"image","لينك القسم":"cat","رابط القسم":"cat","القسم":"cat","لينك الصوره":"image","الصوره":"image","صوره":"image","عرض خاص":"offer","عرض":"offer","قيمه الخصم":"disc","الخصم":"disc","الحد الادني":"min","الحد الادنى":"min","العدد المشمول":"inc","العدد المشمول بالخصم":"inc","عدد العلب المشمول":"inc","الاسم بالانجليزي":"alias","الاسم الانجليزي":"alias","اسم انجليزي":"alias","الاسم العلمي":"alias","الاسم التجاري":"alias","نوع المنتج":"type","النوع":"type","نوع":"type","الشكل الدوائي":"type","الشركه":"company","شركه":"company","اسم الشركه":"company","الشركه المصنعه":"company","الشركه المنتجه":"company","english":"alias","name_en":"alias"};
 // عمود "عرض خاص": أي قيمة معناها نعم => العرض شغال. لو اتكتب نص مخصص (مثلا "خصم ٢٠٪") بيظهر هو بدل "عرض خاص"
 const offerOf = v => { v=String(v==null?"":v).trim(); if(!v || /^(0|لا|no|false|-|x)$/i.test(norm(v))) return ""; return /^(1|نعم|yes|true|✓|✔|عرض|عرض خاص|اوفر|offer)$/i.test(norm(v)) ? "عرض خاص" : v; };
 async function loadProducts(){
@@ -139,7 +143,7 @@ function cardHTML(p){
     const q = cart[p.id]||0;
     return `<div class="card ${q?"sel":""}" data-id="${p.id}">
       <div class="ico">${thumb(p)}${offerTag(p)}</div><div class="cat">${esc(p.cat)}</div>
-      <div class="nm">${esc(p.name)}</div><div class="pr"><small class="pl">سعر العبوة الواحدة</small> ${fmt(p.price)}</div>
+      <div class="nm">${esc(p.name)}</div>${metaHTML(p)}<div class="pr"><small class="pl">سعر العبوة الواحدة</small> ${fmt(p.price)}</div>
       ${q? `<div class="qty"><button data-a="plus" data-i="${p.id}" aria-label="زيادة">+</button><span>${q.toLocaleString("ar-EG")}</span><button data-a="minus" data-i="${p.id}" aria-label="نقص">−</button></div>`
          : `<button class="add" ${p.out?"disabled":""} data-a="plus" data-i="${p.id}">${p.out?"غير متوفر":"أضف للسلة"}</button>`}
     </div>`;}
@@ -422,6 +426,7 @@ const getPick = id => pick[id] || (pick[id] = {u:"b", n:1});
 function rowHTML(p){
   return `<div class="pcard ${p.out?"out":""}" data-id="${esc(p.id)}"><div class="pimg">${thumb(p)}${offerTag(p)}${p.out?'<span class="pout">غير متوفر</span>':""}</div>
     <b class="pn">${esc(p.name)}</b>
+    ${metaHTML(p)}
     <div class="pp"><small class="pl">سعر العبوة الواحدة</small><span class="pv">${fmt(p.price)}</span></div>
     ${p.disc>0?`<div class="pd">${offerLine(p)}</div>`:""}</div>`;
 }
@@ -457,6 +462,7 @@ function productView(id){
   const dis = p.out?"disabled":"";
   $("sheet").innerHTML = `<h2>${esc(p.name)} <button class="x" data-a="close" aria-label="إغلاق">✕</button></h2>
     <div class="pimg big">${thumb(p)}${offerTag(p)}</div>
+    ${metaHTML(p,true)}
     <div class="pp big"><small class="pl">${isS?"سعر الشريط الواحد":"سعر العبوة الواحدة"}</small><span class="pv">${fmt(isS?stripPrice(p):p.price)}</span></div>
     ${inCart?`<div class="inc">في سلتك: ${ar(inCart)} ${boxWord(inCart)}</div>`:""}
     ${ofr}
@@ -478,7 +484,7 @@ document.addEventListener("click", e=>{ const c = e.target.closest(".pcard"); if
 function nameSearch(){
   const raw = $("q").value, t = norm(raw).split(/\s+/).filter(Boolean), box = $("sres");
   if(!t.length){ box.innerHTML = `<div class="empty"><b>${svg("search")}</b>اكتب اسم الدواء أو المنتج (عربي أو إنجليزي)</div>`; return; }
-  const list = PRODUCTS.filter(p=>{ const h = norm(p.name+" "+p.alias+" "+p.cat); return t.every(w=>h.includes(w)); }).slice(0,40);
+  const list = PRODUCTS.filter(p=>{ const h = norm(p.name+" "+p.alias+" "+p.cat+" "+p.type+" "+p.company); return t.every(w=>h.includes(w)); }).slice(0,40);
   box.innerHTML = list.length ? list.map(rowHTML).join("") : `<div class="empty"><b>${svg("search")}</b>مفيش نتيجة لـ "${esc(raw)}"<br>جرّب اسم تاني أو صوّر العلبة</div>`;
 }
 $("q").addEventListener("input", nameSearch);
@@ -487,7 +493,7 @@ $("q").addEventListener("input", nameSearch);
 let curCat = "";
 function catSearch(){
   const t = norm($("cq").value).split(/\s+/).filter(Boolean);
-  const list = PRODUCTS.filter(p=>p.cat===curCat && t.every(w=>norm(p.name+" "+p.alias).includes(w)));
+  const list = PRODUCTS.filter(p=>p.cat===curCat && t.every(w=>norm(p.name+" "+p.alias+" "+p.type+" "+p.company).includes(w)));
   $("ccount").textContent = list.length ? list.length.toLocaleString("ar-EG")+" منتج" : "";
   $("cres").innerHTML = list.length ? list.map(rowHTML).join("")
     : `<div class="empty"><b>${svg("search")}</b>${t.length?`مفيش نتيجة لـ "${esc($("cq").value)}" في ${esc(curCat)}`:"مفيش منتجات في القسم ده"}</div>`;
