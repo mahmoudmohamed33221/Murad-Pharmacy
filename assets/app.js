@@ -94,8 +94,9 @@ const HK = {"الرقم":"id","اسم المنتج":"name","علبه":"stock","�
 // عمود "عرض خاص": أي قيمة معناها نعم => العرض شغال. لو اتكتب نص مخصص (مثلا "خصم ٢٠٪") بيظهر هو بدل "عرض خاص"
 const offerOf = v => { v=String(v==null?"":v).trim(); if(!v || /^(0|لا|no|false|-|x)$/i.test(norm(v))) return ""; return /^(1|نعم|yes|true|✓|✔|عرض|عرض خاص|اوفر|offer)$/i.test(norm(v)) ? "عرض خاص" : v; };
 // مطابقة عنوان العمود: الأول بالاسم بالظبط (بعد توحيد الهمزات)، وبعدين بالكلمة المفتاحية (أي عنوان فيه "قسم" أو "تصنيف" = القسم)
-const HKN = Object.fromEntries(Object.entries(HK).map(([k,v])=>[norm(k).replace(/\s+/g," "),v]));
+let HKN = null;   // بيتبني أول مرة تتستخدم (norm بتتعرّف بعد كده في الملف)
 function headerKey(x){
+  if(!HKN) HKN = Object.fromEntries(Object.entries(HK).map(([k,v])=>[norm(k).replace(/\s+/g," "),v]));
   const n = norm(String(x==null?"":x)).replace(/\s+/g," "); if(!n) return "";
   if(HKN[n]) return HKN[n];
   if(/قسم|تصنيف|فئه|category/.test(n)) return /لينك|رابط|صور|link|image|url/.test(n) ? "catimg" : "cat";
