@@ -233,8 +233,8 @@ const norm = s => s.toLowerCase().replace(/[\u064B-\u0652\u0640]/g,"")
 // ====== العرض ======
 function renderCats(){
   const cats = [...new Set(PRODUCTS.map(p=>p.cat))];
-  $("cats").innerHTML = cats.map(c=>`<button class="c" data-c="${esc(c)}">
-    <div class="pic" style="position:relative;overflow:hidden">${svg(iconFor(c))}${CATIMG[c]?`<img src="${esc(CATIMG[c].src)}" data-alts="${esc(CATIMG[c].alts.join("|"))}" alt="" referrerpolicy="no-referrer" onerror="imgFail(this)" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover">`:""}</div><b>${esc(c)}</b><small>${(CATCOUNT[c]||0).toLocaleString("ar-EG")} منتج</small></button>`).join("");
+  $("cats").innerHTML = cats.map(c=>`<div class="c" role="button" tabindex="0" data-c="${esc(c)}">
+    <div class="pic" style="position:relative;overflow:hidden">${svg(iconFor(c))}${CATIMG[c]?`<img src="${esc(CATIMG[c].src)}" data-alts="${esc(CATIMG[c].alts.join("|"))}" alt="" referrerpolicy="no-referrer" onerror="imgFail(this)" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover">`:""}</div><b>${esc(c)}</b><small>${(CATCOUNT[c]||0).toLocaleString("ar-EG")} منتج</small></div>`).join("");
 }
 
 function cardHTML(p){
@@ -367,7 +367,7 @@ document.addEventListener("click", e=>{
   else if(a==="need") change(i, +b.dataset.n);
   else if(a==="clear"){ cart={}; refresh(); cartView(); }
 });
-document.addEventListener("keydown", e=>{ if(e.key==="Escape") close(); });
+document.addEventListener("keydown", e=>{ if(e.key==="Escape") close(); if(e.key==="Enter" && e.target.classList && e.target.classList.contains("c")) openCat(e.target.dataset.c); });
 
 // ====== شريط العروض ======
 const AUTO_MS = 3000;   // التنقل التلقائي كل 3 ثواني
