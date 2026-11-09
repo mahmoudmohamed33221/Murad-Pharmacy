@@ -65,3 +65,11 @@ body.intro-done main:not(#v-home):not([hidden]){animation:iFade 1s ease-out .9s 
 @media (prefers-reduced-motion:reduce){
   #intro,#intro *{transition-duration:.01s!important;animation:none!important}
 }
+
+/* ===== الانترو في الوضع الداكن ===== */
+html[data-theme="dark"] #intro{background:#0f0f11}
+html[data-theme="dark"] #intro .ilogo{content:url("intro-logo-dark.png")}
+html[data-theme="dark"] #intro.s1 .ilogo{opacity:.6}
+html[data-theme="dark"] #intro .ititle{color:#f2f2f2;text-shadow:0 0 14px rgba(15,15,17,.95),0 2px 10px rgba(245,124,0,.25),0 8px 22px rgba(0,0,0,.5)}
+html[data-theme="dark"] #intro .itag{text-shadow:0 0 14px rgba(15,15,17,.95),0 2px 10px rgba(245,124,0,.22)}
+html[data-theme="dark"] #intro .itag .l2{color:#f2f2f2}
