@@ -10,7 +10,7 @@ window.APP_CONFIG = {
   PRODUCTS_JSON: "data/products.json",
   SHEET: {
     ID: "199-5mWgHEsepqmA8b5CmONGD8sBGctxKyoKBeFN-Otk",          // رقم الشيت: الجزء اللي بين /d/ و /edit في رابطه
-    TAB: "الادويه", // اسم الورقة (Tab) اللي فيها المنتجات
+    TABS: ["الادويه", "العنايه"], // أسماء الأوراق (Tabs) اللي فيها المنتجات. كل ورقة تتقرا وتتدمج، وأي قسم جديد بيظهر تلقائي. زود أي ورقة جديدة هنا
     API_KEY: ""      // مفتاح Google Sheets API (مقيّد بالقراءة وبرابط موقعك)
   },
 
