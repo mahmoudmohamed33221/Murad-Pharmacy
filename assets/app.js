@@ -32,11 +32,11 @@ const STAR = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l2.9 6
 const coName = c => /^(شركة|شركه)/.test(c) ? c : "شركة "+c;
 const metaHTML = (p,big) => (p.type||p.company) ? `<div class="pm${big?" big":""}">${p.type?`<span class="ptype">${svg("tag")}${esc(p.type)}</span>`:""}${p.company?`<span class="pco">${svg("building")}${esc(coName(p.company))}</span>`:""}</div>` : "";
 const offerTag = p => p.offer ? `<span class="offer">${esc(p.offer)}</span>` : "";
-const thumb = p => `<span class="th">${svg(iconFor(p.cat))}${p.img?`<img src="${esc(p.img)}" data-alts="${esc((p.alts||[]).join("|"))}" alt="" referrerpolicy="no-referrer" onerror="imgFail(this)">`:""}</span>`;
+const thumb = p => `<span class="th">${svg(iconFor(p.cat))}${p.img?`<img loading="lazy" decoding="async" src="${esc(p.img)}" data-alts="${esc((p.alts||[]).join("|"))}" alt="" referrerpolicy="no-referrer" onerror="imgFail(this)">`:""}</span>`;
 const fillIcons = () => document.querySelectorAll("[data-ic]").forEach(e=>{ e.innerHTML = svg(e.dataset.ic); });
 
 // ====== المنتجات: بتتحمل من data/products.json أو من Google Sheet ======
-let PRODUCTS = [], BY = {}, CATIMG = {};
+let PRODUCTS = [], BY = {}, CATIMG = {}, CATCOUNT = {};
 const P = id => BY[id];
 const stripPrice = p => p.stripPrice || Math.round(p.price/p.strips*100)/100;
 function driveAlts(u){
@@ -105,44 +105,67 @@ function headerKey(x){
   return "";
 }
 async function loadProducts(){
-  const KEY = "mrad_products_cache", S = CFG.SHEET || {};
-  const fromSheet = async ()=>{
-    const r = await fetch(`https://docs.google.com/spreadsheets/d/${S.ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(S.TAB||"Products")}&_=${Date.now()}`,{cache:"no-store"});
-    if(!r.ok) throw new Error("sheet");
-    const vals = parseCSV(await r.text());
+  const KEY = "mrad_products_cache2", S = CFG.SHEET || {}, useSheet = CFG.PRODUCTS_SOURCE==="sheet" && S.ID;
+  const rowsFromCSV = text => {
+    const vals = parseCSV(text);
     // صف العناوين: أول صف (من أول ٦) فيه عمودين معروفين على الأقل (جوجل أحيانًا بيحط العناوين كأنها بيانات)
     let hi = vals.findIndex((row,i)=> i<6 && row.filter(x=>headerKey(x)).length>=2); if(hi<0) hi = 0;
     const keys = (vals[hi]||[]).map(headerKey);
-    const rows = vals.slice(hi+1).filter(v=>v.some(c=>String(c||"").trim())).map(v=>{
-      const o = {}; keys.forEach((k,i)=>{ const key = k||("x"+i); if(o[key]==null || String(o[key]).trim()==="") o[key] = v[i]; }); return o; });
+    const rows = [];
+    for(let n=hi+1;n<vals.length;n++){
+      const v = vals[n]; if(!v.some(c=>String(c||"").trim())) continue;
+      const o = {}; keys.forEach((k,i)=>{ const key = k||("x"+i); if(o[key]==null || String(o[key]).trim()==="") o[key] = v[i]; }); rows.push(o);
+    }
     // لو مفيش عمود "قسم" خالص في الشيت: عمود النوع (برشام / كبسول / شراب...) يتحول لأقسام
     if(!keys.includes("cat") && keys.includes("type")) rows.forEach(o=>{ o.cat = o.type; });
     return rows;
   };
-  const fromJson = async ()=>{ const r = await fetch(CFG.PRODUCTS_JSON||"data/products.json",{cache:"no-cache"}); if(!r.ok) throw new Error("json"); const j = await r.json(); return j.products||j; };
-  let raw = null;
+  const rowsFromJson = text => { const j = JSON.parse(text); return j.products||j; };
+  let text = null, rows = null;
   try{
-    raw = (CFG.PRODUCTS_SOURCE==="sheet" && S.ID) ? await fromSheet() : await fromJson();
-    try{ localStorage.setItem(KEY, JSON.stringify(raw)); }catch(e){}
+    if(useSheet){
+      const r = await fetch(`https://docs.google.com/spreadsheets/d/${S.ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(S.TAB||"Products")}&_=${Date.now()}`,{cache:"no-store"});
+      if(!r.ok) throw new Error("sheet");
+      text = await r.text(); if(text===lastSig) return null;          // نفس الشيت بالظبط: مفيش شغل
+      rows = rowsFromCSV(text);
+    } else {
+      const r = await fetch(CFG.PRODUCTS_JSON||"data/products.json",{cache:"no-cache"}); if(!r.ok) throw new Error("json");
+      text = await r.text(); if(text===lastSig) return null;
+      rows = rowsFromJson(text);
+    }
+    try{ localStorage.setItem(KEY, text); }catch(e){}                  // لو الشيت كبير ومش هيتحفظ: عادي
   }catch(e){
-    try{ raw = JSON.parse(localStorage.getItem(KEY)||"null"); }catch(_){}
-    if(!raw) raw = await fromJson().catch(()=>[]);
+    let c = null; try{ c = localStorage.getItem(KEY); }catch(_){}
+    if(c){ if(c===lastSig) return null; try{ rows = useSheet ? rowsFromCSV(c) : rowsFromJson(c); text = c; }catch(_){ rows = null; } }
+    if(!rows){ try{ const r = await fetch(CFG.PRODUCTS_JSON||"data/products.json"); text = await r.text(); if(text===lastSig) return null; rows = rowsFromJson(text); }catch(_){ rows = []; text = ""; } }
   }
-  return raw.map(normProduct).filter(Boolean);
+  // تجهيز المنتجات على دفعات عشان الشاشة ماتهنجش مع الأعداد الكبيرة
+  const out = [];
+  for(let n=0;n<rows.length;n+=1000){
+    rows.slice(n,n+1000).forEach((r,k)=>{ const q = normProduct(r,n+k); if(q) out.push(q); });
+    if(rows.length>1000) await new Promise(res=>setTimeout(res,0));
+  }
+  out.sig = text;
+  return out;
 }
-// تحديث فوري: بنسحب الشيت كل ١٠ ثواني وكل ما التطبيق يرجع للشاشة، ولو في تغيير بنحدّث الأقسام والمنتجات من غير ما تقفل التطبيق
-let lastSig = "", syncing = false;
-async function syncProducts(){
-  if(syncing) return; syncing = true;
+// تحديث تلقائي: بنسحب الشيت كل دقيقة وكل ما التطبيق يرجع للشاشة، ولو في تغيير بنحدّث الأقسام والمنتجات من غير ما تقفل التطبيق
+let lastSig = "", syncing = false, lastRun = 0;
+async function syncProducts(force){
+  if(syncing) return;
+  if(!force && Date.now()-lastRun < 15000) return;     // ماتسحبش الشيت أكتر من مرة كل ١٥ ثانية
+  syncing = true; lastRun = Date.now();
   try{
-    const list = await loadProducts(), sig = JSON.stringify(list);
-    if(sig === lastSig) return;                 // مفيش تغيير: متلمسش الشاشة
-    lastSig = sig; PRODUCTS = list;
+    const list = await loadProducts();
+    if(!list) return;                           // مفيش تغيير: متلمسش الشاشة
+    lastSig = list.sig; PRODUCTS = list;
     // الأقسام من عمود القسم: نفس الاسم (بغض النظر عن الهمزة/المسافات) = قسم واحد. لو مفيش ولا قسم في الشيت => "أدوية"
     const seen = {}, any = PRODUCTS.some(p=>p.cat);
     PRODUCTS.forEach(p=>{ if(!p.cat) p.cat = any ? "أخرى" : "أدوية"; const k = norm(p.cat); p.cat = seen[k] || (seen[k] = p.cat); });
     CATIMG = {}; PRODUCTS.forEach(p=>{ if(p.catImg && !CATIMG[p.cat]) CATIMG[p.cat] = {src:p.catImg, alts:p.catAlts}; });
     BY = Object.fromEntries(PRODUCTS.map(p=>[p.id,p]));
+    // نص البحث متجهز مسبقًا (بدل ما يتحسب لـ ١٠٠٠٠ منتج مع كل حرف)
+    PRODUCTS.forEach(p=>{ p._hc = norm(p.name+" "+p.alias+" "+p.type+" "+p.company); p._h = norm(p.cat)+" "+p._hc; });
+    const cc = {}; PRODUCTS.forEach(p=>{ cc[p.cat] = (cc[p.cat]||0)+1; }); CATCOUNT = cc;
     for(const k in cart){ if(!P(String(k).split(":")[0])) delete cart[k]; }
     refresh();
     if(!$("v-search").hidden) nameSearch();
@@ -150,8 +173,8 @@ async function syncProducts(){
     if($("ov").classList.contains("show") && $("sheet").dataset.v==="cart") cartView();
   } finally { syncing = false; }
 }
-const boot = () => syncProducts().catch(()=>{});
-setInterval(()=>{ if(!document.hidden) syncProducts().catch(()=>{}); }, 10000);
+const boot = () => syncProducts(true).catch(()=>{});
+setInterval(()=>{ if(!document.hidden) syncProducts(true).catch(()=>{}); }, 60000);
 document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) syncProducts().catch(()=>{}); });
 window.addEventListener("focus", ()=>syncProducts().catch(()=>{}));
 window.addEventListener("online", ()=>syncProducts().catch(()=>{}));
@@ -172,7 +195,7 @@ const norm = s => s.toLowerCase().replace(/[\u064B-\u0652\u0640]/g,"")
 function renderCats(){
   const cats = [...new Set(PRODUCTS.map(p=>p.cat))];
   $("cats").innerHTML = cats.map(c=>`<button class="c" data-c="${esc(c)}">
-    <div class="pic" style="position:relative;overflow:hidden">${svg(iconFor(c))}${CATIMG[c]?`<img src="${esc(CATIMG[c].src)}" data-alts="${esc(CATIMG[c].alts.join("|"))}" alt="" referrerpolicy="no-referrer" onerror="imgFail(this)" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover">`:""}</div><b>${esc(c)}</b><small>${PRODUCTS.filter(p=>p.cat===c).length.toLocaleString("ar-EG")} منتج</small></button>`).join("");
+    <div class="pic" style="position:relative;overflow:hidden">${svg(iconFor(c))}${CATIMG[c]?`<img src="${esc(CATIMG[c].src)}" data-alts="${esc(CATIMG[c].alts.join("|"))}" alt="" referrerpolicy="no-referrer" onerror="imgFail(this)" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover">`:""}</div><b>${esc(c)}</b><small>${(CATCOUNT[c]||0).toLocaleString("ar-EG")} منتج</small></button>`).join("");
 }
 
 function cardHTML(p){
@@ -520,25 +543,35 @@ document.addEventListener("click", e=>{ const c = e.target.closest(".pcard"); if
 function nameSearch(){
   const raw = $("q").value, t = norm(raw).split(/\s+/).filter(Boolean), box = $("sres");
   if(!t.length){ box.innerHTML = `<div class="empty"><b>${svg("search")}</b>اكتب اسم الدواء أو المنتج (عربي أو إنجليزي)</div>`; return; }
-  const list = PRODUCTS.filter(p=>{ const h = norm(p.name+" "+p.alias+" "+p.cat+" "+p.type+" "+p.company); return t.every(w=>h.includes(w)); }).slice(0,40);
+  const list = []; for(const p of PRODUCTS){ if(t.every(w=>p._h.includes(w))){ list.push(p); if(list.length>=40) break; } }
   box.innerHTML = list.length ? list.map(rowHTML).join("") : `<div class="empty"><b>${svg("search")}</b>مفيش نتيجة لـ "${esc(raw)}"<br>جرّب اسم تاني أو صوّر العلبة</div>`;
 }
-$("q").addEventListener("input", nameSearch);
+const debounce = (f,ms)=>{ let t; return (...a)=>{ clearTimeout(t); t = setTimeout(()=>f(...a),ms); }; };
+$("q").addEventListener("input", debounce(nameSearch,150));
 
 // ====== صفحة القسم: منتجات القسم + بحث خاص بالقسم بس ======
 let curCat = "";
+const CAT_PAGE = 40;
+let catList = [], catShown = 0;
+const moreBtn = n => `<button class="go" id="catMore" style="display:block;margin:14px auto">عرض المزيد (${n.toLocaleString("ar-EG")} متبقي)</button>`;
 function catSearch(){
   const t = norm($("cq").value).split(/\s+/).filter(Boolean);
-  const list = PRODUCTS.filter(p=>p.cat===curCat && t.every(w=>norm(p.name+" "+p.alias+" "+p.type+" "+p.company).includes(w)));
-  $("ccount").textContent = list.length ? list.length.toLocaleString("ar-EG")+" منتج" : "";
-  $("cres").innerHTML = list.length ? list.map(rowHTML).join("")
+  catList = PRODUCTS.filter(p=>p.cat===curCat && t.every(w=>p._hc.includes(w)));
+  catShown = Math.min(CAT_PAGE, catList.length);
+  $("ccount").textContent = catList.length ? catList.length.toLocaleString("ar-EG")+" منتج" : "";
+  $("cres").innerHTML = catList.length ? catList.slice(0,catShown).map(rowHTML).join("") + (catShown<catList.length ? moreBtn(catList.length-catShown) : "")
     : `<div class="empty"><b>${svg("search")}</b>${t.length?`مفيش نتيجة لـ "${esc($("cq").value)}" في ${esc(curCat)}`:"مفيش منتجات في القسم ده"}</div>`;
 }
+$("cres").addEventListener("click", e=>{
+  const b = e.target.closest("#catMore"); if(!b) return;
+  const next = catList.slice(catShown, catShown+CAT_PAGE); catShown += next.length; b.remove();
+  $("cres").insertAdjacentHTML("beforeend", next.map(rowHTML).join("") + (catShown<catList.length ? moreBtn(catList.length-catShown) : ""));
+});
 function openCat(c){
   curCat = c; $("ctitle").textContent = c; $("cq").value = "";
   show("cat"); catSearch();
 }
-$("cq").addEventListener("input", catSearch);
+$("cq").addEventListener("input", debounce(catSearch,150));
 $("cback").onclick = ()=>show("home");
 
 function setTab(t){
@@ -575,11 +608,12 @@ function matchText(text){
   const words = [...new Set(raw.filter(w=>w.length>=4))];
   const wk = [...new Set(raw.map(skel).filter(k=>k.length>=3))], out = [];
   PRODUCTS.forEach(p=>{
-    const toks = [...new Set(norm(p.name+" "+p.alias).split(/\s+/).filter(t=>t.length>=3 && !/^\d+$/.test(t) && !STOP.has(t)))];
+    const toks = p._tk || (p._tk = [...new Set(norm(p.name+" "+p.alias).split(/\s+/).filter(t=>t.length>=3 && !/^\d+$/.test(t) && !STOP.has(t)))]);
+    const sks = p._sk || (p._sk = toks.map(skel));
     let sc = 0;
-    toks.forEach(t=>{
+    toks.forEach((t,ti)=>{
       if(t.length>=4 && nt.includes(t)){ sc+=3; return; }
-      const k = skel(t);
+      const k = sks[ti];
       if(k.length<3 || STOPK.has(k)){ return; }
       if(wk.includes(k)) sc += 3;                                                    // نفس البصمة الصوتية (عربي/إنجليزي)
       else if(k.length>=4 && wk.some(x=>lev(x,k)<=1)) sc += 2;                       // قريبة بحرف واحد (أخطاء القراءة)
