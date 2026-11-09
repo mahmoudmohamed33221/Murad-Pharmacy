@@ -32,6 +32,7 @@ const STAR = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l2.9 6
 const coName = c => /^(شركة|شركه)/.test(c) ? c : "شركة "+c;
 const metaHTML = (p,big) => (p.type||p.company) ? `<div class="pm${big?" big":""}">${p.type?`<span class="ptype">${svg("tag")}${esc(p.type)}</span>`:""}${p.company?`<span class="pco">${svg("building")}${esc(coName(p.company))}</span>`:""}</div>` : "";
 const offerTag = p => p.offer ? `<span class="offer">${esc(p.offer)}</span>` : "";
+let pvFromOffer = false;   // اتفتح من الكارت المتحرك؟ (يعرض صورة العرض فورًا)
 const thumb = p => `<span class="th">${svg(iconFor(p.cat))}${p.img?`<img loading="lazy" decoding="async" src="${esc(p.img)}" data-alts="${esc((p.alts||[]).join("|"))}" alt="" referrerpolicy="no-referrer" onerror="imgFail(this)">`:""}</span>`;
 const fillIcons = () => document.querySelectorAll("[data-ic]").forEach(e=>{ e.innerHTML = svg(e.dataset.ic); });
 
@@ -362,21 +363,35 @@ const mk = el => { const c = el.cloneNode(true); c.setAttribute("aria-hidden","t
 let cur = 0, timer = null, tok = 0, ticking = false;
 
 const realIdx = i => ((i-1)%N+N)%N;
-const mark = i => { cur = realIdx(i); dots.forEach((d,k)=>d.classList.toggle("on",k===cur)); };
+const MAX_DOTS = 12;   // أكتر من كده: عدّاد (٣ / ١٢٠) بدل النقط
+const mark = i => {
+  cur = realIdx(i);
+  if(N>MAX_DOTS) $("dots").textContent = ar(cur+1)+" / "+ar(N);
+  else dots.forEach((d,k)=>d.classList.toggle("on",k===cur));
+};
 const offset = i => { const t=track.getBoundingClientRect(), r=slides[i].getBoundingClientRect(); return (r.left+r.width/2)-(t.left+t.width/2); };
+let near = 0;   // آخر كارت كان في النص: بنبدأ البحث منه (بدل ما نمر على كل الكروت)
 function nearest(){
-  const t=track.getBoundingClientRect(), c=t.left+t.width/2; let best=0, bd=1e9;
-  slides.forEach((s,k)=>{ const r=s.getBoundingClientRect(), d=Math.abs(r.left+r.width/2-c); if(d<bd){bd=d;best=k;} });
-  return best;
+  if(!slides.length) return 0;
+  const t=track.getBoundingClientRect(), c=t.left+t.width/2;
+  const dist = k => { const r=slides[k].getBoundingClientRect(); return Math.abs(r.left+r.width/2-c); };
+  let i = Math.min(Math.max(near,0),slides.length-1), d = dist(i);
+  for(;;){
+    let moved = false;
+    for(const j of [i-1,i+1]){ if(j<0||j>=slides.length) continue; const dj = dist(j); if(dj<d-0.5){ i=j; d=dj; moved=true; break; } }
+    if(!moved) break;
+  }
+  return near = i;
 }
 // تأثير الانتقال: العرض الخارج بيصغر ويخفت ويرجع لورا، والداخل بيكبر ويظهر
 function fx(){
-  const t=track.getBoundingClientRect(), c=t.left+t.width/2;
-  slides.forEach(s=>{
-    const r=s.getBoundingClientRect(), d=Math.min(1,Math.abs(r.left+r.width/2-c)/t.width);
+  if(!slides.length) return;
+  const t=track.getBoundingClientRect(), c=t.left+t.width/2, n=nearest();
+  for(let k=Math.max(0,n-2); k<=Math.min(slides.length-1,n+2); k++){        // اللي حوالين النص بس (مهم لو العروض كتير)
+    const s=slides[k], r=s.getBoundingClientRect(), d=Math.min(1,Math.abs(r.left+r.width/2-c)/t.width);
     s.style.transform = `scale(${1-0.14*d})`;
     s.style.opacity = 1-0.6*d;
-  });
+  }
 }
 // نقل فوري (بدون حركة) لعرض معين ويتوسط
 function jumpTo(i){ if(N<2){ fx(); return; } track.scrollLeft += offset(i); mark(i); fx(); }
@@ -446,27 +461,27 @@ window.addEventListener("resize", ()=>{ if(N>1) jumpTo(Math.min(Math.max(nearest
 track.addEventListener("click", e=>{
   if(wasDrag) return;
   const s = e.target.closest(".slide"); if(!s) return;
-  if(s.dataset.id && P(s.dataset.id)) productView(s.dataset.id);      // الضغط على العرض يفتح المنتج نفسه
+  if(s.dataset.id && P(s.dataset.id)){ pvFromOffer = true; productView(s.dataset.id); }      // من العرض المتحرك: يظهر صورة العرض فورًا
 });
 window.addEventListener("load", ()=>{ if(N>1 && !drag && nearest()===0) jumpTo(1); });
 
 // ====== بناء العروض من الشيت: أي منتج عليه خصم (عمود قيمة الخصم) بيظهر كارت، و"لينك العرض" = صورة البوستر ======
-const MAX_OFFERS = 20;
 let offersSig = null;
 function offerCard(p){
-  const img = p.offerImg ? `<img class="oimg" src="${esc(p.offerImg)}" data-alts="${esc((p.offerAlts||[]).join("|"))}" alt="" referrerpolicy="no-referrer" onerror="imgFail(this)">` : "";
+  const img = p.offerImg ? `<img class="oimg" loading="lazy" decoding="async" src="${esc(p.offerImg)}" data-alts="${esc((p.offerAlts||[]).join("|"))}" alt="" referrerpolicy="no-referrer" onerror="imgFail(this)">` : "";
   return `<button class="slide s1 offer-card" data-id="${esc(p.id)}" aria-label="${esc(p.name)}"><div class="ofb"><h3>${escN(p.name)}</h3><p>خصم ${discTxt(p)}</p><em>شاهد المنتج</em></div>${img}</button>`;
 }
 function buildOffers(){
-  const list = PRODUCTS.filter(p=>p.disc>0).slice(0,MAX_OFFERS);
+  const list = PRODUCTS.filter(p=>p.disc>0);
   const sig = list.map(p=>[p.id,p.name,p.disc,p.offerImg].join("~")).join("|");
   if(sig === offersSig) return; offersSig = sig;
-  stop(); track.scrollLeft = 0;
+  stop(); track.scrollLeft = 0; near = 0;
   track.innerHTML = list.length ? list.map(offerCard).join("") : `<div class="slide offer-empty"><span>لا توجد أي عروض حاليًا</span></div>`;
   real = [...track.children]; N = list.length;
   if(N>1){ track.prepend(mk(real[N-1])); track.append(mk(real[0])); }
   slides = [...track.children];                  // [نسخة آخر، 1..N، نسخة أول]
-  $("dots").innerHTML = N>1 ? real.map(()=>"<i></i>").join("") : "";
+  $("dots").classList.toggle("cnt", N>MAX_DOTS);
+  $("dots").innerHTML = (N>1 && N<=MAX_DOTS) ? real.map(()=>"<i></i>").join("") : "";
   dots = [...$("dots").children]; cur = 0;
   if(!$("v-home").hidden){ requestAnimationFrame(()=>{ if(N>1){ jumpTo(1); schedule(AUTO_MS); } else fx(); }); }
 }
@@ -561,9 +576,11 @@ function productView(id){
       (need>0 ? `<em class="hintx">لسه ناقصك ${cnt(need)} عشان العرض يشتغل</em>`
               : `<em class="okk">العرض شغال ✓ وفرت ${fmt(d)} على ${cnt(covered(p,boxes))}${over>0?" — و"+cnt(over)+" الزيادة بالسعر العادي":""}</em>`)+`</div>`;
   }
+  // صورة العرض تظهر لو: فتحنا من العروض المتحركة، أو العميل حقق شرط العرض (الحد الأدنى من العلب)
+  const showPoster = !!(p.offerImg && p.disc>0 && (pvFromOffer || boxes>=p.min));
   const dis = p.out?"disabled":"";
   $("sheet").innerHTML = `<h2><span class="ttl">${escN(p.name)}</span> <button class="x" data-a="close" aria-label="إغلاق">✕</button></h2>
-    <div class="pimg big">${thumb(p)}${offerTag(p)}</div>
+    <div class="pimg big${showPoster?" poster":""}">${thumb(showPoster ? {...p, img:p.offerImg, alts:p.offerAlts} : p)}${offerTag(p)}</div>
     ${metaHTML(p,true)}
     <div class="pp big"><small class="pl">${isS?"سعر الشريط الواحد":"سعر العبوة الواحدة"}</small><span class="pv">${fmt(isS?stripPrice(p):p.price)}</span></div>
     ${inCart?`<div class="inc">في سلتك: ${ar(inCart)} ${boxWord(inCart)}</div>`:""}
@@ -582,7 +599,7 @@ function pvAct(a,val,n){
 }
 $("sheet").addEventListener("click", e=>{ const b = e.target.closest("[data-pv]"); if(!b || b.tagName==="INPUT") return; pvAct(b.dataset.pv, null, +b.dataset.n||0); });
 $("sheet").addEventListener("change", e=>{ if(e.target.dataset && e.target.dataset.pv==="inp") pvAct("inp", e.target.value); });
-document.addEventListener("click", e=>{ const c = e.target.closest(".pcard"); if(c && !c.classList.contains("out")) productView(c.dataset.id); });
+document.addEventListener("click", e=>{ const c = e.target.closest(".pcard"); if(c && !c.classList.contains("out")){ pvFromOffer = false; productView(c.dataset.id); } });
 function nameSearch(){
   const raw = $("q").value, t = norm(raw).split(/\s+/).filter(Boolean), box = $("sres");
   if(!t.length){ box.innerHTML = `<div class="empty"><b>${svg("search")}</b>اكتب اسم الدواء أو المنتج (عربي أو إنجليزي)</div>`; return; }
