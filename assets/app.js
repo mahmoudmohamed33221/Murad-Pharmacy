@@ -106,8 +106,9 @@ function headerKey(x){
   return "";
 }
 async function loadProducts(){
-  const KEY = "mrad_products_cache2", S = CFG.SHEET || {}, useSheet = CFG.PRODUCTS_SOURCE==="sheet" && S.ID;
-  const rowsFromCSV = text => {
+  const KEY = "mrad_products_cache3", S = CFG.SHEET || {}, useSheet = CFG.PRODUCTS_SOURCE==="sheet" && S.ID;
+  const TABS = (S.TABS && S.TABS.length) ? S.TABS : [S.TAB||"Products"], SEP = "\n\u0001TAB\u0001\n";
+  const rowsFromOneCSV = text => {
     const vals = parseCSV(text);
     // صف العناوين: أول صف (من أول ٦) فيه عمودين معروفين على الأقل (جوجل أحيانًا بيحط العناوين كأنها بيانات)
     let hi = vals.findIndex((row,i)=> i<6 && row.filter(x=>headerKey(x)).length>=2); if(hi<0) hi = 0;
@@ -121,13 +122,31 @@ async function loadProducts(){
     if(!keys.includes("cat") && keys.includes("type")) rows.forEach(o=>{ o.cat = o.type; });
     return rows;
   };
+  // كل ورقة (تاب) بتتقرا لوحدها وبعدين كلهم يتدمجوا في قائمة واحدة، والأقسام بتتجمع من كل الأوراق
+  const rowsFromCSV = joined => {
+    const all = [], ids = new Set();
+    joined.split(SEP).forEach((t,ti)=>{
+      rowsFromOneCSV(t).forEach(o=>{
+        let id = String(o.id==null?"":o.id).trim();
+        if(id && ids.has(id)) id = id+"_"+(ti+1);          // نفس الرقم في ورقتين: نفرّقهم عشان السلة ماتتلخبطش
+        if(id) ids.add(id);
+        o.id = id; all.push(o);
+      });
+    });
+    return all;
+  };
   const rowsFromJson = text => { const j = JSON.parse(text); return j.products||j; };
   let text = null, rows = null;
   try{
     if(useSheet){
-      const r = await fetch(`https://docs.google.com/spreadsheets/d/${S.ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(S.TAB||"Products")}&_=${Date.now()}`,{cache:"no-store"});
-      if(!r.ok) throw new Error("sheet");
-      text = await r.text(); if(text===lastSig) return null;          // نفس الشيت بالظبط: مفيش شغل
+      const texts = await Promise.all(TABS.map(async tab=>{
+        const r = await fetch(`https://docs.google.com/spreadsheets/d/${S.ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tab)}&_=${Date.now()}`,{cache:"no-store"});
+        if(!r.ok) throw new Error("sheet");
+        return r.text();
+      }));
+      // لو اسم ورقة غلط جوجل بيرجّع أول ورقة: نتجاهل أي ورقة نسخة مكررة من اللي قبلها
+      const uniq = texts.filter((t,i)=>texts.indexOf(t)===i);
+      text = uniq.join(SEP); if(text===lastSig) return null;          // نفس الشيت بالظبط: مفيش شغل
       rows = rowsFromCSV(text);
     } else {
       const r = await fetch(CFG.PRODUCTS_JSON||"data/products.json",{cache:"no-cache"}); if(!r.ok) throw new Error("json");
