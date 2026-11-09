@@ -130,3 +130,12 @@ html,body{overflow-x:hidden}
 .offer-card .oprice{font-size:.95rem;font-weight:700;opacity:.95}
 .offer-card .oprice s{opacity:.75;margin-inline-end:4px}
 .offer-card .oimg{z-index:2}
+
+/* كروت الأقسام: الصورة دايمًا ملزوقة فوق وبنفس الارتفاع (الزرار كان بيوسّط المحتوى رأسيًا لما الكارت يطول) */
+.cats{align-items:stretch}
+.c{display:flex;flex-direction:column;justify-content:flex-start;align-items:stretch;align-self:stretch}
+.c .pic{flex:none;width:100%;height:104px!important;margin:0}
+.c:last-child:nth-child(odd) .pic{height:104px!important}
+.c .pic img{display:block}
+.c b{min-height:3em;display:flex;align-items:center;justify-content:center;line-height:1.5}
+.c small{margin-top:auto}
