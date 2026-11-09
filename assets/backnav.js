@@ -1,20 +1,28 @@
-// زرار الرجوع (بتاع الموبايل / النافيجيشن بار) يرجّع خطوة لورا جوه التطبيق بدل ما يقفله.
-// الفكرة: كل تنقل (قسم / تبويب / السلة والنوافذ) بيتسجّل في history، والأندرويد (Capacitor) بيرجع بيه تلقائي.
+// زرار الرجوع (بتاع الموبايل / النافيجيشن بار):
+//  - جوه التطبيق: بيرجّع خطوة لورا (قسم -> الرئيسية، نافذة السلة -> بتتقفل...)
+//  - لو مفيش حاجة قبله (الرئيسية): بيطلع رسالة "هل تريد الخروج؟" (نعم / لا)
+// الفكرة: كل تنقل بيتسجّل في history، وعلى الأندرويد بنستخدم plugin @capacitor/app عشان نتحكم في الرجوع والخروج.
 (function () {
   if (!window.history || !history.pushState) return;
   var _show = window.show, _openCat = window.openCat, _openSheet = window.openSheet, _close = window.close;
   if (!_show || !_openCat || !_openSheet || !_close) return;      // لو الأسماء اتغيرت منكسرش حاجة
 
   var ov = document.getElementById("ov");
+  var dlg = document.getElementById("exitDlg");
   var TABS = { search: 1, account: 1, settings: 1 };
-  var popping = false;
+  var HOME = { d: 0, v: "home" };
+  var popping = false, exiting = false;
   var shown = function () { return ov.classList.contains("show"); };
   var st = function () {
     var s = history.state;
     return (s && typeof s.d === "number") ? s : HOME;
   };
-  // حارس الخروج: [E] ثم [الرئيسية]. الرجوع من الرئيسية بيوصل لـ E فنطلّع رسالة بدل ما نقفل.
-  var HOME = { d: 0, v: "home" }, EXIT_PRESSES = 3, WINDOW_MS = 4000;
+  var onGuard = function () { return !!(history.state && history.state.x); };
+  var say = function (m) { if (typeof window.toast === "function") window.toast(m); };
+  var App = null;
+  try { App = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App; } catch (e) {}
+
+  // أساس التاريخ: [حارس] ثم [الرئيسية]
   var s0 = history.state;
   if (s0 && (s0.x || typeof s0.d === "number")) {                  // الصفحة اتعمل لها ريلود: الحارس موجود أصلًا
     if (s0.x) history.pushState(HOME, ""); else if (s0.d !== 0 || s0.ov) history.replaceState(HOME, "");
@@ -22,14 +30,33 @@
     history.replaceState({ x: 1 }, "");
     history.pushState(HOME, "");
   }
-  var hits = 0, hitTimer = null;
-  var onGuard = function () { return !!(history.state && history.state.x); };
-  var leaveGuard = function () {                                   // لو المستخدم اتنقل وهو على E نرجّع الرئيسية كأساس
-    if (onGuard()) history.pushState(HOME, "");
-    hits = 0; clearTimeout(hitTimer);
-  };
-  var say = function (m) { if (typeof window.toast === "function") window.toast(m); };
+  var leaveGuard = function () { if (onGuard()) history.pushState(HOME, ""); };
 
+  // ===== رسالة الخروج =====
+  var dlgOpen = function () { return dlg && !dlg.hidden; };
+  function openDlg() {
+    if (!dlg || dlgOpen()) return;
+    dlg.hidden = false;
+    requestAnimationFrame(function () { dlg.classList.add("on"); });
+  }
+  function closeDlg() {
+    if (!dlg || !dlgOpen()) return;
+    dlg.classList.remove("on");
+    setTimeout(function () { dlg.hidden = true; }, 200);
+  }
+  function doExit() {
+    if (App && App.exitApp) { App.exitApp(); return; }              // أندرويد (plugin)
+    closeDlg(); exiting = true;                                      // متصفح / نسخة قديمة من غير plugin
+    history.back();
+    setTimeout(function () { if (!document.hidden) say("اضغط رجوع مرة أخرى للخروج"); }, 450);
+  }
+  if (dlg) {
+    document.getElementById("xdYes").onclick = doExit;
+    document.getElementById("xdNo").onclick = closeDlg;
+    dlg.addEventListener("click", function (e) { if (e.target === dlg) closeDlg(); });
+  }
+
+  // ===== التنقل =====
   // التبويبات + الرئيسية
   window.show = function (v) {
     if (popping) return _show(v);
@@ -79,19 +106,23 @@
     if (was && st().ov) history.back();
   };
 
-  // زرار الرجوع نفسه
+  // خطوة لورا (بنستخدمها في الأندرويد مع الـ plugin)
+  function goBackOneStep() {
+    if (dlgOpen()) { closeDlg(); return; }
+    if (shown()) { window.close(); return; }
+    var s = st();
+    if (s.d > 0) { history.back(); return; }
+    openDlg();                                                       // الرئيسية ومفيش قبلها حاجة: نسأل المستخدم
+  }
+
+  // ===== الرجوع من التاريخ (متصفح / PWA / أندرويد من غير plugin) =====
   window.addEventListener("popstate", function (e) {
     var s = e.state || HOME;
-    if (s.x) {                                                     // ضغط رجوع وهو على الرئيسية
-      hits++;
-      clearTimeout(hitTimer);
-      var left = EXIT_PRESSES - hits;                              // الضغطات اللي فاضلة للخروج
-      if (left > 0) {
-        say(left === 2 ? "اضغط رجوع مرتين للخروج من التطبيق" : "اضغط رجوع مرة أخرى للخروج");
-        if (hits === 1) history.pushState(HOME, "");               // أول ضغطة: نرجّع الرئيسية عشان الضغطة الجاية تيجي لـ E تاني
-        hitTimer = setTimeout(function () { leaveGuard(); }, WINDOW_MS);   // لو سابها: يتصفّر العدّاد
-      }
-      return;                                                      // الضغطة الأخيرة بتبقى على E نفسها فبتخرج فعلًا
+    if (s.x) {                                                       // وصلنا للحارس: يعني ضغط رجوع وهو على الرئيسية
+      if (exiting) { history.back(); return; }
+      if (dlgOpen()) closeDlg(); else openDlg();
+      history.pushState(HOME, "");                                   // نفضل على الرئيسية والرسالة ظاهرة
+      return;
     }
     if (s.ov) return;
     popping = true;
@@ -102,6 +133,11 @@
       }
     } finally { popping = false; }
   });
+
+  // أندرويد + plugin: بنمسك زرار الرجوع بنفسنا
+  if (App && App.addListener) {
+    try { App.addListener("backButton", goBackOneStep); } catch (e) {}
+  }
 
   // سهم الرجوع اللي جوه صفحة القسم
   var cb = document.getElementById("cback");
