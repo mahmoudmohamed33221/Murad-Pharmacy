@@ -139,3 +139,7 @@ html,body{overflow-x:hidden}
 .c .pic img{display:block}
 .c b{min-height:3em;display:flex;align-items:center;justify-content:center;line-height:1.5}
 .c small{margin-top:auto}
+
+/* الكارت بقى div (الزرار بيوسّط محتواه رأسيًا): المحتوى ثابت من فوق */
+div.c{display:flex!important;flex-direction:column!important;justify-content:flex-start!important;align-items:stretch!important;align-content:flex-start!important}
+div.c .pic{margin:0!important;top:0}
