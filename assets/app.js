@@ -36,9 +36,9 @@ const thumb = p => `<span class="th">${svg(iconFor(p.cat))}${p.img?`<img src="${
 const fillIcons = () => document.querySelectorAll("[data-ic]").forEach(e=>{ e.innerHTML = svg(e.dataset.ic); });
 
 // ====== المنتجات: بتتحمل من data/products.json أو من Google Sheet ======
-let PRODUCTS = [], BY = {};
+let PRODUCTS = [], BY = {}, CATIMG = {};
 const P = id => BY[id];
-const stripPrice = p => p.stripPrice || Math.round(p.price/p.strips);
+const stripPrice = p => p.stripPrice || Math.round(p.price/p.strips*100)/100;
 function driveAlts(u){
   u=String(u||"").trim(); const m=u.match(/\/d\/([\w-]{10,})/)||u.match(/[?&]id=([\w-]{10,})/);
   return (m && /drive\.google|docs\.google/.test(u)) ? ["https://lh3.googleusercontent.com/d/"+m[1]+"=w500","https://drive.google.com/uc?export=view&id="+m[1]] : [];
@@ -50,17 +50,34 @@ function driveImg(u){
   if(m && /drive\.google|docs\.google/.test(u)) return "https://drive.google.com/thumbnail?id="+m[1]+"&sz=w500";
   return /^https?:/.test(u) ? u : "assets/products/"+u;
 }
+// أرقام عربية/فارسية -> إنجليزية (والفاصلة العشرية العربية ٫ والآلاف ٬)
+const toAscii = v => String(v==null?"":v).replace(/[٠-٩]/g,x=>"٠١٢٣٤٥٦٧٨٩".indexOf(x)).replace(/[۰-۹]/g,x=>"۰۱۲۳۴۵۶۷۸۹".indexOf(x)).replace(/٫/g,".").replace(/٬/g,",");
+// قراءة الرقم بشكل آمن: 20.00 و 20,00 و ٢٠٫٠٠ = ٢٠   |   1,500 و 1.500 = ١٥٠٠   |   1,250.50 = ١٢٥٠٫٥
+function parseNum(v){
+  const m = toAscii(v).match(/\d[\d.,]*/); if(!m) return 0;
+  let t = m[0].replace(/[.,]+$/,"");
+  const lastDot = t.lastIndexOf("."), lastCom = t.lastIndexOf(",");
+  if(lastDot>-1 && lastCom>-1){                          // الاتنين موجودين: اللي آخر واحد هو العشري
+    const dec = lastDot>lastCom ? "." : ",";
+    t = t.split(dec==="."?",":".").join("").replace(dec,".");
+  } else if(lastDot>-1 || lastCom>-1){
+    const sep = lastDot>-1 ? "." : ",", parts = t.split(sep), last = parts[parts.length-1];
+    if(parts.length>2 || last.length===3) t = parts.join("");       // آلاف (١٬٥٠٠)
+    else t = parts.join(".");                                       // عشري (٢٠٫٠٠ / ٢٠٫٥)
+  }
+  const n = parseFloat(t); return isFinite(n) ? n : 0;
+}
 function normProduct(r,i){
-  const num = v => { const n = parseFloat(String(v==null?"":v).replace(/[^\d.]/g,"")); return isFinite(n)?n:0; };
+  const num = parseNum;
   const name = String(r.name||"").trim(); if(!name) return null;
   const drw = String(r.disc==null?"":r.disc);
   // الخصم دايمًا نسبة مئوية: ١٠ أو ١٠٪ = ١٠٪، وكمان ٠.١ (اللي جوجل شيت بيطلعه لخلية نسبة) = ١٠٪
   let dv = num(drw); if(!/[%٪]/.test(drw) && dv>0 && dv<1) dv = Math.round(dv*100); dv = Math.min(100,dv); const dpct = true;
-  const sh = /^\s*\d+(\.\d+)?\s*$/.test(String(r.sh||"")) ? num(r.sh) : 0;     // رقم أكبر من صفر فقط = في شرايط
+  const sh = /^\s*\d+([.,]\d+)?\s*$/.test(toAscii(r.sh)) ? num(r.sh) : 0;     // رقم أكبر من صفر فقط = في شرايط
   const k = sh>0 ? Math.max(1,Math.floor(sh)) : 1;
-  const stock = Math.max(0,Math.floor(/^\s*\d+\s*$/.test(String(r.stock||"")) ? num(r.stock) : 0));   // فاضي/كلام = غير متوفر
+  const stock = Math.max(0,Math.floor(/^\s*\d+([.,]\d+)?\s*$/.test(toAscii(r.stock)) ? num(r.stock) : 0));   // فاضي/كلام = غير متوفر
   return { id:String(r.id||("p"+(i+1))).trim(), name, cat:String(r.cat||"").replace(/\s+/g," ").trim(), offer:offerOf(r.offer)||(dv>0?"عرض خاص":""), disc:dv, discPct:dpct, min:Math.max(1,Math.floor(num(r.min))||1), inc:Math.max(0,Math.floor(num(r.inc))||0), price:num(r.price), strips:k, stripPrice:num(r.strip_price),
-    img:driveImg(r.image), alts:driveAlts(r.image), alias:String(r.alias||"").trim(), type:String(r.type||"").replace(/\s+/g," ").trim(), company:String(r.company||"").replace(/\s+/g," ").trim(), stock, out:stock<=0 };
+    img:driveImg(r.image), alts:driveAlts(r.image), catImg:driveImg(r.catimg), catAlts:driveAlts(r.catimg), alias:String(r.alias||"").trim(), type:String(r.type||"").replace(/\s+/g," ").trim(), company:String(r.company||"").replace(/\s+/g," ").trim(), stock, out:stock<=0 };
 }
 function parseCSV(t){
   const rows=[]; let r=[], c="", q=false;
@@ -73,16 +90,34 @@ function parseCSV(t){
   return rows;
 }
 // الأعمدة: عمود القسم ("لينك القسم" أو "القسم") بعد "رابط الصوره": اللي بيتكتب جنب كل منتج هو اسم القسم، والأقسام بتتكوّن منه تلقائي.
-const HK = {"الرقم":"id","اسم المنتج":"name","علبه":"stock","شرايط":"sh","سعر العلبه":"price","سعر الشريط":"strip_price","رابط الصوره":"image","لينك القسم":"cat","رابط القسم":"cat","القسم":"cat","لينك الصوره":"image","الصوره":"image","صوره":"image","عرض خاص":"offer","عرض":"offer","قيمه الخصم":"disc","الخصم":"disc","الحد الادني":"min","الحد الادنى":"min","العدد المشمول":"inc","العدد المشمول بالخصم":"inc","عدد العلب المشمول":"inc","الاسم بالانجليزي":"alias","الاسم الانجليزي":"alias","اسم انجليزي":"alias","الاسم العلمي":"alias","الاسم التجاري":"alias","نوع المنتج":"type","النوع":"type","نوع":"type","الشكل الدوائي":"type","الشركه":"company","شركه":"company","اسم الشركه":"company","الشركه المصنعه":"company","الشركه المنتجه":"company","english":"alias","name_en":"alias"};
+const HK = {"الرقم":"id","اسم المنتج":"name","علبه":"stock","شرايط":"sh","سعر العلبه":"price","سعر الشريط":"strip_price","رابط الصوره":"image","لينك القسم":"catimg","رابط القسم":"catimg","صوره القسم":"catimg","لينك صوره القسم":"catimg","القسم":"cat","لينك الصوره":"image","الصوره":"image","صوره":"image","عرض خاص":"offer","عرض":"offer","قيمه الخصم":"disc","الخصم":"disc","الحد الادني":"min","الحد الادنى":"min","العدد المشمول":"inc","العدد المشمول بالخصم":"inc","عدد العلب المشمول":"inc","الاسم بالانجليزي":"alias","الاسم الانجليزي":"alias","اسم انجليزي":"alias","الاسم العلمي":"alias","الاسم التجاري":"alias","نوع المنتج":"type","النوع":"type","نوع":"type","الشكل الدوائي":"type","الشركه":"company","شركه":"company","اسم الشركه":"company","الشركه المصنعه":"company","الشركه المنتجه":"company","english":"alias","name_en":"alias"};
 // عمود "عرض خاص": أي قيمة معناها نعم => العرض شغال. لو اتكتب نص مخصص (مثلا "خصم ٢٠٪") بيظهر هو بدل "عرض خاص"
 const offerOf = v => { v=String(v==null?"":v).trim(); if(!v || /^(0|لا|no|false|-|x)$/i.test(norm(v))) return ""; return /^(1|نعم|yes|true|✓|✔|عرض|عرض خاص|اوفر|offer)$/i.test(norm(v)) ? "عرض خاص" : v; };
+// مطابقة عنوان العمود: الأول بالاسم بالظبط (بعد توحيد الهمزات)، وبعدين بالكلمة المفتاحية (أي عنوان فيه "قسم" أو "تصنيف" = القسم)
+const HKN = Object.fromEntries(Object.entries(HK).map(([k,v])=>[norm(k).replace(/\s+/g," "),v]));
+function headerKey(x){
+  const n = norm(String(x==null?"":x)).replace(/\s+/g," "); if(!n) return "";
+  if(HKN[n]) return HKN[n];
+  if(/قسم|تصنيف|فئه|category/.test(n)) return /لينك|رابط|صور|link|image|url/.test(n) ? "catimg" : "cat";
+  if(/سعر/.test(n)) return /شريط|شرايط|شرائط|strip/.test(n) ? "strip_price" : "price";
+  if(/^(شرايط|شرائط|عدد الشرايط|عدد الشرائط)$/.test(n)) return "sh";
+  if(/صور|image/.test(n)) return "image";
+  return "";
+}
 async function loadProducts(){
   const KEY = "mrad_products_cache", S = CFG.SHEET || {};
   const fromSheet = async ()=>{
     const r = await fetch(`https://docs.google.com/spreadsheets/d/${S.ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(S.TAB||"Products")}&_=${Date.now()}`,{cache:"no-store"});
     if(!r.ok) throw new Error("sheet");
-    const vals = parseCSV(await r.text()), keys = (vals[0]||[]).map(x=>HK[norm(String(x)).replace(/\s+/g," ")]||"");
-    return vals.slice(1).map(v=>Object.fromEntries(keys.map((k,i)=>[k||("x"+i),v[i]])));
+    const vals = parseCSV(await r.text());
+    // صف العناوين: أول صف (من أول ٦) فيه عمودين معروفين على الأقل (جوجل أحيانًا بيحط العناوين كأنها بيانات)
+    let hi = vals.findIndex((row,i)=> i<6 && row.filter(x=>headerKey(x)).length>=2); if(hi<0) hi = 0;
+    const keys = (vals[hi]||[]).map(headerKey);
+    const rows = vals.slice(hi+1).filter(v=>v.some(c=>String(c||"").trim())).map(v=>{
+      const o = {}; keys.forEach((k,i)=>{ const key = k||("x"+i); if(o[key]==null || String(o[key]).trim()==="") o[key] = v[i]; }); return o; });
+    // لو مفيش عمود "قسم" خالص في الشيت: عمود النوع (برشام / كبسول / شراب...) يتحول لأقسام
+    if(!keys.includes("cat") && keys.includes("type")) rows.forEach(o=>{ o.cat = o.type; });
+    return rows;
   };
   const fromJson = async ()=>{ const r = await fetch(CFG.PRODUCTS_JSON||"data/products.json",{cache:"no-cache"}); if(!r.ok) throw new Error("json"); const j = await r.json(); return j.products||j; };
   let raw = null;
@@ -106,6 +141,7 @@ async function syncProducts(){
     // الأقسام من عمود القسم: نفس الاسم (بغض النظر عن الهمزة/المسافات) = قسم واحد. لو مفيش ولا قسم في الشيت => "أدوية"
     const seen = {}, any = PRODUCTS.some(p=>p.cat);
     PRODUCTS.forEach(p=>{ if(!p.cat) p.cat = any ? "أخرى" : "أدوية"; const k = norm(p.cat); p.cat = seen[k] || (seen[k] = p.cat); });
+    CATIMG = {}; PRODUCTS.forEach(p=>{ if(p.catImg && !CATIMG[p.cat]) CATIMG[p.cat] = {src:p.catImg, alts:p.catAlts}; });
     BY = Object.fromEntries(PRODUCTS.map(p=>[p.id,p]));
     for(const k in cart){ if(!P(String(k).split(":")[0])) delete cart[k]; }
     refresh();
@@ -136,7 +172,7 @@ const norm = s => s.toLowerCase().replace(/[\u064B-\u0652\u0640]/g,"")
 function renderCats(){
   const cats = [...new Set(PRODUCTS.map(p=>p.cat))];
   $("cats").innerHTML = cats.map(c=>`<button class="c" data-c="${esc(c)}">
-    <div class="pic">${svg(iconFor(c))}</div><b>${esc(c)}</b><small>${PRODUCTS.filter(p=>p.cat===c).length.toLocaleString("ar-EG")} منتج</small></button>`).join("");
+    <div class="pic" style="position:relative;overflow:hidden">${svg(iconFor(c))}${CATIMG[c]?`<img src="${esc(CATIMG[c].src)}" data-alts="${esc(CATIMG[c].alts.join("|"))}" alt="" referrerpolicy="no-referrer" onerror="imgFail(this)" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover">`:""}</div><b>${esc(c)}</b><small>${PRODUCTS.filter(p=>p.cat===c).length.toLocaleString("ar-EG")} منتج</small></button>`).join("");
 }
 
 function cardHTML(p){
