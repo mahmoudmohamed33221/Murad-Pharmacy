@@ -143,3 +143,62 @@ html,body{overflow-x:hidden}
 /* الكارت بقى div (الزرار بيوسّط محتواه رأسيًا): المحتوى ثابت من فوق */
 div.c{display:flex!important;flex-direction:column!important;justify-content:flex-start!important;align-items:stretch!important;align-content:flex-start!important}
 div.c .pic{margin:0!important;top:0}
+
+/* ===== الأسعار أكبر ===== */
+.pr,.pp .pv,.pc .rp .pv{font-size:1.45rem!important;font-weight:800;letter-spacing:.2px;line-height:1.25}
+.pp.big .pv{font-size:1.85rem!important}
+.pp s{font-size:1rem}
+.row .t small{font-size:1.05rem;font-weight:700}
+.total{font-size:1.5rem}
+.ord b{font-size:1.2rem}
+.offer-card .oprice{font-size:1.15rem}
+.go{font-size:1.1rem}
+
+/* ===== الوضع الداكن ===== */
+html[data-theme="dark"]{color-scheme:dark;--bk:#f2f2f2;--gr:#a9a9ae;--ln:#35353b;--bg:#0f0f11;--or-l:#2c1c0b}
+html[data-theme="dark"] body{background:#0f0f11;color:#f2f2f2}
+/* الأسطح البيضا تبقى سودا */
+html[data-theme="dark"] .c,html[data-theme="dark"] .search input,html[data-theme="dark"] .nav,
+html[data-theme="dark"] .panel,html[data-theme="dark"] .seg button,html[data-theme="dark"] .sheet,
+html[data-theme="dark"] .s3,html[data-theme="dark"] .card,html[data-theme="dark"] .cam,
+html[data-theme="dark"] .rw,html[data-theme="dark"] .cback,html[data-theme="dark"] .pcard,
+html[data-theme="dark"] .pc,html[data-theme="dark"] .tabs button.on,html[data-theme="dark"] details.raw pre,
+html[data-theme="dark"] .xd-card,html[data-theme="dark"] .xd-yes{background-color:#1c1c1f}
+html[data-theme="dark"] .search input{background-image:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23F57C00' stroke-width='2.2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M20 20l-3.5-3.5'/%3E%3C/svg%3E");color:#f2f2f2}
+html[data-theme="dark"] .search input::placeholder,html[data-theme="dark"] input::placeholder,html[data-theme="dark"] textarea::placeholder{color:#8d8d93}
+html[data-theme="dark"] input,html[data-theme="dark"] textarea,html[data-theme="dark"] select{background-color:#1c1c1f;color:#f2f2f2;border-color:#35353b}
+html[data-theme="dark"] .seg button{color:#f2f2f2}
+html[data-theme="dark"] .seg button.on{background:var(--or);border-color:var(--or);color:#fff}
+html[data-theme="dark"] .cback{color:#FF9A2E}
+html[data-theme="dark"] .nav{border-top-color:#2a2a2f;box-shadow:0 -2px 12px rgba(0,0,0,.5)}
+html[data-theme="dark"] .panel,html[data-theme="dark"] .card,html[data-theme="dark"] .c{box-shadow:0 2px 12px rgba(0,0,0,.45)}
+/* العناصر اللي كانت سودا بلون النص: تفضل سودا */
+html[data-theme="dark"] header,html[data-theme="dark"] .s2,html[data-theme="dark"] .bar{background:#141414}
+html[data-theme="dark"] .lnk,html[data-theme="dark"] .add,html[data-theme="dark"] .qty,html[data-theme="dark"] .toast,html[data-theme="dark"] .upd{background:#2a2a2e;color:#fff}
+html[data-theme="dark"] .lnk.w{background:#1f7a3a}
+html[data-theme="dark"] .cartbtn i{background:var(--gold-g);color:#1a1a1a;border-color:#141414}
+html[data-theme="dark"] .slide em{background:#fff;color:#141414}
+html[data-theme="dark"] .s2 em{background:var(--or);color:#fff}
+html[data-theme="dark"] .s3 em{background:var(--or);color:#fff}
+/* بلاطات الأيقونات والخلفيات الفاتحة الدافية */
+html[data-theme="dark"] .c .pic{background:linear-gradient(145deg,#2d2616,#1f1a0f)}
+html[data-theme="dark"] .ico,html[data-theme="dark"] .ico2,html[data-theme="dark"] .row .e{background:linear-gradient(145deg,#2d2616,#1f1a0f)}
+html[data-theme="dark"] .xd-ic{background:#3a2610}
+html[data-theme="dark"] .pm.big .pco{background:#2a2a2e;color:#f2f2f2}
+html[data-theme="dark"] .pm .ptype{background:linear-gradient(135deg,#3a2610,#2c1c0b)}
+html[data-theme="dark"] .pd{background:linear-gradient(135deg,#3a2e10,#2b220c);color:#f3d98a}
+html[data-theme="dark"] .ofr{background:linear-gradient(135deg,#2b2411,#201a0b);border-color:var(--gold)}
+html[data-theme="dark"] .ofr .ex,html[data-theme="dark"] .ofr.on .ex{background:rgba(255,255,255,.07)}
+html[data-theme="dark"] .hintx{color:#f3d98a}
+html[data-theme="dark"] .okk{color:#5ddc84}
+html[data-theme="dark"] .save{background:#12301c;color:#5ddc84;border-color:#1f6b38}
+html[data-theme="dark"] .track:empty{background:#1c1c1f}
+html[data-theme="dark"] .offer-empty{background:#1c1c1f;border-color:#4a4a50;color:#9b9ba1}
+html[data-theme="dark"] .danger{color:#ff6b6b;border-color:#ff6b6b}
+html[data-theme="dark"] .btn2{color:#FF9A2E}
+html[data-theme="dark"] .xd-yes{color:#ff6b6b;border-color:#5a2a26!important}
+/* الأسعار والبرتقالي: أفتح شوية عشان تبان على الأسود (الذهبي والبرتقالي الأساسيين زي ما هم) */
+html[data-theme="dark"] .pr,html[data-theme="dark"] .pp .pv,html[data-theme="dark"] .pc .rp .pv,
+html[data-theme="dark"] .ord b,html[data-theme="dark"] .total span:last-child{color:#FF9A2E}
+html[data-theme="dark"] .all{color:var(--gold)}
+/* صور المنتجات تفضل على خلفية بيضا زي الصور الأصلية */
