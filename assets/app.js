@@ -222,7 +222,7 @@ function cardHTML(p){
     const q = cart[p.id]||0;
     return `<div class="card ${q?"sel":""}" data-id="${p.id}">
       <div class="ico">${thumb(p)}${offerTag(p)}</div><div class="cat">${esc(p.cat)}</div>
-      <div class="nm">${esc(p.name)}</div>${metaHTML(p)}<div class="pr"><small class="pl">سعر العبوة الواحدة</small> ${fmt(p.price)}</div>
+      <div class="nm">${escN(p.name)}</div>${metaHTML(p)}<div class="pr"><small class="pl">سعر العبوة الواحدة</small> ${fmt(p.price)}</div>
       ${q? `<div class="qty"><button data-a="plus" data-i="${p.id}" aria-label="زيادة">+</button><span>${q.toLocaleString("ar-EG")}</span><button data-a="minus" data-i="${p.id}" aria-label="نقص">−</button></div>`
          : `<button class="add" ${p.out?"disabled":""} data-a="plus" data-i="${p.id}">${p.out?"غير متوفر":"أضف للسلة"}</button>`}
     </div>`;}
@@ -290,7 +290,7 @@ function cartView(){
      let hint = "";
      if(u==="b" && p.disc>0) hint = q>=p.min ? `<em class="okk">العرض شغال ✓ وفرت ${fmt(d)} على ${cnt(covered(p,q))}${p.inc>0&&q>p.inc?" — والباقي بالسعر العادي":""}</em>` : `<em class="hintx">ناقصك ${cnt(p.min-q)} عشان العرض يشتغل</em>`;
      return `<div class="row"><div class="e">${thumb(p)}</div>
-     <div class="t">${label(id)}<small>${d>0?`<s>${fmt(q*p.price)}</s> `:""}${fmt(lineTotal(id))}</small>${hint}</div>
+     <div class="t">${escN(label(id))}<small>${d>0?`<s>${fmt(q*p.price)}</s> `:""}${fmt(lineTotal(id))}</small>${hint}</div>
      <div class="qty"><button data-a="plus" data-i="${id}">+</button><span>${ar(q)}</span><button data-a="minus" data-i="${id}">−</button></div></div>`}).join("") +
      saveLine(sav)+
      `<div class="total"><span>الإجمالي</span><span>${fmt(s)}</span></div>
@@ -455,6 +455,8 @@ schedule(AUTO_MS);
 const ld = (k,d) => { try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch(e){ return d; } };
 const sv = (k,v) => { try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} };
 const esc = t => String(t||"").replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");
+// للعرض بس: اسم طويل متلزق بعلامة + أو / بيتكسر عند العلامة بدل ما يخرج بره الكارت
+const escN = t => esc(t).replace(/([+/،])(?=\S)/g,"$1\u200b");
 const PF = () => ld("mrad_profile",{name:"",phone:"",addr:""});
 function saveOrder(total){
   const list = ld("mrad_orders",[]);
@@ -504,7 +506,7 @@ const pick = {};
 const getPick = id => pick[id] || (pick[id] = {u:"b", n:1});
 function rowHTML(p){
   return `<div class="pcard ${p.out?"out":""}" data-id="${esc(p.id)}"><div class="pimg">${thumb(p)}${offerTag(p)}${p.out?'<span class="pout">غير متوفر</span>':""}</div>
-    <b class="pn">${esc(p.name)}</b>
+    <b class="pn">${escN(p.name)}</b>
     ${metaHTML(p)}
     <div class="pp"><small class="pl">سعر العبوة الواحدة</small><span class="pv">${fmt(p.price)}</span></div>
     ${p.disc>0?`<div class="pd">${offerLine(p)}</div>`:""}</div>`;
@@ -539,7 +541,7 @@ function productView(id){
               : `<em class="okk">العرض شغال ✓ وفرت ${fmt(d)} على ${cnt(covered(p,boxes))}${over>0?" — و"+cnt(over)+" الزيادة بالسعر العادي":""}</em>`)+`</div>`;
   }
   const dis = p.out?"disabled":"";
-  $("sheet").innerHTML = `<h2>${esc(p.name)} <button class="x" data-a="close" aria-label="إغلاق">✕</button></h2>
+  $("sheet").innerHTML = `<h2><span class="ttl">${escN(p.name)}</span> <button class="x" data-a="close" aria-label="إغلاق">✕</button></h2>
     <div class="pimg big">${thumb(p)}${offerTag(p)}</div>
     ${metaHTML(p,true)}
     <div class="pp big"><small class="pl">${isS?"سعر الشريط الواحد":"سعر العبوة الواحدة"}</small><span class="pv">${fmt(isS?stripPrice(p):p.price)}</span></div>
