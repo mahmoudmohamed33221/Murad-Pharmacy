@@ -58,7 +58,7 @@ function cleanUrl(u){
 function driveId(u){ const m=u.match(/\/d\/([\w-]{10,})/)||u.match(/[?&]id=([\w-]{10,})/); return (m && /drive\.google|docs\.google/.test(u)) ? m[1] : ""; }
 function driveAlts(u){
   u=cleanUrl(u); const id=driveId(u);
-  return id ? ["https://lh3.googleusercontent.com/d/"+id+"=w500","https://drive.google.com/uc?export=view&id="+id] : [];
+  return id ? ["https://lh3.googleusercontent.com/d/"+id+"=w500","https://drive.google.com/uc?export=view&id="+id,"https://drive.usercontent.google.com/download?id="+id+"&export=view"] : [];
 }
 function imgFail(im){ const a=(im.dataset.alts||"").split("|").filter(Boolean); if(a.length){ im.dataset.alts=a.slice(1).join("|"); im.src=a[0]; } else { try{ console.warn("الصورة مش بتفتح (اتأكد إن اللينك مباشر ومتاح للكل):", im.getAttribute("src")); }catch(_){} im.remove(); } }
 function driveImg(u){
