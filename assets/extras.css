@@ -91,4 +91,18 @@ body:not([data-view="home"]) .ft-contact{display:none}
 /* محاذاة السعر في أسفل الكارت عشان الكروت تبقى متساوية */
 .pcard .pn{min-height:2.7em;display:flex;align-items:center;justify-content:center}
 .pcard .pp{margin-top:auto}
-.pcard .pd{margin-top:0
+.pcard .pd{margin-top:0}
+
+/* أسماء طويلة: ماتخرجش بره الكارت أو النافذة */
+.card,.pcard,.sheet,.sheet h2,.sheet .t,.pcard .pn,.card .nm{min-width:0;overflow-wrap:anywhere;word-break:break-word}
+.pcard,.card{overflow:hidden}
+.sheet{overflow-x:hidden}
+.sheet h2 .ttl{min-width:0;flex:1 1 auto;overflow-wrap:anywhere;word-break:break-word;line-height:1.4}
+.sheet h2 .x{flex:0 0 auto;margin-inline-start:8px}
+.pcard .pn{min-width:0;max-width:100%;text-align:center}
+html,body{overflow-x:hidden}
+
+/* عنوان "العروض المتوفرة" فوق الإعلانات: في النص وتحته خط مدهب */
+.sec.sec-center{justify-content:center;text-align:center;margin:10px 2px 12px}
+.sec.sec-center h2::after{width:64px;height:3px;margin:7px auto 0}
+
