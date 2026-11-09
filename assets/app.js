@@ -224,7 +224,8 @@ try{ cart = JSON.parse(localStorage.getItem("mrad_cart")||"{}"); }catch(e){}
 const $ = id => document.getElementById(id);
 
 const save = () => { try{ localStorage.setItem("mrad_cart", JSON.stringify(cart)); }catch(e){} };
-const fmt = n => n.toLocaleString("ar-EG") + " " + CURRENCY;
+// الأسعار بأرقام إنجليزية واضحة (٥ العربي كان شبه ٠)
+const fmt = n => n.toLocaleString("en-US",{maximumFractionDigits:2}) + " " + CURRENCY;
 
 // تطبيع النص العربي عشان البحث يلاقي رغم اختلاف الهمزات والتشكيل
 const norm = s => s.toLowerCase().replace(/[\u064B-\u0652\u0640]/g,"")
@@ -561,6 +562,16 @@ $("saveProfile").onclick = ()=>{
 function setFs(px){ document.documentElement.style.fontSize = px+"px"; sv("mrad_fs",px); [...$("fsz").children].forEach(b=>b.classList.toggle("on", +b.dataset.f===+px)); }
 $("fsz").addEventListener("click", e=>{ const b=e.target.closest("[data-f]"); if(b) setFs(b.dataset.f); });
 setFs(ld("mrad_fs",16));
+// الوضع الداكن / الفاتح
+function setTheme(t){
+  t = t==="dark" ? "dark" : "light";
+  if(t==="dark") document.documentElement.setAttribute("data-theme","dark"); else document.documentElement.removeAttribute("data-theme");
+  try{ localStorage.setItem("mrad_theme", t); }catch(e){}
+  const m = document.querySelector('meta[name="theme-color"]'); if(m) m.setAttribute("content", "#141414");
+  [...$("thm").children].forEach(b=>b.classList.toggle("on", b.dataset.t===t));
+}
+$("thm").addEventListener("click", e=>{ const b=e.target.closest("[data-t]"); if(b) setTheme(b.dataset.t); });
+setTheme((()=>{ try{ return localStorage.getItem("mrad_theme"); }catch(e){ return "light"; } })());
 $("waLink").href = "https://wa.me/"+PHARMACY_PHONE;
 $("telLink").href = "tel:+"+PHARMACY_PHONE;
 $("wipe").onclick = ()=>{
