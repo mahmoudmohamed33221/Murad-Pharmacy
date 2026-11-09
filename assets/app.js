@@ -40,15 +40,31 @@ const fillIcons = () => document.querySelectorAll("[data-ic]").forEach(e=>{ e.in
 let PRODUCTS = [], BY = {}, CATIMG = {}, CATCOUNT = {};
 const P = id => BY[id];
 const stripPrice = p => p.stripPrice || Math.round(p.price/p.strips*100)/100;
-function driveAlts(u){
-  u=String(u||"").trim(); const m=u.match(/\/d\/([\w-]{10,})/)||u.match(/[?&]id=([\w-]{10,})/);
-  return (m && /drive\.google|docs\.google/.test(u)) ? ["https://lh3.googleusercontent.com/d/"+m[1]+"=w500","https://drive.google.com/uc?export=view&id="+m[1]] : [];
+// أي خلية فيها لينك: ناخد أول لينك فعلي منها (حتى لو فيه مسافات/سطر جديد/نص حواليه/صيغة =IMAGE) ونحوّل روابط الصفحات لروابط صور مباشرة
+function cleanUrl(u){
+  u = String(u||"").replace(/[\u200b-\u200f\u202a-\u202e\ufeff]/g,"").trim(); if(!u) return "";
+  const m = u.match(/https?:\/\/[^\s"'<>)]+/i);
+  if(m) u = m[0];
+  else if(/^(www\.)?[\w-]+(\.[\w-]+)+\/\S+/i.test(u)) u = "https://"+u;      // لينك من غير https
+  else if(/\.(png|jpe?g|webp|gif|avif)$/i.test(u) && !/\s/.test(u)) return u;    // اسم ملف جوه assets/products
+  else return "";
+  u = u.replace(/&amp;/g,"&");
+  let x;
+  if((x = u.match(/^https?:\/\/(?:www\.|m\.)?imgur\.com\/(?!a\/|gallery\/)(\w{5,8})(?:[?#].*)?$/i))) return "https://i.imgur.com/"+x[1]+".jpg";
+  if(/^https?:\/\/(www\.)?dropbox\.com\//i.test(u)) return u.replace(/^https?:\/\/(www\.)?dropbox\.com/i,"https://dl.dropboxusercontent.com").replace(/[?&]dl=\d/,"");
+  if((x = u.match(/^https?:\/\/github\.com\/([^/]+\/[^/]+)\/blob\/(.+)$/i))) return "https://raw.githubusercontent.com/"+x[1]+"/"+x[2];
+  return u;
 }
-function imgFail(im){ const a=(im.dataset.alts||"").split("|").filter(Boolean); if(a.length){ im.dataset.alts=a.slice(1).join("|"); im.src=a[0]; } else im.remove(); }
+function driveId(u){ const m=u.match(/\/d\/([\w-]{10,})/)||u.match(/[?&]id=([\w-]{10,})/); return (m && /drive\.google|docs\.google/.test(u)) ? m[1] : ""; }
+function driveAlts(u){
+  u=cleanUrl(u); const id=driveId(u);
+  return id ? ["https://lh3.googleusercontent.com/d/"+id+"=w500","https://drive.google.com/uc?export=view&id="+id] : [];
+}
+function imgFail(im){ const a=(im.dataset.alts||"").split("|").filter(Boolean); if(a.length){ im.dataset.alts=a.slice(1).join("|"); im.src=a[0]; } else { try{ console.warn("الصورة مش بتفتح (اتأكد إن اللينك مباشر ومتاح للكل):", im.getAttribute("src")); }catch(_){} im.remove(); } }
 function driveImg(u){
-  u=String(u||"").trim(); if(!u) return "";
-  const m=u.match(/\/d\/([\w-]{10,})/)||u.match(/[?&]id=([\w-]{10,})/);
-  if(m && /drive\.google|docs\.google/.test(u)) return "https://drive.google.com/thumbnail?id="+m[1]+"&sz=w500";
+  u=cleanUrl(u); if(!u) return "";
+  const id=driveId(u);
+  if(id) return "https://drive.google.com/thumbnail?id="+id+"&sz=w500";
   return /^https?:/.test(u) ? u : "assets/products/"+u;
 }
 // أرقام عربية/فارسية -> إنجليزية (والفاصلة العشرية العربية ٫ والآلاف ٬)
@@ -92,7 +108,7 @@ function parseCSV(t){
   return rows;
 }
 // الأعمدة: عمود القسم ("لينك القسم" أو "القسم") بعد "رابط الصوره": اللي بيتكتب جنب كل منتج هو اسم القسم، والأقسام بتتكوّن منه تلقائي.
-const HK = {"الرقم":"id","اسم المنتج":"name","علبه":"stock","شرايط":"sh","سعر العلبه":"price","سعر الشريط":"strip_price","رابط الصوره":"image","لينك القسم":"catimg","لينك العرض":"offerimg","رابط العرض":"offerimg","صوره العرض":"offerimg","بوستر العرض":"offerimg","لينك البوستر":"offerimg","رابط القسم":"catimg","صوره القسم":"catimg","لينك صوره القسم":"catimg","القسم":"cat","لينك الصوره":"image","الصوره":"image","صوره":"image","عرض خاص":"offer","عرض":"offer","قيمه الخصم":"disc","الخصم":"disc","الحد الادني":"min","الحد الادنى":"min","العدد المشمول":"inc","العدد المشمول بالخصم":"inc","عدد العلب المشمول":"inc","الاسم بالانجليزي":"alias","الاسم الانجليزي":"alias","اسم انجليزي":"alias","الاسم العلمي":"alias","الاسم التجاري":"alias","نوع المنتج":"type","النوع":"type","نوع":"type","الشكل الدوائي":"type","الشركه":"company","شركه":"company","اسم الشركه":"company","الشركه المصنعه":"company","الشركه المنتجه":"company","english":"alias","name_en":"alias"};
+const HK = {"الرقم":"id","اسم المنتج":"name","علبه":"stock","شرايط":"sh","سعر العلبه":"price","سعر الشريط":"strip_price","رابط الصوره":"image","لينك القسم":"catimg","لينك المجموعه":"catimg","رابط المجموعه":"catimg","صوره المجموعه":"catimg","لينك صوره المجموعه":"catimg","المجموعه":"cat","المجموعات":"cat","لينك العرض":"offerimg","رابط العرض":"offerimg","صوره العرض":"offerimg","بوستر العرض":"offerimg","لينك البوستر":"offerimg","رابط القسم":"catimg","صوره القسم":"catimg","لينك صوره القسم":"catimg","القسم":"cat","لينك الصوره":"image","الصوره":"image","صوره":"image","عرض خاص":"offer","عرض":"offer","قيمه الخصم":"disc","الخصم":"disc","الحد الادني":"min","الحد الادنى":"min","العدد المشمول":"inc","العدد المشمول بالخصم":"inc","عدد العلب المشمول":"inc","الاسم بالانجليزي":"alias","الاسم الانجليزي":"alias","اسم انجليزي":"alias","الاسم العلمي":"alias","الاسم التجاري":"alias","نوع المنتج":"type","النوع":"type","نوع":"type","الشكل الدوائي":"type","الشركه":"company","شركه":"company","اسم الشركه":"company","الشركه المصنعه":"company","الشركه المنتجه":"company","english":"alias","name_en":"alias"};
 // عمود "عرض خاص": أي قيمة معناها نعم => العرض شغال. لو اتكتب نص مخصص (مثلا "خصم ٢٠٪") بيظهر هو بدل "عرض خاص"
 const offerOf = v => { v=String(v==null?"":v).trim(); if(!v || /^(0|لا|no|false|-|x)$/i.test(norm(v))) return ""; return /^(1|نعم|yes|true|✓|✔|عرض|عرض خاص|اوفر|offer)$/i.test(norm(v)) ? "عرض خاص" : v; };
 // مطابقة عنوان العمود: الأول بالاسم بالظبط (بعد توحيد الهمزات)، وبعدين بالكلمة المفتاحية (أي عنوان فيه "قسم" أو "تصنيف" = القسم)
@@ -102,7 +118,7 @@ function headerKey(x){
   const n = norm(String(x==null?"":x)).replace(/\s+/g," "); if(!n) return "";
   if(HKN[n]) return HKN[n];
   if(/عرض|offer|poster|بوستر/.test(n) && /لينك|رابط|صور|link|image|url|بوستر|poster/.test(n)) return "offerimg";
-  if(/قسم|تصنيف|فئه|category/.test(n)) return /لينك|رابط|صور|link|image|url/.test(n) ? "catimg" : "cat";
+  if(/قسم|تصنيف|فئه|مجموع|category|group/.test(n)) return /لينك|رابط|صور|link|image|url/.test(n) ? "catimg" : "cat";
   if(/سعر/.test(n)) return /شريط|شرايط|شرائط|strip/.test(n) ? "strip_price" : "price";
   if(/^(شرايط|شرائط|عدد الشرايط|عدد الشرائط)$/.test(n)) return "sh";
   if(/صور|image/.test(n)) return "image";
@@ -467,9 +483,27 @@ window.addEventListener("load", ()=>{ if(N>1 && !drag && nearest()===0) jumpTo(1
 
 // ====== بناء العروض من الشيت: أي منتج عليه خصم (عمود قيمة الخصم) بيظهر كارت، و"لينك العرض" = صورة البوستر ======
 let offersSig = null;
+// تفاصيل العرض مكتوبة على الكارت: خصم على كل قطعة، أو اشتري كمية واحصل على خصم على كمية معينة
+function offerDetail(p){
+  const lines = [];
+  if(p.offer && p.offer!=="عرض خاص") lines.push(`<b class="otag">${esc(p.offer)}</b>`);
+  if(p.min<=1 && !(p.inc>0)) lines.push(`خصم <b>${discTxt(p)}</b> على كل علبة`);
+  else if(p.min<=1) lines.push(`خصم <b>${discTxt(p)}</b> على أول <b>${cnt(p.inc)}</b>`);
+  else if(p.inc>0) lines.push(`اشتري <b>${cnt(p.min)}</b> واحصل على خصم <b>${discTxt(p)}</b> على <b>${cnt(p.inc)}</b>`);
+  else lines.push(`اشتري <b>${cnt(p.min)}</b> أو أكتر واحصل على خصم <b>${discTxt(p)}</b> على كل العلب`);
+  if(p.price>0){
+    const unit = p.price - perBox(p);
+    lines.push(`<span class="oprice"><s>${fmt(p.price)}</s> ${fmt(Math.round(unit*100)/100)} للعلبة</span>`);
+  }
+  return lines.map(l=>`<p>${l}</p>`).join("");
+}
+// تدريج ألوان متنوع (من ألوان التطبيق) للكارت اللي ملوش صورة: ثابت لكل منتج حسب رقمه
+const OGRAD = ["linear-gradient(135deg,#F57C00,#FFB347)","linear-gradient(135deg,#B8862B,#E6C36A)","linear-gradient(135deg,#1F2933,#F57C00)","linear-gradient(135deg,#0F766E,#34B3A0)","linear-gradient(135deg,#C2410C,#F59E0B)","linear-gradient(135deg,#7C2D12,#EA580C)","linear-gradient(135deg,#334155,#C8A24A)","linear-gradient(135deg,#9A3412,#FDBA74)"];
+const hashS = t => { let h=0; t=String(t); for(let i=0;i<t.length;i++) h=(h*31+t.charCodeAt(i))|0; return Math.abs(h); };
 function offerCard(p){
   const img = p.offerImg ? `<img class="oimg" loading="lazy" decoding="async" src="${esc(p.offerImg)}" data-alts="${esc((p.offerAlts||[]).join("|"))}" alt="" referrerpolicy="no-referrer" onerror="imgFail(this)">` : "";
-  return `<button class="slide s1 offer-card" data-id="${esc(p.id)}" aria-label="${esc(p.name)}"><div class="ofb"><h3>${escN(p.name)}</h3><p>خصم ${discTxt(p)}</p><em>شاهد المنتج</em></div>${img}</button>`;
+  const bg = OGRAD[hashS(p.id+p.name)%OGRAD.length];
+  return `<button class="slide s1 offer-card" data-id="${esc(p.id)}" aria-label="${esc(p.name)}" style="background:${bg}"><div class="ofb"><h3>${escN(p.name)}</h3>${offerDetail(p)}<em>شاهد المنتج</em></div>${img}</button>`;
 }
 function buildOffers(){
   const list = PRODUCTS.filter(p=>p.disc>0);
