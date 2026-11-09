@@ -77,7 +77,8 @@ function normProduct(r,i){
   const k = sh>0 ? Math.max(1,Math.floor(sh)) : 1;
   const stock = Math.max(0,Math.floor(/^\s*\d+([.,]\d+)?\s*$/.test(toAscii(r.stock)) ? num(r.stock) : 0));   // فاضي/كلام = غير متوفر
   return { id:String(r.id||("p"+(i+1))).trim(), name, cat:String(r.cat||"").replace(/\s+/g," ").trim(), offer:offerOf(r.offer)||(dv>0?"عرض خاص":""), disc:dv, discPct:dpct, min:Math.max(1,Math.floor(num(r.min))||1), inc:Math.max(0,Math.floor(num(r.inc))||0), price:num(r.price), strips:k, stripPrice:num(r.strip_price),
-    img:driveImg(r.image), alts:driveAlts(r.image), catImg:driveImg(r.catimg), catAlts:driveAlts(r.catimg), alias:String(r.alias||"").trim(), type:String(r.type||"").replace(/\s+/g," ").trim(), company:String(r.company||"").replace(/\s+/g," ").trim(), stock, out:stock<=0 };
+    img:driveImg(r.image), alts:driveAlts(r.image), catImg:driveImg(r.catimg), catAlts:driveAlts(r.catimg),
+    offerImg:driveImg(r.offerimg).replace("sz=w500","sz=w1200"), offerAlts:driveAlts(r.offerimg).map(u=>u.replace("=w500","=w1200")), alias:String(r.alias||"").trim(), type:String(r.type||"").replace(/\s+/g," ").trim(), company:String(r.company||"").replace(/\s+/g," ").trim(), stock, out:stock<=0 };
 }
 function parseCSV(t){
   const rows=[]; let r=[], c="", q=false;
@@ -90,7 +91,7 @@ function parseCSV(t){
   return rows;
 }
 // الأعمدة: عمود القسم ("لينك القسم" أو "القسم") بعد "رابط الصوره": اللي بيتكتب جنب كل منتج هو اسم القسم، والأقسام بتتكوّن منه تلقائي.
-const HK = {"الرقم":"id","اسم المنتج":"name","علبه":"stock","شرايط":"sh","سعر العلبه":"price","سعر الشريط":"strip_price","رابط الصوره":"image","لينك القسم":"catimg","رابط القسم":"catimg","صوره القسم":"catimg","لينك صوره القسم":"catimg","القسم":"cat","لينك الصوره":"image","الصوره":"image","صوره":"image","عرض خاص":"offer","عرض":"offer","قيمه الخصم":"disc","الخصم":"disc","الحد الادني":"min","الحد الادنى":"min","العدد المشمول":"inc","العدد المشمول بالخصم":"inc","عدد العلب المشمول":"inc","الاسم بالانجليزي":"alias","الاسم الانجليزي":"alias","اسم انجليزي":"alias","الاسم العلمي":"alias","الاسم التجاري":"alias","نوع المنتج":"type","النوع":"type","نوع":"type","الشكل الدوائي":"type","الشركه":"company","شركه":"company","اسم الشركه":"company","الشركه المصنعه":"company","الشركه المنتجه":"company","english":"alias","name_en":"alias"};
+const HK = {"الرقم":"id","اسم المنتج":"name","علبه":"stock","شرايط":"sh","سعر العلبه":"price","سعر الشريط":"strip_price","رابط الصوره":"image","لينك القسم":"catimg","لينك العرض":"offerimg","رابط العرض":"offerimg","صوره العرض":"offerimg","بوستر العرض":"offerimg","لينك البوستر":"offerimg","رابط القسم":"catimg","صوره القسم":"catimg","لينك صوره القسم":"catimg","القسم":"cat","لينك الصوره":"image","الصوره":"image","صوره":"image","عرض خاص":"offer","عرض":"offer","قيمه الخصم":"disc","الخصم":"disc","الحد الادني":"min","الحد الادنى":"min","العدد المشمول":"inc","العدد المشمول بالخصم":"inc","عدد العلب المشمول":"inc","الاسم بالانجليزي":"alias","الاسم الانجليزي":"alias","اسم انجليزي":"alias","الاسم العلمي":"alias","الاسم التجاري":"alias","نوع المنتج":"type","النوع":"type","نوع":"type","الشكل الدوائي":"type","الشركه":"company","شركه":"company","اسم الشركه":"company","الشركه المصنعه":"company","الشركه المنتجه":"company","english":"alias","name_en":"alias"};
 // عمود "عرض خاص": أي قيمة معناها نعم => العرض شغال. لو اتكتب نص مخصص (مثلا "خصم ٢٠٪") بيظهر هو بدل "عرض خاص"
 const offerOf = v => { v=String(v==null?"":v).trim(); if(!v || /^(0|لا|no|false|-|x)$/i.test(norm(v))) return ""; return /^(1|نعم|yes|true|✓|✔|عرض|عرض خاص|اوفر|offer)$/i.test(norm(v)) ? "عرض خاص" : v; };
 // مطابقة عنوان العمود: الأول بالاسم بالظبط (بعد توحيد الهمزات)، وبعدين بالكلمة المفتاحية (أي عنوان فيه "قسم" أو "تصنيف" = القسم)
@@ -99,6 +100,7 @@ function headerKey(x){
   if(!HKN) HKN = Object.fromEntries(Object.entries(HK).map(([k,v])=>[norm(k).replace(/\s+/g," "),v]));
   const n = norm(String(x==null?"":x)).replace(/\s+/g," "); if(!n) return "";
   if(HKN[n]) return HKN[n];
+  if(/عرض|offer|poster|بوستر/.test(n) && /لينك|رابط|صور|link|image|url|بوستر|poster/.test(n)) return "offerimg";
   if(/قسم|تصنيف|فئه|category/.test(n)) return /لينك|رابط|صور|link|image|url/.test(n) ? "catimg" : "cat";
   if(/سعر/.test(n)) return /شريط|شرايط|شرائط|strip/.test(n) ? "strip_price" : "price";
   if(/^(شرايط|شرائط|عدد الشرايط|عدد الشرائط)$/.test(n)) return "sh";
@@ -187,7 +189,7 @@ async function syncProducts(force){
     PRODUCTS.forEach(p=>{ p._hc = norm(p.name+" "+p.alias+" "+p.type+" "+p.company); p._h = norm(p.cat)+" "+p._hc; });
     const cc = {}; PRODUCTS.forEach(p=>{ cc[p.cat] = (cc[p.cat]||0)+1; }); CATCOUNT = cc;
     for(const k in cart){ if(!P(String(k).split(":")[0])) delete cart[k]; }
-    refresh();
+    refresh(); buildOffers();
     if(!$("v-search").hidden) nameSearch();
     if(!$("v-cat").hidden){ if(PRODUCTS.some(p=>p.cat===curCat)) catSearch(); else show("home"); }
     if($("ov").classList.contains("show") && $("sheet").dataset.v==="cart") cartView();
@@ -353,13 +355,10 @@ document.addEventListener("keydown", e=>{ if(e.key==="Escape") close(); });
 // ====== شريط العروض ======
 const AUTO_MS = 3000;   // التنقل التلقائي كل 3 ثواني
 const USER_MS = 5000;   // بعد تحريك العميل بإيده: ينتظر 5 ثواني
-const track = $("track"), real = [...track.children], N = real.length;
+const track = $("track");
+let real = [], N = 0, slides = [], dots = [];
 // نسخة من آخر عرض في البداية ونسخة من أول عرض في النهاية => دوران لا نهائي في الاتجاهين
 const mk = el => { const c = el.cloneNode(true); c.setAttribute("aria-hidden","true"); c.tabIndex = -1; return c; };
-track.prepend(mk(real[N-1])); track.append(mk(real[0]));
-const slides = [...track.children];            // [نسخة آخر، 1..N، نسخة أول]
-$("dots").innerHTML = real.map(()=>"<i></i>").join("");
-const dots = [...$("dots").children];
 let cur = 0, timer = null, tok = 0, ticking = false;
 
 const realIdx = i => ((i-1)%N+N)%N;
@@ -380,9 +379,10 @@ function fx(){
   });
 }
 // نقل فوري (بدون حركة) لعرض معين ويتوسط
-function jumpTo(i){ track.scrollLeft += offset(i); mark(i); fx(); }
+function jumpTo(i){ if(N<2){ fx(); return; } track.scrollLeft += offset(i); mark(i); fx(); }
 // النسخة مطابقة للعرض الحقيقي، فننقل الصفحة بنفس المسافة بالظبط: الانتقال غير ملحوظ
 function wrapCheck(){
+  if(N<2) return false;
   const n = nearest();
   if(n !== 0 && n !== N+1) return false;
   const tgt = n === 0 ? N : 1;
@@ -400,11 +400,12 @@ function animateBy(delta, ms=600){
   })(t0);
 }
 function step(){
+  if(N<2) return;
   wrapCheck();
   animateBy(offset(nearest()+1));
   schedule(AUTO_MS);
 }
-function schedule(ms){ clearTimeout(timer); if(document.body.dataset.view !== "home") return; timer = setTimeout(step, ms); }
+function schedule(ms){ clearTimeout(timer); if(N<2 || document.body.dataset.view !== "home") return; timer = setTimeout(step, ms); }
 const stop = () => { clearTimeout(timer); tok++; };
 
 track.addEventListener("scroll", ()=>{
@@ -415,6 +416,7 @@ track.addEventListener("scroll", ()=>{
 // ====== السحب باليد: كل سحبة = عرض واحد بالظبط مهما كانت قوتها ======
 let drag = null, wasDrag = false;
 track.addEventListener("pointerdown", e=>{
+  if(N<2) return;
   if(e.pointerType === "mouse" && e.button !== 0) return;
   stop(); wrapCheck();
   drag = {x:e.clientX, sl:track.scrollLeft, i:nearest(), t:performance.now(), moved:false, id:e.pointerId};
@@ -440,15 +442,34 @@ function endDrag(e){
 track.addEventListener("pointerup", endDrag);
 track.addEventListener("pointercancel", endDrag);
 document.addEventListener("visibilitychange", ()=>document.hidden?stop():schedule(AUTO_MS));
-window.addEventListener("resize", ()=>jumpTo(Math.min(Math.max(nearest(),1),N)));
+window.addEventListener("resize", ()=>{ if(N>1) jumpTo(Math.min(Math.max(nearest(),1),N)); });
 track.addEventListener("click", e=>{
   if(wasDrag) return;
   const s = e.target.closest(".slide"); if(!s) return;
-  show("search"); setTab("name"); $("q").value = s.dataset.q; nameSearch();
+  if(s.dataset.id && P(s.dataset.id)) productView(s.dataset.id);      // الضغط على العرض يفتح المنتج نفسه
 });
-jumpTo(1);                                             // ابدأ على أول عرض حقيقي
-window.addEventListener("load", ()=>{ if(!drag && nearest()===0) jumpTo(1); });
-schedule(AUTO_MS);
+window.addEventListener("load", ()=>{ if(N>1 && !drag && nearest()===0) jumpTo(1); });
+
+// ====== بناء العروض من الشيت: أي منتج عليه خصم (عمود قيمة الخصم) بيظهر كارت، و"لينك العرض" = صورة البوستر ======
+const MAX_OFFERS = 20;
+let offersSig = null;
+function offerCard(p){
+  const img = p.offerImg ? `<img class="oimg" src="${esc(p.offerImg)}" data-alts="${esc((p.offerAlts||[]).join("|"))}" alt="" referrerpolicy="no-referrer" onerror="imgFail(this)">` : "";
+  return `<button class="slide s1 offer-card" data-id="${esc(p.id)}" aria-label="${esc(p.name)}"><div class="ofb"><h3>${escN(p.name)}</h3><p>خصم ${discTxt(p)}</p><em>شاهد المنتج</em></div>${img}</button>`;
+}
+function buildOffers(){
+  const list = PRODUCTS.filter(p=>p.disc>0).slice(0,MAX_OFFERS);
+  const sig = list.map(p=>[p.id,p.name,p.disc,p.offerImg].join("~")).join("|");
+  if(sig === offersSig) return; offersSig = sig;
+  stop(); track.scrollLeft = 0;
+  track.innerHTML = list.length ? list.map(offerCard).join("") : `<div class="slide offer-empty"><span>لا توجد أي عروض حاليًا</span></div>`;
+  real = [...track.children]; N = list.length;
+  if(N>1){ track.prepend(mk(real[N-1])); track.append(mk(real[0])); }
+  slides = [...track.children];                  // [نسخة آخر، 1..N، نسخة أول]
+  $("dots").innerHTML = N>1 ? real.map(()=>"<i></i>").join("") : "";
+  dots = [...$("dots").children]; cur = 0;
+  if(!$("v-home").hidden){ requestAnimationFrame(()=>{ if(N>1){ jumpTo(1); schedule(AUTO_MS); } else fx(); }); }
+}
 
 
 // ====== التنقل السفلي: الرئيسية / حسابي / الإعدادات ======
