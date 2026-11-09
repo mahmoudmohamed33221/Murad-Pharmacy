@@ -59,3 +59,36 @@ footer.ft{padding:0;margin-top:30px;color:inherit;font-size:1rem;text-align:cent
 /* في باقي الصفحات (غير الرئيسية) بيظهر الحقوق بس */
 body:not([data-view="home"]) .ft-gold.g1,
 body:not([data-view="home"]) .ft-contact{display:none}
+
+/* ===== نوع المنتج + الشركة على كروت المنتجات ===== */
+.pm{display:flex;flex-direction:column;align-items:center;gap:5px;margin:2px 0 4px}
+.pm .ptype{display:inline-flex;align-items:center;gap:5px;max-width:100%;background:linear-gradient(135deg,#FFF1DE,#FFE2B8);
+  color:var(--or-d);border-radius:999px;padding:3px 11px;font-size:.8rem;font-weight:800;line-height:1.4}
+.pm .pco{display:inline-flex;align-items:center;justify-content:center;gap:5px;max-width:100%;color:#6a6a6a;
+  font-size:.8rem;font-weight:600;line-height:1.35}
+.pm .ic{width:14px;height:14px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.pm .pco .ic{color:var(--or)}
+.pm.big{flex-direction:row;flex-wrap:wrap;justify-content:center;gap:8px;margin:12px 0 2px}
+.pm.big .ptype{font-size:.92rem;padding:5px 14px}
+.pm.big .pco{font-size:.92rem;background:#f3f3f3;border-radius:999px;padding:5px 14px}
+
+/* ===== رسالة تأكيد الخروج ===== */
+.xd{position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;padding:24px;
+  background:rgba(10,10,10,.55);opacity:0;transition:opacity .2s ease}
+.xd[hidden]{display:none}
+.xd.on{opacity:1}
+.xd-card{width:100%;max-width:340px;background:#fff;border-radius:26px;padding:28px 22px 22px;text-align:center;
+  border-top:4px solid #C8A24A;box-shadow:0 20px 50px rgba(0,0,0,.35);transform:translateY(14px) scale(.96);transition:transform .25s cubic-bezier(.22,.8,.24,1)}
+.xd.on .xd-card{transform:none}
+.xd-ic{width:62px;height:62px;margin:0 auto 14px;border-radius:50%;display:grid;place-items:center;background:#FFF1DE;color:var(--or)}
+.xd-ic svg{width:30px;height:30px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.xd-card h3{font-size:1.3rem;font-weight:800;color:#141414;line-height:1.5}
+.xd-card p{margin-top:6px;color:#6a6a6a;font-size:.98rem;line-height:1.7}
+.xd-btns{display:flex;gap:10px;margin-top:22px}
+.xd-btns button{flex:1;min-height:52px;border-radius:16px;font:inherit;font-weight:800;font-size:1.05rem;cursor:pointer;border:2px solid transparent}
+.xd-yes{background:#fff;color:#C0392B;border-color:#E8C4BF!important}
+.xd-no{background:var(--or);color:#fff;box-shadow:0 6px 16px rgba(245,124,0,.3)}
+/* محاذاة السعر في أسفل الكارت عشان الكروت تبقى متساوية */
+.pcard .pn{min-height:2.7em;display:flex;align-items:center;justify-content:center}
+.pcard .pp{margin-top:auto}
+.pcard .pd{margin-top:0
