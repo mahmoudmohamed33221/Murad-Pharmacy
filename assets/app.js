@@ -645,23 +645,24 @@ function pvAct(a,val,n){
 $("sheet").addEventListener("click", e=>{ const b = e.target.closest("[data-pv]"); if(!b || b.tagName==="INPUT") return; pvAct(b.dataset.pv, null, +b.dataset.n||0); });
 $("sheet").addEventListener("change", e=>{ if(e.target.dataset && e.target.dataset.pv==="inp") pvAct("inp", e.target.value); });
 document.addEventListener("click", e=>{ const c = e.target.closest(".pcard"); if(c && !c.classList.contains("out")){ pvFromOffer = false; productView(c.dataset.id); } });
+// تطابق صوتي: "panadol" = "بنادول" و "senor" = "سنيور" = "سينيور" (بنقارن بصمة الحروف الساكنة لكل كلمة)
+function phon(p,w){
+  if(!/[a-zء-ي]/.test(w)) return false;
+  const kw = skel(w); if(kw.length<3) return false;
+  const sks = p._sk2 || (p._sk2 = norm(p.name+" "+p.alias).split(/\s+/).map(skel).filter(k=>k.length>=2));
+  return sks.some(k=>k===kw || k.startsWith(kw));
+}
 function nameSearch(){
   const raw = $("q").value, t = norm(raw).split(/\s+/).filter(Boolean), box = $("sres");
   if(!t.length){ box.innerHTML = `<div class="empty"><b>${svg("search")}</b>اكتب اسم الدواء أو المنتج (عربي أو إنجليزي)</div>`; return; }
-  const list = []; for(const p of PRODUCTS){ if(t.every(w=>p._h.includes(w))){ list.push(p); if(list.length>=40) break; } }
+  const list = [], seen = new Set();
+  for(const p of PRODUCTS){ if(t.every(w=>p._h.includes(w))){ list.push(p); seen.add(p); if(list.length>=40) break; } }          // تطابق حرفي الأول
+  if(list.length<40) for(const p of PRODUCTS){ if(!seen.has(p) && t.every(w=>p._h.includes(w) || phon(p,w))){ list.push(p); if(list.length>=40) break; } }  // وبعده التطابق الصوتي (عربي <-> إنجليزي)
   box.innerHTML = list.length ? list.map(rowHTML).join("") : `<div class="empty"><b>${svg("search")}</b>مفيش نتيجة لـ "${esc(raw)}"<br>جرّب اسم تاني أو صوّر العلبة</div>`;
 }
-const debounce = (f,ms)=>{ let t; return (...a)=>{ clearTimeout(t); t = setTimeout(()=>f(...a),ms); }; };
-$("q").addEventListener("input", debounce(nameSearch,150));
-
-// ====== صفحة القسم: منتجات القسم + بحث خاص بالقسم بس ======
-let curCat = "";
-const CAT_PAGE = 40;
-let catList = [], catShown = 0;
-const moreBtn = n => `<button class="go" id="catMore" style="display:block;margin:14px auto">عرض المزيد (${n.toLocaleString("ar-EG")} متبقي)</button>`;
 function catSearch(){
   const t = norm($("cq").value).split(/\s+/).filter(Boolean);
-  catList = PRODUCTS.filter(p=>p.cat===curCat && t.every(w=>p._hc.includes(w)));
+  catList = PRODUCTS.filter(p=>p.cat===curCat && t.every(w=>p._hc.includes(w) || phon(p,w)));
   catShown = Math.min(CAT_PAGE, catList.length);
   $("ccount").textContent = catList.length ? catList.length.toLocaleString("ar-EG")+" منتج" : "";
   $("cres").innerHTML = catList.length ? catList.slice(0,catShown).map(rowHTML).join("") + (catShown<catList.length ? moreBtn(catList.length-catShown) : "")
@@ -711,8 +712,7 @@ function lev(a,b){
 function matchText(text){
   const nt = norm(text), raw = nt.split(/[^a-z0-9ء-ي]+/).filter(w=>w.length>=3);
   const words = [...new Set(raw.filter(w=>w.length>=4))];
-  const pairs = raw.slice(1).map((w,i)=>raw[i]+w);                              // الخط اليدوي بيتقطع (Pana dol): بندمج كل كلمتين ورا بعض
-  const wk = [...new Set(raw.concat(pairs).map(skel).filter(k=>k.length>=4))], out = [];
+  const wk = [...new Set(raw.map(skel).filter(k=>k.length>=4))], out = [];
   PRODUCTS.forEach(p=>{
     const toks = p._tk || (p._tk = [...new Set(norm(p.name+" "+p.alias).split(/\s+/).filter(t=>t.length>=3 && !/^\d+$/.test(t) && !STOP.has(t)))]);
     const sks = p._sk || (p._sk = toks.map(skel));
@@ -722,15 +722,14 @@ function matchText(text){
       const k = sks[ti];
       if(k.length<4 || STOPK.has(k)){ return; }                                      // بصمات قصيرة بتتطابق مع أي خربشة: نتجاهلها
       if(wk.includes(k)) sc += 3;                                                    // نفس البصمة الصوتية (عربي/إنجليزي)
-      else if(k.length>=5 && wk.some(x=>lev(x,k)<=1)) sc += 2;                       // قريبة بحرف واحد (أخطاء القراءة)
     });
     if(sc>0) out.push({p,sc});
   });
   out.sort((a,b)=>b.sc-a.sc);
   const best = out.length ? out[0].sc : 0;
   // نعرض بس النتايج القوية: لو مفيش تطابق واضح منعرضش حاجة بدل ما نطلّع أدوية ملهاش علاقة
-  const min = best>=3 ? Math.ceil(best*0.6) : 2;
-  const list = best<2 ? [] : out.filter(r=>r.sc>=min).slice(0,10).map(r=>r.p);
+  const min = Math.ceil(best*0.6);
+  const list = best<3 ? [] : out.filter(r=>r.sc>=min).slice(0,10).map(r=>r.p);
   list.best = best; return list;
 }
 // --- قراءة الصورة ---
