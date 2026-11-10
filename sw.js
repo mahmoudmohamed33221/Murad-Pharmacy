@@ -4,7 +4,7 @@ const BUILD = "__BUILD__";
 const CACHE = "murad-pharmacy-" + BUILD;
 const IMG_CACHE = "murad-img-v1";
 const SHELL = ["./", "index.html", "config.js", "assets/style.css", "assets/app.js", "assets/logo.png",
-  "assets/intro.css", "assets/intro.js", "assets/intro-logo.png", "assets/intro-logo-dark.png", "assets/extras.css", "assets/footer.js", "assets/backnav.js", "assets/register.css", "assets/register.js", "assets/guard.js",
+  "assets/intro.css", "assets/intro.js", "assets/intro-logo.png", "assets/intro-logo-dark.png", "assets/extras.css", "assets/footer.js", "assets/backnav.js", "assets/register.css", "assets/register.js", "assets/guard.js", "assets/orders.js", "assets/orders.css",
   "manifest.webmanifest", "assets/icons/icon-192.png", "assets/icons/icon-512.png"];
 
 self.addEventListener("install", e => {
