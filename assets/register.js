@@ -17,6 +17,65 @@
     "دمياط", "بورسعيد", "الإسماعيلية", "السويس", "شمال سيناء", "جنوب سيناء", "الفيوم", "بني سويف", "المنيا", "أسيوط",
     "سوهاج", "قنا", "الأقصر", "أسوان", "البحر الأحمر", "الوادي الجديد", "مطروح"];
 
+  var GOV_GROUPS = [
+    ["القاهرة الكبرى", ["القاهرة", "الجيزة", "القليوبية"]],
+    ["الإسكندرية والساحل", ["الإسكندرية", "البحيرة", "مطروح"]],
+    ["الدلتا", ["الشرقية", "الدقهلية", "الغربية", "المنوفية", "كفر الشيخ", "دمياط"]],
+    ["القناة وسيناء", ["بورسعيد", "الإسماعيلية", "السويس", "شمال سيناء", "جنوب سيناء"]],
+    ["الصعيد", ["الفيوم", "بني سويف", "المنيا", "أسيوط", "سوهاج", "قنا", "الأقصر", "أسوان"]],
+    ["البحر الأحمر والوادي الجديد", ["البحر الأحمر", "الوادي الجديد"]]
+  ];
+  var PIN = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s7-5.6 7-11a7 7 0 0 0-14 0c0 5.4 7 11 7 11z"/><circle cx="12" cy="10" r="2.6"/></svg>';
+  var CHEV = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
+  var gvEl = null;
+  function govSheet() {
+    if (gvEl) return gvEl;
+    gvEl = document.createElement("div"); gvEl.id = "gvSheet"; gvEl.hidden = true;
+    gvEl.setAttribute("role", "dialog"); gvEl.setAttribute("aria-modal", "true");
+    gvEl.innerHTML = '<div class="gv-card"><div class="gv-h"><b>اختار المحافظة</b><button type="button" class="gv-x" aria-label="إغلاق">✕</button></div>' +
+      '<div class="gv-s"><input type="search" id="gvQ" placeholder="ابحث عن محافظتك" autocomplete="off"></div><div class="gv-body" id="gvBody"></div></div>';
+    document.body.appendChild(gvEl);
+    gvEl.addEventListener("click", function (e) {
+      if (e.target === gvEl || e.target.closest(".gv-x")) { closeGov(); return; }
+      var b = e.target.closest("[data-g]"); if (b) pickGov(b.getAttribute("data-g"));
+    });
+    gvEl.querySelector("#gvQ").addEventListener("input", function () { paintGov(this.value); });
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape" && !gvEl.hidden) closeGov(); });
+    return gvEl;
+  }
+  function normAr(s) { return String(s || "").replace(/[\u064B-\u0652\u0640]/g, "").replace(/[أإآ]/g, "ا").replace(/ة/g, "ه").replace(/ى/g, "ي").trim(); }
+  function paintGov(q) {
+    var cur = els.gov.input.value, nq = normAr(q), html = "";
+    GOV_GROUPS.forEach(function (g) {
+      var items = g[1].filter(function (n) { return !nq || normAr(n).indexOf(nq) >= 0; });
+      if (!items.length) return;
+      html += '<div class="gv-g"><h4>' + g[0] + '</h4><div class="gv-grid">' + items.map(function (n) {
+        return '<button type="button" class="gv-i' + (n === cur ? " on" : "") + '" data-g="' + n + '"><span>' + n + '</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>';
+      }).join("") + '</div></div>';
+    });
+    gvEl.querySelector("#gvBody").innerHTML = html || '<div class="gv-none">مفيش محافظة بالاسم ده</div>';
+  }
+  function openGov() {
+    govSheet(); gvEl.querySelector("#gvQ").value = ""; paintGov("");
+    gvEl.hidden = false; requestAnimationFrame(function () { gvEl.classList.add("on"); });
+    var on = gvEl.querySelector(".gv-i.on"); if (on) setTimeout(function () { on.scrollIntoView({ block: "center" }); }, 60);
+  }
+  function closeGov() {
+    if (!gvEl || gvEl.hidden) return;
+    gvEl.classList.remove("on"); setTimeout(function () { gvEl.hidden = true; }, 200);
+    touched.gov = true; paint("gov");
+  }
+  function setGov(v) {
+    els.gov.input.value = v || "";
+    var b = document.getElementById("rg-govbtn");
+    if (b) { b.querySelector(".gv-t").textContent = v || "اختار المحافظة"; b.classList.toggle("has", !!v); }
+  }
+  function pickGov(v) {
+    setGov(v); els.gov.input.dispatchEvent(new Event("change"));
+    gvEl.classList.remove("on"); setTimeout(function () { gvEl.hidden = true; }, 200);
+    touched.gov = true; paint("gov"); refreshBtn();
+  }
+
   // ===== أدوات التنضيف =====
   function latinDigits(s) {
     return String(s == null ? "" : s)
@@ -177,8 +236,7 @@
           fieldHTML("name", "الاسم الرباعي", '<input id="rg-name" type="text" autocomplete="name" placeholder="مثال: محمد أحمد علي حسن" maxlength="60">') +
           fieldHTML("phone", "رقم الموبايل", '<input id="rg-phone" type="tel" inputmode="numeric" autocomplete="tel" placeholder="01xxxxxxxxx" maxlength="11">') +
           fieldHTML("phone2", "تأكيد رقم الموبايل", '<input id="rg-phone2" type="tel" inputmode="numeric" autocomplete="off" placeholder="أعد كتابة الرقم" maxlength="11">') +
-          fieldHTML("gov", "المحافظة", '<select id="rg-gov" autocomplete="address-level1"><option value="" selected disabled>اختار المحافظة</option>' +
-            GOVS.map(function (g) { return '<option value="' + g + '">' + g + '</option>'; }).join("") + '</select>') +
+          fieldHTML("gov", "المحافظة", '<input type="hidden" id="rg-gov"><button type="button" class="rg-pick" id="rg-govbtn" aria-haspopup="dialog"><span class="gv-pin">' + PIN + '</span><span class="gv-t">اختار المحافظة</span><span class="gv-chev">' + CHEV + '</span></button>') +
           fieldHTML("addr", "العنوان بالتفصيل", '<textarea id="rg-addr" rows="3" autocomplete="street-address" placeholder="مثال: الزقازيق - شارع الجمهورية - عمارة 5 - الدور الثالث - شقة 8" maxlength="250"></textarea>') +
           fieldHTML("landmark", "علامة مميزة", '<input id="rg-landmark" type="text" autocomplete="off" placeholder="مثال: بجوار مسجد الرحمن" maxlength="120">') +
           '<button class="rg-go" id="rg-go" type="button" disabled>حفظ والدخول للتطبيق</button>' +
@@ -195,6 +253,8 @@
       });
       els[k].input.addEventListener("blur", function () { touched[k] = true; paint(k); });
     });
+    els.gov.input.focus = function () { var b = document.getElementById("rg-govbtn"); if (b) b.focus(); };
+    document.getElementById("rg-govbtn").onclick = openGov;
     document.getElementById("rg-go").onclick = submit;
   }
   function errOf(k) {
@@ -229,7 +289,7 @@
     touched = {};
     els.name.input.value = cleanName(p.name); els.phone.input.value = digits(p.phone).slice(0, 11);
     els.phone2.input.value = ""; els.addr.input.value = cleanAddr(p.addr);
-    els.gov.input.value = GOVS.indexOf(p.gov) >= 0 ? p.gov : ""; els.landmark.input.value = cleanLandmark(p.landmark);
+    setGov(GOVS.indexOf(p.gov) >= 0 ? p.gov : ""); els.landmark.input.value = cleanLandmark(p.landmark);
     // بيانات قديمة ناقصة/غلط: نوريله إيه المطلوب تعديله علطول
     if (els.name.input.value) touched.name = true;
     if (els.phone.input.value) touched.phone = true;
