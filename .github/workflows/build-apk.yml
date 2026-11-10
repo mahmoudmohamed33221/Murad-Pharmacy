@@ -33,6 +33,14 @@ jobs:
           npx cap add android
           npx cap sync android
 
+      - name: Native uninstall plugin (إلغاء التثبيت لما حالة البرنامج = حذف)
+        run: |
+          D=android-app/android/app/src/main/java/com/muradpharmacy/app
+          mkdir -p "$D"
+          cp android-app/native/*.java "$D/"
+          M=android-app/android/app/src/main/AndroidManifest.xml
+          sed -i 's#<application#<uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />\n    <application#' $M
+
       - name: Permissions (camera) + launcher icons
         run: |
           M=android-app/android/app/src/main/AndroidManifest.xml
