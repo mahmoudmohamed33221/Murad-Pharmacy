@@ -1,0 +1,76 @@
+/* مشترياتي + النافيجيشن بـ 5 أزرار */
+.nav .ind{width:20%}
+.nav button{position:relative}
+.nav .nb{position:absolute;top:6px;right:calc(50% - 20px);min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--gold-g,#C8A24A);color:#1a1a1a;
+  font-size:.66rem;font-weight:800;line-height:18px;text-align:center;border:2px solid var(--wh)}
+html[data-theme="dark"] .nav .nb{border-color:#1c1c1f}
+
+#v-orders{padding-bottom:20px}
+.od-head{margin:6px 2px 12px;text-align:right}
+.od-head h2{display:inline-block;font-size:1.1rem;font-weight:800}
+.od-head h2::after{content:"";display:block;width:100%;height:3px;margin-top:5px;border-radius:3px;background:var(--gold-g,linear-gradient(135deg,#EBD695,#C8A24A 55%,#A8842E))}
+#od-active{min-height:34vh;display:flex;flex-direction:column;gap:12px}
+.od-divider{height:1px;margin:18px 0 16px;background:linear-gradient(90deg,transparent,var(--gold,#C8A24A),transparent);border:0}
+.od-empty{margin:auto;text-align:center;color:var(--gr);font-weight:700;padding:30px 12px;line-height:1.8}
+.od-empty.sm{font-weight:500;padding:18px 12px}
+#od-done{display:flex;flex-direction:column;gap:12px}
+
+.od-card{background:var(--wh);border-radius:18px;padding:14px;box-shadow:0 3px 14px rgba(20,20,20,.06);border:1px solid var(--ln);border-inline-start:4px solid var(--or)}
+.od-card.dn{border-inline-start-color:#2e7d32}
+html[data-theme="dark"] .od-card{background:#1c1c1f;border-color:#2b2b30;border-inline-start-color:var(--or);box-shadow:0 2px 12px rgba(0,0,0,.45)}
+html[data-theme="dark"] .od-card.dn{border-inline-start-color:#3aa55a}
+.od-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.od-bon{font-size:1.02rem;font-weight:800;display:block}
+.od-top small{display:block;color:var(--gr);font-size:.8rem;margin-top:2px}
+.od-chip{display:inline-flex;align-items:center;gap:4px;white-space:nowrap;padding:5px 11px;border-radius:20px;font-size:.78rem;font-weight:800;background:var(--or-l);color:var(--or-d)}
+.od-chip svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.od-chip.s-delivering{background:#e8f6d4;color:#3b6d0a}
+.od-chip.s-completed{background:#e3f4e6;color:#1f7a3a}
+.od-chip.s-queued{background:#eee;color:#666}
+html[data-theme="dark"] .od-chip{background:#3a2610;color:#FF9A2E}
+html[data-theme="dark"] .od-chip.s-delivering{background:#25330f;color:#b8ef5a}
+html[data-theme="dark"] .od-chip.s-completed{background:#12301c;color:#5ddc84}
+html[data-theme="dark"] .od-chip.s-queued{background:#2a2a2e;color:#aaa}
+
+.od-steps{display:flex;margin:14px 0 4px}
+.od-st{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;position:relative;text-align:center;font-size:.68rem;color:var(--gr);font-weight:600;line-height:1.35}
+.od-st i{width:22px;height:22px;border-radius:50%;border:2px solid var(--ln);background:var(--wh);display:grid;place-items:center;font-style:normal;font-size:.7rem;font-weight:800;color:#fff;position:relative;z-index:1}
+html[data-theme="dark"] .od-st i{background:#1c1c1f;border-color:#3a3a40}
+.od-st::before{content:"";position:absolute;top:10px;left:50%;width:100%;height:2px;background:var(--ln)}
+.od-st:first-child::before{display:none}
+html[data-theme="dark"] .od-st::before{background:#3a3a40}
+.od-st.done i{background:var(--or);border-color:var(--or)}
+.od-st.done::before,.od-st.now::before{background:var(--or)}
+.od-st.now i{border-color:var(--or);box-shadow:0 0 0 4px rgba(245,124,0,.2);background:var(--wh)}
+.od-st.now i::after{content:"";width:8px;height:8px;border-radius:50%;background:var(--or);animation:odp 1.2s infinite}
+html[data-theme="dark"] .od-st.now i{background:#1c1c1f}
+.od-st.now,.od-st.done{color:var(--bk)}
+@keyframes odp{50%{transform:scale(.55);opacity:.5}}
+.od-wait{margin:12px 0 4px;padding:10px 12px;border-radius:12px;background:var(--or-l);color:var(--or-d);font-size:.84rem;font-weight:600;line-height:1.6}
+.od-warn{margin-top:10px;padding:9px 12px;border-radius:12px;background:#fdecea;color:#c62828;font-weight:700;font-size:.85rem}
+html[data-theme="dark"] .od-warn{background:#3a1613;color:#ff8a80}
+.od-eta{display:flex;align-items:center;gap:7px;margin-top:10px;font-size:.88rem;font-weight:600}
+.od-eta svg,.od-meta svg{width:18px;height:18px;fill:none;stroke:var(--gold-d,#9C7A2B);stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.od-eta b{color:var(--or-d)}
+html[data-theme="dark"] .od-eta b{color:#FF9A2E}
+.od-pilot{display:flex;align-items:center;gap:10px;margin-top:10px;padding:10px;border-radius:14px;background:var(--bg)}
+html[data-theme="dark"] .od-pilot{background:#141416}
+.od-pilot .pi{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:var(--or-l)}
+.od-pilot .pi svg{width:22px;height:22px;fill:none;stroke:var(--or-d);stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.od-pilot div{flex:1;line-height:1.35}
+.od-pilot small{display:block;color:var(--gr);font-size:.74rem}
+.od-pilot b{font-size:.95rem}
+.pcall{width:40px;height:40px;border-radius:50%;background:var(--or);display:grid;place-items:center;box-shadow:0 4px 12px rgba(245,124,0,.35)}
+.pcall svg{width:19px;height:19px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.od-meta{display:flex;align-items:center;gap:7px;margin-top:8px;font-size:.84rem;color:var(--gr)}
+.od-meta b{color:var(--bk)}
+.od-items{list-style:none;margin:12px 0 0;padding:10px 12px;border-radius:12px;background:var(--bg);font-size:.86rem;line-height:1.9}
+html[data-theme="dark"] .od-items{background:#141416}
+.od-items li{padding-right:14px;position:relative}
+.od-items li::before{content:"";position:absolute;right:0;top:.78em;width:5px;height:5px;border-radius:50%;background:var(--gold,#C8A24A)}
+.od-tot{display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding-top:10px;border-top:1px dashed var(--ln);font-weight:700}
+.od-tot b{color:var(--or-d);font-size:1.1rem}
+html[data-theme="dark"] .od-tot{border-top-color:#35353b}
+html[data-theme="dark"] .od-tot b{color:#FF9A2E}
+html[data-theme="dark"] .od-st.done i{background:var(--or);border-color:var(--or)}
+html[data-theme="dark"] .od-st.done::before,html[data-theme="dark"] .od-st.now::before{background:var(--or)}
