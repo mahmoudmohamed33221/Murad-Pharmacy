@@ -113,6 +113,7 @@
     var pend = readPend();
     var base = pend ? (pend.oldPhone || "") : (oldPhone || "");   // الصف اللي لسه موجود في الشيت (لو الرقم اتغير)
     lsSet(PEND, JSON.stringify({ action: "saveCustomer", name: p.name, phone: p.phone, gov: p.gov || "", addr: p.addr, landmark: p.landmark || "",
+      device: (window.MuradGuard && window.MuradGuard.device && window.MuradGuard.device()) || "",
       oldPhone: base && base !== p.phone ? base : "" }));
   }
   function flush() {
@@ -215,6 +216,7 @@
     KEYS.forEach(function (k) { touched[k] = true; paint(k); if (!firstBad && errOf(k)) firstBad = k; });
     if (firstBad) { els[firstBad].input.focus(); return; }
     var prof = saveProfile({ name: els.name.input.value, phone: els.phone.input.value, gov: els.gov.input.value, addr: els.addr.input.value, landmark: els.landmark.input.value });
+    try { if (window.MuradGuard) window.MuradGuard.recheck(); } catch (e) {}   // لو الرقم ده محظور في الشيت: الحظر يظهر فورًا
     closeReg();
     if (document.body.dataset.view === "account" && typeof window.accountView === "function") window.accountView();
     var first = nameParts(prof.name)[0] || "";
