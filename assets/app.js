@@ -338,14 +338,15 @@ function checkoutView(){
 }
 function send(){
   const n=$("fn").value.trim(), p=$("fp").value.trim(), a=$("fa").value.trim(), o=$("fo").value.trim();
-  if(!n||!p||!a){ $("err").style.display="block"; return; }
+  const R = window.MuradReg, ve = R ? (R.errName(n)||R.errPhone(p)||R.errAddr(a)) : "";
+  if(!n||!p||!a||ve){ $("err").textContent = ve || "من فضلك اكتب الاسم ورقم الموبايل والعنوان."; $("err").style.display="block"; return; }
   const {s,sav} = totals();
   let msg = `*طلب جديد - صيدليات د/ مراد صادق*\n\n`;
   for(const id in cart) msg += `• ${label(id)} × ${cart[id]} = ${lineTotal(id)} ${CURRENCY}\n`;
   if(sav>0) msg += `\nوفّر العميل: ${sav} ${CURRENCY}\n`;
   msg += `\n*الإجمالي: ${s} ${CURRENCY}*\n\nالاسم: ${n}\nالموبايل: ${p}\nالعنوان: ${a}` + (o?`\nملاحظات: ${o}`:"");
   window.open(`https://wa.me/${PHARMACY_PHONE}?text=${encodeURIComponent(msg)}`,"_blank");
-  saveOrder(s); sv("mrad_profile",{name:n,phone:p,addr:a});
+  saveOrder(s); if(R) R.saveProfile({name:n,phone:p,addr:a}); else sv("mrad_profile",{name:n,phone:p,addr:a});
   cart = {}; refresh();
   $("sheet").innerHTML = `<div class="done"><b>${svg("check")}</b><h2 style="border:0;justify-content:center">تم تجهيز طلبك</h2>
     <p style="color:var(--gr)">أكمل إرسال الرسالة في واتساب وهنتواصل معاك لتأكيد التوصيل.</p></div>
@@ -559,8 +560,12 @@ function show(v){
 }
 $("nav").addEventListener("click", e=>{ const b=e.target.closest("[data-v]"); if(b) show(b.dataset.v); });
 $("saveProfile").onclick = ()=>{
-  sv("mrad_profile",{name:$("an").value.trim(),phone:$("ap").value.trim(),addr:$("aa").value.trim()});
-  $("pok").textContent = "✓ تم حفظ بياناتك، وهتتعبى تلقائي في الطلب الجاي";
+  const n=$("an").value.trim(), p=$("ap").value.trim(), a=$("aa").value.trim(), R=window.MuradReg;
+  const ve = R ? (R.errName(n)||R.errPhone(p)||R.errAddr(a)) : "";
+  if(ve){ $("pok").style.color="#c62828"; $("pok").textContent = ve; return; }
+  if(R){ const pr = R.saveProfile({name:n,phone:p,addr:a}); $("an").value=pr.name; $("ap").value=pr.phone; $("aa").value=pr.addr; }
+  else sv("mrad_profile",{name:n,phone:p,addr:a});
+  $("pok").style.color=""; $("pok").textContent = "✓ تم حفظ بياناتك، وهتتعبى تلقائي في الطلب الجاي";
 };
 // الإعدادات
 function setFs(px){ document.documentElement.style.fontSize = px+"px"; sv("mrad_fs",px); [...$("fsz").children].forEach(b=>b.classList.toggle("on", +b.dataset.f===+px)); }
@@ -582,6 +587,7 @@ $("wipe").onclick = ()=>{
   if(!confirm("هتتمسح بياناتك وطلباتك والسلة. متأكد؟")) return;
   try{ ["mrad_profile","mrad_orders","mrad_cart","mrad_fs"].forEach(k=>localStorage.removeItem(k)); }catch(e){}
   cart = {}; refresh(); setFs(16);
+  if(window.MuradReg) window.MuradReg.check();   // البيانات اتمسحت: نرجّع شاشة التسجيل
 };
 document.body.dataset.view = "home";
 
