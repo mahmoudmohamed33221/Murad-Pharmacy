@@ -9,9 +9,11 @@
 // نفس شيت المشروع (شيت المنتجات)، وهيكتب في ورقة "العملاء" اللي جواه.
 var SPREADSHEET_ID = "199-5mWgHEsepqmA8b5CmONGD8sBGctxKyoKBeFN-Otk";
 var TAB_NAME = "العملاء";
-// ترتيب الأعمدة (ثابت بالمكان): 1 رقم | 2 اسم العميل | 3 رقم تليفون العميل | 4 العنوان بالتفصيل | 5 لوكيشن العميل | 6 حالة العميل | 7 حالة البرنامج للعميل
-var HEADERS = ["رقم", "اسم العميل", "رقم تليفون العميل", "العنوان بالتفصيل", "لوكيشن العميل", "حالة العميل", "حالة البرنامج للعميل"];
-var C_NUM = 1, C_NAME = 2, C_PHONE = 3, C_ADDR = 4;   // لوكيشن وحالة العميل وحالة البرنامج: فاضيين لحد ما نحدد شغلهم
+// ترتيب الأعمدة (ثابت بالمكان): 1 الرقم | 2 اسم العميل | 3 رقم الهاتف | 4 العنوان بالتفصيل | 5 لوكيشن العميل | 6 التعاملات | 7 حالة العميل | 8 حالة البرنامج
+var HEADERS = ["الرقم", "اسم العميل", "رقم الهاتف", "العنوان بالتفصيل", "لوكيشن العميل", "التعاملات", "حالة العميل", "حالة البرنامج"];
+var C_NUM = 1, C_NAME = 2, C_PHONE = 3, C_ADDR = 4, C_LOC = 5, C_DEALS = 6, C_STATUS = 7, C_PROG = 8;
+// القيم الافتراضية للعميل الجديد بس (العميل القديم مبنلمسش التعاملات ولا الحالات بتاعته)
+var DEF_DEALS = 0, DEF_STATUS = "جيد", DEF_PROG = "يعمل";
 
 function doGet() { return out_({ ok: true, service: "murad-customers" }); }
 
@@ -33,13 +35,21 @@ function saveCustomer_(d) {
   // ===== تحقق من جهة السيرفر (نفس شروط التطبيق) =====
   var name = String(d.name || "").replace(/[\u064B-\u0652\u0640]/g, "").replace(/[^A-Za-z\u0621-\u063A\u0641-\u064A\s]/g, "").replace(/\s+/g, " ").trim();
   var phone = normPhone_(d.phone), oldPhone = d.oldPhone ? normPhone_(d.oldPhone) : "";
-  var addr = String(d.addr || "").replace(/\s+/g, " ").trim();
-  if (nameParts_(name) < 4 || !/^01[0125]\d{8}$/.test(phone) || addr.length < 12 || addr.length > 250) {
+  var gov = String(d.gov || "").replace(/\s+/g, " ").trim();
+  var detail = String(d.addr || "").replace(/\s+/g, " ").trim();
+  var landmark = String(d.landmark || "").replace(/\s+/g, " ").trim();
+  if (nameParts_(name) < 4 || !/^01[0125]\d{8}$/.test(phone) || detail.length < 12 || detail.length > 250 || gov.length > 40 || landmark.length > 120) {
     return { ok: false, error: "invalid" };
   }
+  // العنوان في خلية واحدة: كل حاجة في سطر لوحدها تحت بعض (المحافظة / العنوان بالتفصيل / العلامة المميزة)
+  var lines = [];
+  if (gov) lines.push("المحافظة: " + gov);
+  lines.push("العنوان: " + detail);
+  if (landmark) lines.push("علامة مميزة: " + landmark);
+  var addr = lines.join("\n");
 
   var ss = SPREADSHEET_ID ? SpreadsheetApp.openById(SPREADSHEET_ID) : SpreadsheetApp.getActiveSpreadsheet();
-  var sh = ss.getSheetByName(TAB_NAME) || ss.insertSheet(TAB_NAME);
+  var sh = getTab_(ss);
   if (sh.getLastRow() === 0) {                 // ورقة فاضية: نكتب العناوين (لو انت كاتبها بنسيبها زي ما هي)
     sh.getRange(1, 1, 1, HEADERS.length).setValues([HEADERS]).setFontWeight("bold");
     sh.setFrozenRows(1);
@@ -52,18 +62,33 @@ function saveCustomer_(d) {
   if (row) {                                   // عميل موجود: تحديث بياناته بس (الرقم والحالات بتفضل زي ما هي)
     sh.getRange(row, C_NAME).setValue(name);
     sh.getRange(row, C_PHONE).setNumberFormat("@").setValue(phone);
-    sh.getRange(row, C_ADDR).setValue(addr);
+    sh.getRange(row, C_ADDR).setValue(addr).setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP).setVerticalAlignment("middle");
     return { ok: true, updated: true };
   }
   row = Math.max(sh.getLastRow(), 1) + 1;      // عميل جديد
   sh.getRange(row, C_NUM).setValue(nextNumber_(sh));
   sh.getRange(row, C_NAME).setValue(name);
   sh.getRange(row, C_PHONE).setNumberFormat("@").setValue(phone);
-  sh.getRange(row, C_ADDR).setValue(addr);
+  sh.getRange(row, C_ADDR).setValue(addr).setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP).setVerticalAlignment("middle");
+  sh.getRange(row, C_DEALS).setValue(DEF_DEALS);          // التعاملات: 0 (مبنلعبش فيها بعد كده)
+  sh.getRange(row, C_STATUS).setValue(DEF_STATUS);        // حالة العميل: جيد
+  sh.getRange(row, C_PROG).setValue(DEF_PROG);            // حالة البرنامج: يعمل
+  sh.getRange(row, 1, 1, HEADERS.length).setVerticalAlignment("middle");
+  SpreadsheetApp.flush();
   return { ok: true, created: true };
 }
 
 // ===== أدوات =====
+// بيدور على ورقة "العملاء" حتى لو فيها مسافة زيادة أو اختلاف بسيط في الكتابة (ا/أ، ة/ه)
+function getTab_(ss) {
+  var sh = ss.getSheetByName(TAB_NAME);
+  if (sh) return sh;
+  var want = tabKey_(TAB_NAME), all = ss.getSheets();
+  for (var i = 0; i < all.length; i++) if (tabKey_(all[i].getName()) === want) return all[i];
+  return ss.insertSheet(TAB_NAME);
+}
+function tabKey_(n) { return String(n).replace(/\s+/g, "").replace(/[أإآ]/g, "ا").replace(/ة/g, "ه").replace(/ى/g, "ي"); }
+
 function out_(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
 
 function nameParts_(n) {
