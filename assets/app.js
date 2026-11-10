@@ -711,7 +711,8 @@ function lev(a,b){
 function matchText(text){
   const nt = norm(text), raw = nt.split(/[^a-z0-9ء-ي]+/).filter(w=>w.length>=3);
   const words = [...new Set(raw.filter(w=>w.length>=4))];
-  const wk = [...new Set(raw.map(skel).filter(k=>k.length>=3))], out = [];
+  const pairs = raw.slice(1).map((w,i)=>raw[i]+w);                              // الخط اليدوي بيتقطع (Pana dol): بندمج كل كلمتين ورا بعض
+  const wk = [...new Set(raw.concat(pairs).map(skel).filter(k=>k.length>=4))], out = [];
   PRODUCTS.forEach(p=>{
     const toks = p._tk || (p._tk = [...new Set(norm(p.name+" "+p.alias).split(/\s+/).filter(t=>t.length>=3 && !/^\d+$/.test(t) && !STOP.has(t)))]);
     const sks = p._sk || (p._sk = toks.map(skel));
@@ -719,14 +720,18 @@ function matchText(text){
     toks.forEach((t,ti)=>{
       if(t.length>=4 && nt.includes(t)){ sc+=3; return; }
       const k = sks[ti];
-      if(k.length<3 || STOPK.has(k)){ return; }
+      if(k.length<4 || STOPK.has(k)){ return; }                                      // بصمات قصيرة بتتطابق مع أي خربشة: نتجاهلها
       if(wk.includes(k)) sc += 3;                                                    // نفس البصمة الصوتية (عربي/إنجليزي)
-      else if(k.length>=4 && wk.some(x=>lev(x,k)<=1)) sc += 2;                       // قريبة بحرف واحد (أخطاء القراءة)
-      else if(t.length>=5 && words.some(w=>lev(w,t) <= (t.length>=7?2:1))) sc += 1;
+      else if(k.length>=5 && wk.some(x=>lev(x,k)<=1)) sc += 2;                       // قريبة بحرف واحد (أخطاء القراءة)
     });
     if(sc>0) out.push({p,sc});
   });
-  return out.sort((a,b)=>b.sc-a.sc).slice(0,10).map(r=>r.p);
+  out.sort((a,b)=>b.sc-a.sc);
+  const best = out.length ? out[0].sc : 0;
+  // نعرض بس النتايج القوية: لو مفيش تطابق واضح منعرضش حاجة بدل ما نطلّع أدوية ملهاش علاقة
+  const min = best>=3 ? Math.ceil(best*0.6) : 2;
+  const list = best<2 ? [] : out.filter(r=>r.sc>=min).slice(0,10).map(r=>r.p);
+  list.best = best; return list;
 }
 // --- قراءة الصورة ---
 let tesLoad = null;
@@ -760,6 +765,18 @@ function prepImage(file){
     im.onerror = rej; im.src = u;
   });
 }
+function inkImage(src){
+  const w=src.width, h=src.height, c=document.createElement("canvas"); c.width=w; c.height=h;
+  const x=c.getContext("2d"), d=src.getContext("2d").getImageData(0,0,w,h), a=d.data;
+  const I=new Float64Array((w+1)*(h+1));                                  // integral image لمتوسط الإضاءة المحلي
+  for(let y=1;y<=h;y++){ let row=0; for(let xx=1;xx<=w;xx++){ row+=a[((y-1)*w+xx-1)*4]; I[y*(w+1)+xx]=I[(y-1)*(w+1)+xx]+row; } }
+  const r=Math.max(12,Math.round(Math.min(w,h)/18)), out=x.createImageData(w,h), o=out.data;
+  for(let y=0;y<h;y++){ const y0=Math.max(0,y-r), y1=Math.min(h,y+r+1);
+    for(let xx=0;xx<w;xx++){ const x0=Math.max(0,xx-r), x1=Math.min(w,xx+r+1);
+      const m=(I[y1*(w+1)+x1]-I[y0*(w+1)+x1]-I[y1*(w+1)+x0]+I[y0*(w+1)+x0])/((x1-x0)*(y1-y0));
+      const v=a[(y*w+xx)*4]<m*0.72?0:255, i=(y*w+xx)*4; o[i]=o[i+1]=o[i+2]=v; o[i+3]=255; } }
+  x.putImageData(out,0,0); return c;
+}
 async function ocrLang(canvas, lang, base, span, prog){
   const w = await Tesseract.createWorker(lang, 1, {logger:m=>{ if(m.status==="recognizing text") prog(base+m.progress*span,"جاري قراءة الصورة..."); }});
   try{
@@ -790,12 +807,16 @@ async function scan(file){
     const c = await prepImage(file);
     $("prev").src = c.toDataURL("image/jpeg",.7); $("prev").hidden = false;
     const text = await readText(c,(p,m)=>{ pgb.style.width = Math.max(3,Math.round(p*100))+"%"; stx.textContent = m; });
-    const list = matchText(text);
+    let list = matchText(text), fullText = text;
+    if(!list.length && !RECOGNIZE_URL){                                    // محاولة تانية مخصوص للخط اليدوي / الورق المسطّر
+      try{ const t2 = await readText(inkImage(c),(p,m)=>{ pgb.style.width = Math.max(3,Math.round(p*100))+"%"; stx.textContent = "محاولة تانية لقراءة الخط اليدوي..."; });
+           fullText = text+"\n"+t2; list = matchText(fullText); }catch(_){}
+    }
     stat.hidden = true;
     out.innerHTML = list.length
       ? `<div class="found"><h2>لقينا ${list.length.toLocaleString("ar-EG")} ${list.length>2?"أدوية":"دواء"}</h2></div>`+`<div class="pgrid">${list.map(rowHTML).join("")}</div>`+
-        `<button class="go" id="addAll">أضف الكل للسلة</button>`+rawBox(text)
-      : `<div class="empty"><b>${svg("search")}</b>مقدرناش نتعرف على اسم دواء واضح<br>جرب صورة أقرب وأوضح، أو ابحث بالاسم</div><button class="go" id="toName">ابحث بالاسم</button>`+rawBox(text);
+        `<button class="go" id="addAll">أضف الكل للسلة</button>`+rawBox(fullText)
+      : `<div class="empty"><b>${svg("search")}</b>مقدرناش نتعرف على اسم دواء واضح<br>الخط اليدوي صعب على القارئ. جرب صورة أقرب وأوضح، أو ابحث بالاسم</div><button class="go" id="toName">ابحث بالاسم</button>`+rawBox(fullText);
     out._list = list;
   }catch(err){
     stat.hidden = true;
