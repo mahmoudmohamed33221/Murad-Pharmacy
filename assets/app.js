@@ -344,7 +344,7 @@ function send(){
   let msg = `*طلب جديد - صيدليات د/ مراد صادق*\n\n`;
   for(const id in cart) msg += `• ${label(id)} × ${cart[id]} = ${lineTotal(id)} ${CURRENCY}\n`;
   if(sav>0) msg += `\nوفّر العميل: ${sav} ${CURRENCY}\n`;
-  msg += `\n*الإجمالي: ${s} ${CURRENCY}*\n\nالاسم: ${n}\nالموبايل: ${p}\nالعنوان: ${a}` + (o?`\nملاحظات: ${o}`:"");
+  msg += `\n*الإجمالي: ${s} ${CURRENCY}*\n\nالاسم: ${n}\nالموبايل: ${p}` + (PF().gov?`\nالمحافظة: ${PF().gov}`:"") + `\nالعنوان: ${a}` + (PF().landmark?`\nعلامة مميزة: ${PF().landmark}`:"") + (o?`\nملاحظات: ${o}`:"");
   window.open(`https://wa.me/${PHARMACY_PHONE}?text=${encodeURIComponent(msg)}`,"_blank");
   saveOrder(s); if(R) R.saveProfile({name:n,phone:p,addr:a}); else sv("mrad_profile",{name:n,phone:p,addr:a});
   cart = {}; refresh();
@@ -533,7 +533,7 @@ const sv = (k,v) => { try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e)
 const esc = t => String(t||"").replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");
 // للعرض بس: اسم طويل متلزق بعلامة + أو / بيتكسر عند العلامة بدل ما يخرج بره الكارت
 const escN = t => esc(t).replace(/([+/،])(?=\S)/g,"$1\u200b");
-const PF = () => ld("mrad_profile",{name:"",phone:"",addr:""});
+const PF = () => ld("mrad_profile",{name:"",phone:"",gov:"",addr:"",landmark:""});
 function saveOrder(total){
   const list = ld("mrad_orders",[]);
   const items = Object.keys(cart).map(id=>`${label(id)} × ${cart[id]}`);
