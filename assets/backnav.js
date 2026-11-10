@@ -9,7 +9,7 @@
 
   var ov = document.getElementById("ov");
   var dlg = document.getElementById("exitDlg");
-  var TABS = { search: 1, account: 1, settings: 1 };
+  var TABS = { search: 1, orders: 1, account: 1, settings: 1 };
   var HOME = { d: 0, v: "home" };
   var popping = false, exiting = false;
   var shown = function () { return ov.classList.contains("show"); };
