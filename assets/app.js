@@ -346,6 +346,7 @@ function send(){
   if(sav>0) msg += `\nوفّر العميل: ${sav} ${CURRENCY}\n`;
   msg += `\n*الإجمالي: ${s} ${CURRENCY}*\n\nالاسم: ${n}\nالموبايل: ${p}` + (PF().gov?`\nالمحافظة: ${PF().gov}`:"") + `\nالعنوان: ${a}` + (PF().landmark?`\nعلامة مميزة: ${PF().landmark}`:"") + (o?`\nملاحظات: ${o}`:"");
   window.open(`https://wa.me/${PHARMACY_PHONE}?text=${encodeURIComponent(msg)}`,"_blank");
+  if(window.Orders) window.Orders.add({name:n,phone:R?R.digits(p):p,gov:PF().gov||"",addr:a,landmark:PF().landmark||"",notes:o,total:s,items:Object.keys(cart).map(id=>`${label(id)} × ${cart[id]} = ${lineTotal(id)} ${CURRENCY}`)});
   saveOrder(s); if(R) R.saveProfile({name:n,phone:p,addr:a}); else sv("mrad_profile",{name:n,phone:p,addr:a});
   cart = {}; refresh();
   $("sheet").innerHTML = `<div class="done"><b>${svg("check")}</b><h2 style="border:0;justify-content:center">تم تجهيز طلبك</h2>
@@ -546,7 +547,7 @@ function accountView(){
   $("orders").innerHTML = list.length ? list.map(o=>`<div class="ord"><div>${esc(o.d)}<small>${o.items.map(esc).join("، ")}</small></div><b>${fmt(o.total)}</b></div>`).join("")
     : `<div class="empty" style="padding:20px 0"><b>${svg("receipt")}</b>لسه ما عملتش أي طلب</div>`;
 }
-const VIEWS = ["home","search","account","settings"];
+const VIEWS = ["home","search","orders","account","settings"];
 function show(v){
   [...VIEWS,"cat"].forEach(x=>{ $("v-"+x).hidden = (x!==v); });
   document.body.dataset.view = v;
@@ -557,6 +558,7 @@ function show(v){
   window.scrollTo(0,0);
   if(v==="home"){ requestAnimationFrame(()=>{ jumpTo(1); schedule(AUTO_MS); }); } else stop();
   if(v==="account") accountView();
+  if(v==="orders" && window.Orders) window.Orders.open();
 }
 $("nav").addEventListener("click", e=>{ const b=e.target.closest("[data-v]"); if(b) show(b.dataset.v); });
 $("saveProfile").onclick = ()=>{
@@ -585,8 +587,8 @@ $("waLink").href = "https://wa.me/"+PHARMACY_PHONE;
 $("telLink").href = "tel:+"+PHARMACY_PHONE;
 $("wipe").onclick = ()=>{
   if(!confirm("هتتمسح بياناتك وطلباتك والسلة. متأكد؟")) return;
-  try{ ["mrad_profile","mrad_orders","mrad_cart","mrad_fs"].forEach(k=>localStorage.removeItem(k)); }catch(e){}
-  cart = {}; refresh(); setFs(16);
+  try{ ["mrad_profile","mrad_orders","mrad_orders2","mrad_cart","mrad_fs"].forEach(k=>localStorage.removeItem(k)); }catch(e){}
+  cart = {}; refresh(); setFs(16); if(window.Orders) window.Orders.reset();
   if(window.MuradReg) window.MuradReg.check();   // البيانات اتمسحت: نرجّع شاشة التسجيل
 };
 document.body.dataset.view = "home";
