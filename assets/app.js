@@ -124,7 +124,7 @@ function headerKey(x){
   if(/صور|image/.test(n)) return "image";
   return "";
 }
-async function loadProducts(){
+async function loadProducts(cacheOnly){
   const KEY = "mrad_products_cache3", S = CFG.SHEET || {}, useSheet = CFG.PRODUCTS_SOURCE==="sheet" && S.ID;
   const TABS = (S.TABS && S.TABS.length) ? S.TABS : [S.TAB||"Products"], SEP = "\n\u0001TAB\u0001\n";
   const rowsFromOneCSV = text => {
@@ -156,7 +156,11 @@ async function loadProducts(){
   };
   const rowsFromJson = text => { const j = JSON.parse(text); return j.products||j; };
   let text = null, rows = null;
-  try{
+  if(cacheOnly){                                                         // عرض فوري من آخر نسخة محفوظة (من غير انتظار الإنترنت)
+    let c = null; try{ c = localStorage.getItem(KEY); }catch(_){}
+    if(!c) return null;
+    try{ rows = useSheet ? rowsFromCSV(c) : rowsFromJson(c); text = c; }catch(_){ return null; }
+  } else try{
     if(useSheet){
       const texts = await Promise.all(TABS.map(async tab=>{
         const r = await fetch(`https://docs.google.com/spreadsheets/d/${S.ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tab)}&_=${Date.now()}`,{cache:"no-store"});
@@ -189,12 +193,12 @@ async function loadProducts(){
 }
 // تحديث تلقائي: بنسحب الشيت كل دقيقة وكل ما التطبيق يرجع للشاشة، ولو في تغيير بنحدّث الأقسام والمنتجات من غير ما تقفل التطبيق
 let lastSig = "", syncing = false, lastRun = 0;
-async function syncProducts(force){
+async function syncProducts(force, cacheOnly){
   if(syncing) return;
   if(!force && Date.now()-lastRun < 15000) return;     // ماتسحبش الشيت أكتر من مرة كل ١٥ ثانية
-  syncing = true; lastRun = Date.now();
+  syncing = true; if(!cacheOnly) lastRun = Date.now();
   try{
-    const list = await loadProducts();
+    const list = await loadProducts(cacheOnly);
     if(!list) return;                           // مفيش تغيير: متلمسش الشاشة
     lastSig = list.sig; PRODUCTS = list;
     // الأقسام من عمود القسم: نفس الاسم (بغض النظر عن الهمزة/المسافات) = قسم واحد. لو مفيش ولا قسم في الشيت => "أدوية"
@@ -212,7 +216,7 @@ async function syncProducts(force){
     if($("ov").classList.contains("show") && $("sheet").dataset.v==="cart") cartView();
   } finally { syncing = false; }
 }
-const boot = () => syncProducts(true).catch(()=>{});
+const boot = async () => { try{ await syncProducts(true,true); }catch(e){} syncProducts(true).catch(()=>{}); };
 setInterval(()=>{ if(!document.hidden) syncProducts(true).catch(()=>{}); }, 60000);
 document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) syncProducts().catch(()=>{}); });
 window.addEventListener("focus", ()=>syncProducts().catch(()=>{}));
@@ -660,6 +664,15 @@ function nameSearch(){
   if(list.length<40) for(const p of PRODUCTS){ if(!seen.has(p) && t.every(w=>p._h.includes(w) || phon(p,w))){ list.push(p); if(list.length>=40) break; } }  // وبعده التطابق الصوتي (عربي <-> إنجليزي)
   box.innerHTML = list.length ? list.map(rowHTML).join("") : `<div class="empty"><b>${svg("search")}</b>مفيش نتيجة لـ "${esc(raw)}"<br>جرّب اسم تاني أو صوّر العلبة</div>`;
 }
+const debounce = (f,ms)=>{ let t; return (...a)=>{ clearTimeout(t); t = setTimeout(()=>f(...a),ms); }; };
+$("q").addEventListener("input", debounce(nameSearch,150));
+
+// ====== صفحة القسم: منتجات القسم + بحث خاص بالقسم بس ======
+let curCat = "";
+const CAT_PAGE = 40;
+let catList = [], catShown = 0;
+const moreBtn = n => `<button class="go" id="catMore" style="display:block;margin:14px auto">عرض المزيد (${n.toLocaleString("ar-EG")} متبقي)</button>`;
+
 function catSearch(){
   const t = norm($("cq").value).split(/\s+/).filter(Boolean);
   catList = PRODUCTS.filter(p=>p.cat===curCat && t.every(w=>p._hc.includes(w) || phon(p,w)));
