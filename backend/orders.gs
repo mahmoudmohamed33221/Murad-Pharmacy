@@ -1,6 +1,6 @@
 /**
  * نظام الطلبات والطيارين - صيدليات د/ مراد صادق
- * ملف تاني جنب customers.gs في نفس مشروع Apps Script (اعمل ملف جديد اسمه orders وانسخ ده جواه).
+ * ده مشروع Apps Script لوحده (مستقل عن سكربت العملاء). الصقه كله في ملف الكود بتاع مشروع "اوردارس" ثم Deploy كـ Web app.
  *
  * بيعمل:
  *  - setupSheets(): تشغّلها مرة واحدة، بتجهّز ورقة "الطلبات" وورقة "الطيارين" وورقة "الطلبات المكتملة" بنفس الأعمدة بالظبط.
@@ -9,6 +9,7 @@
  *  - onEdit: تلوين الصف حسب الحالة، وأرشفة الأوردر أول ما تعلّم "تم التوصيل".
  */
 
+var SPREADSHEET_ID = "199-5mWgHEsepqmA8b5CmONGD8sBGctxKyoKBeFN-Otk";   // نفس شيت الصيدلية
 var ORD_TAB = "الطلبات";
 var ARC_TAB = "الطلبات المكتملة";
 var PIL_TAB = "الطيارين";
@@ -33,7 +34,7 @@ var PIL_LIST_REQ = 18, PIL_LIST_STATE = 19;   // عمودين القوائم ا�
 
 // ===== تجهيز الورق (شغّلها مرة واحدة من Apps Script: اختار setupSheets واضغط Run) =====
 function setupSheets() {
-  var ss = SPREADSHEET_ID ? SpreadsheetApp.openById(SPREADSHEET_ID) : SpreadsheetApp.getActiveSpreadsheet();
+  var ss = ssOpen_();
   setupOrders_(ss);
   setupArchive_(ss);
   setupPilots_(ss);
@@ -115,7 +116,36 @@ function ordersSheet_(ss) { return ss.getSheetByName(ORD_TAB) || (setupOrders_(s
 function isTrue_(v) { return v === true || String(v).toUpperCase() === "TRUE"; }
 function cleanCid_(v) { return String(v == null ? "" : v).replace(/[^A-Za-z0-9_\-]/g, "").slice(0, 40); }
 function txt_(v, max) { return String(v == null ? "" : v).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "").trim().slice(0, max || 500); }
+function normPhone_(v) {
+  var s = String(v == null ? "" : v).replace(/[٠-٩]/g, function (x) { return "٠١٢٣٤٥٦٧٨٩".indexOf(x); }).replace(/\D/g, "");
+  if (s.indexOf("20") === 0 && s.length === 12) s = "0" + s.slice(2);
+  return s;
+}
+function out_(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
+function doGet(e) {
+  try { var p = (e && e.parameter) || {}; if (p.action === "myOrders") return out_(myOrders_(p.ids)); return out_({ ok: true, service: "orders" }); }
+  catch (err) { return out_({ ok: false, error: String(err) }); }
+}
+function doPost(e) {
+  var lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(20000);
+    var d = JSON.parse(e.postData.contents);
+    if (d.action === "newOrder") return out_(newOrder_(d));
+    return out_({ ok: false, error: "action" });
+  } catch (err) { return out_({ ok: false, error: String(err) }); }
+  finally { try { lock.releaseLock(); } catch (x) {} }
+}
 function ssOpen_() { return SPREADSHEET_ID ? SpreadsheetApp.openById(SPREADSHEET_ID) : SpreadsheetApp.getActiveSpreadsheet(); }
+
+// آخر صف فيه أوردر فعلاً (بنعدّ على عمود رقم البون، لأن مربعات الاختيار بتخلّي getLastRow يرجّع آخر الورقة)
+function dataLast_(sh) {
+  var n = sh.getMaxRows();
+  if (n < 2) return 1;
+  var v = sh.getRange(2, O.BON, n - 1, 1).getValues();
+  for (var i = v.length - 1; i >= 0; i--) if (v[i][0] !== "" && v[i][0] !== null) return i + 2;
+  return 1;
+}
 
 function findByCid_(sh, cid) {
   var n = sh.getLastRow();
@@ -132,16 +162,13 @@ function newOrder_(d) {
   var total = Number(d.total) || 0;
   if (!cid || !/^01[0125]\d{8}$/.test(phone) || !name || !items || total < 0) return { ok: false, error: "invalid" };
   var ss = ssOpen_();
-  // عميل موقوف: منسجّلش له أوردر
-  var cs = getTab_(ss), crow = findRow_(cs, phone);
-  if (crow && isBanWord_(cs.getRange(crow, C_STATUS).getValue())) return { ok: false, error: "banned" };
 
   var sh = ordersSheet_(ss), arc = ss.getSheetByName(ARC_TAB);
   var row = findByCid_(sh, cid);                       // نفس الطلب وصل قبل كده (إعادة محاولة): نرجّع نفس البون
   if (row) return { ok: true, bon: Number(sh.getRange(row, O.BON).getValue()), dup: true };
   if (arc) { var ar = findByCid_(arc, cid); if (ar) return { ok: true, bon: Number(arc.getRange(ar, O.BON).getValue()), dup: true }; }
 
-  var last = sh.getLastRow(), bon = 1001;
+  var last = dataLast_(sh), bon = 1001;
   if (last >= 2) { var lb = Number(sh.getRange(last, O.BON).getValue()); if (lb > 0) bon = lb + 1; }
   if (arc && arc.getLastRow() >= 2) {                  // البون يكمّل بعد آخر بون اتأرشف كمان
     var ab = Number(arc.getRange(arc.getLastRow(), O.BON).getValue()); if (ab >= bon) bon = ab + 1;
@@ -158,6 +185,7 @@ function newOrder_(d) {
   vals[O.PREP - 1] = false; vals[O.DELIV - 1] = false; vals[O.CUST_ETA - 1] = ""; vals[O.DONE - 1] = false;
   vals[O.NOTIF - 1] = ""; vals[O.STEPS - 1] = ""; vals[O_CID - 1] = cid;
   var r = last + 1;
+  if (r > sh.getMaxRows()) sh.insertRowsAfter(sh.getMaxRows(), 100);
   sh.getRange(r, 1, 1, vals.length).setValues([vals]);
   sh.getRange(r, O.PHONE).setNumberFormat("@").setValue(phone);
   [O.ACCEPT, O.PREP, O.DELIV, O.DONE].forEach(function (c) { sh.getRange(r, c).insertCheckboxes().setValue(false); });
@@ -174,7 +202,8 @@ function myOrders_(idsParam) {
   var sh = ss.getSheetByName(ORD_TAB), arc = ss.getSheetByName(ARC_TAB);
   function pull(s, archived) {
     if (!s || s.getLastRow() < 2) return;
-    var n = s.getLastRow() - 1, w = archived ? A_AT : O_CID;
+    var n = (archived ? s.getLastRow() : dataLast_(s)) - 1, w = archived ? A_AT : O_CID;
+    if (n < 1) return;
     var v = s.getRange(2, 1, n, w).getValues();
     for (var i = 0; i < v.length; i++) {
       var r = v[i], cid = String(r[O_CID - 1]);
