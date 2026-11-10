@@ -20,6 +20,7 @@ function doGet(e) {
   try {
     var p = (e && e.parameter) || {};
     if (p.action === "status") return out_(status_(p.phone, p.device));
+    if (p.action === "myOrders") return out_(myOrders_(p.ids));
   } catch (err) {
     return out_({ ok: false, error: String(err) });
   }
@@ -81,6 +82,7 @@ function doPost(e) {
   try {
     lock.waitLock(20000);
     var d = JSON.parse((e && e.postData && e.postData.contents) || "{}");
+    if (d.action === "newOrder") return out_(newOrder_(d));
     if (d.action !== "saveCustomer") return out_({ ok: false, error: "action" });
     return out_(saveCustomer_(d));
   } catch (err) {
