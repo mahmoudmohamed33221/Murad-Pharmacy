@@ -2,6 +2,7 @@
 // ده الملف الوحيد اللي بتعدل فيه إعدادات الصيدلية (من غير ما تلمس الكود).
 window.APP_CONFIG = {
   PHARMACY_NAME: "صيدليات د/ مراد صادق",
+  BAN_PHONE: "201200000001",   // رقم واتساب اللي بيظهر للعميل المحظور (بصيغة دولية بدون +). 01200000001 = 201200000001
   PHARMACY_PHONE: "201000000000",   // رقم واتساب الصيدلية بصيغة دولية بدون +
   CURRENCY: "ج.م",
 
@@ -16,11 +17,11 @@ window.APP_CONFIG = {
 
   // رابط سكربت تسجيل العملاء (Google Apps Script Web App) - شوف backend/customers.gs وقسم "تسجيل العملاء" في README
   // لو سيبته فاضي: التسجيل بيشتغل عادي وبيتحفظ في الجهاز، بس مش هيوصل لورقة "العملاء".
-  CUSTOMERS_URL: "https://script.google.com/macros/s/AKfycby0dDzYgKHDztWOPTbJngnh55Tvl_MOyjcnTDPhjvTday917cTzLV2mXkC8eqEVtMM/exec",
+  CUSTOMERS_URL: "https://script.google.com/macros/s/AKfycbynfaFsy7Pt9iFgQpfKXtB1T0lw7IwnMwILTfMHl3epau9c9J7iS3soL8x9Al_-YAU/exec",
 
   // رابط سيرفر الذكاء الاصطناعي لقراءة الروشتات (اختياري) - شوف README قسم 8
   RECOGNIZE_URL: "",
 
   APP_VERSION: "1.0.0",
-  BUILD: "apk-32"   // بيتستبدل تلقائي عند كل نشر على GitHub
+  BUILD: "__BUILD__"   // بيتستبدل تلقائي عند كل نشر على GitHub
 };
