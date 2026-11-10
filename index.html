@@ -17,6 +17,7 @@
 <link rel="stylesheet" href="assets/intro.css">
 <link rel="stylesheet" href="assets/extras.css">
 <link rel="stylesheet" href="assets/register.css">
+<link rel="stylesheet" href="assets/orders.css">
 </head>
 <body data-view="home">
 <div id="intro" aria-hidden="true">
@@ -74,6 +75,14 @@
   <div id="cres"></div>
 </main>
 
+<main class="view" id="v-orders" hidden>
+  <div class="od-head"><h2>جاري التوصيل</h2></div>
+  <div id="od-active"></div>
+  <hr class="od-divider">
+  <div class="od-head"><h2>تم الاستلام</h2></div>
+  <div id="od-done"></div>
+</main>
+
 <main class="view" id="v-account" hidden>
   <div class="sec"><h2>حسابي</h2></div>
   <div class="panel f">
@@ -103,6 +112,7 @@
   <i class="ind" id="ind"></i>
   <button data-v="home" class="on"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg>الرئيسية</button>
   <button data-v="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>بحث</button>
+  <button data-v="orders"><svg viewBox="0 0 24 24"><path d="M5 8h14l-1 12H6z"/><path d="M9 8V6.5a3 3 0 0 1 6 0V8"/></svg>مشترياتي<i class="nb" id="odBadge" hidden>0</i></button>
   <button data-v="account"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>حسابي</button>
   <button data-v="settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>الإعدادات</button>
 </nav>
@@ -152,6 +162,7 @@
   </div>
 </div>
 <script src="assets/app.js"></script>
+<script src="assets/orders.js"></script>
 <script src="assets/backnav.js"></script>
 <script src="assets/footer.js"></script>
 </body>
