@@ -14,6 +14,10 @@ window.APP_CONFIG = {
     API_KEY: ""      // مفتاح Google Sheets API (مقيّد بالقراءة وبرابط موقعك)
   },
 
+  // رابط سكربت تسجيل العملاء (Google Apps Script Web App) - شوف backend/customers.gs وقسم "تسجيل العملاء" في README
+  // لو سيبته فاضي: التسجيل بيشتغل عادي وبيتحفظ في الجهاز، بس مش هيوصل لورقة "العملاء".
+  CUSTOMERS_URL: "https://script.google.com/macros/s/AKfycby39xyMFyI8wqhSDpW92SIEalYcnM4McCuBhTnyKSkVkRCWIgdNmi8TvQP3k4z-rg/exec",
+
   // رابط سيرفر الذكاء الاصطناعي لقراءة الروشتات (اختياري) - شوف README قسم 8
   RECOGNIZE_URL: "",
 
