@@ -74,7 +74,7 @@
   var I = {
     check: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l3 3 5-6"/></svg>',
     phone: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>',
-    bike: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="17" r="3"/><circle cx="18" cy="17" r="3"/><path d="M6 17l3-7h5l4 7M9 10l-1-3H6M13 7h3"/></svg>',
+    bike: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="18" r="2.4"/><circle cx="19" cy="18" r="2.4"/><path d="M7.4 18h9.2M16.6 18l-2.3-9.5H11.5M13.6 6h3.6"/><rect x="2.5" y="7.5" width="7.5" height="6" rx="1.2"/></svg>',
     clock: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>'
   };
   // ===== الفاتورة =====
@@ -92,12 +92,13 @@
     var L = parseLines(o), sum = L.reduce(function (a, l) { return a + l.t; }, 0);
     var total = Math.max(Number(o.total) || 0, sum), ship = Math.round((total - sum) * 100) / 100;
     var rows = L.map(function (l) {
-      return "<tr><td class=\"nm\">" + esc(l.n) + "</td><td>" + (l.raw ? "-" : num(l.p)) + "</td><td>" + (l.raw ? "-" : l.q) + "</td><td><b>" + (l.raw ? "-" : num(l.t)) + "</b></td></tr>";
+      return "<tr><td class=\"inv-n\">" + esc(l.n) + "</td><td>" + (l.raw ? "-" : num(l.p)) + "</td><td>" + (l.raw ? "-" : l.q) + "</td><td><b>" + (l.raw ? "-" : num(l.t)) + "</b></td></tr>";
     }).join("");
-    rows += "<tr class=\"ship\"><td class=\"nm\">التوصيل</td><td>0</td><td>0</td><td><b>" + num(ship) + "</b></td></tr>";
+    rows += "<tr class=\"ship\"><td class=\"inv-n\">التوصيل</td><td>0</td><td>0</td><td><b>" + num(ship) + "</b></td></tr>";
     return '<div class="inv"><div class="inv-h"><b>صيدليات د/ مراد صادق</b><img src="assets/logo.png" alt=""></div>' +
       '<div class="inv-sub">' + (o.bon ? "فاتورة طلب رقم " + o.bon + " · " : "") + esc(o.d || "") + " · " + esc(o.t || "") + "</div>" +
-      '<table class="inv-t"><thead><tr><th class="nm">اسم الصنف</th><th>سعر القطعة</th><th>العدد</th><th>إجمالي سعر القطع</th></tr></thead><tbody>' + rows +
+      (o.pilotName ? '<div class="inv-pilot">' + I.bike + "الطيار: <b>" + esc(o.pilotName) + "</b></div>" : "") +
+      '<table class="inv-t"><thead><tr><th class="inv-n">اسم الصنف</th><th>سعر القطعة</th><th>العدد</th><th>إجمالي سعر القطع</th></tr></thead><tbody>' + rows +
       '</tbody><tfoot><tr><td colspan="4"><div class="inv-f"><span>الإجمالي النهائي</span><b>' + num(total) + " " + CURRENCY + "</b></div></td></tr></tfoot></table></div>";
   }
   var openInv = {};
@@ -146,7 +147,6 @@
   function doneCard(o) {
     return '<article class="od-card dn"><div class="od-top"><div><b class="od-bon">' + (o.bon ? "طلب رقم " + o.bon : "طلب") + "</b><small>" + esc(o.d) + " · " + esc(o.t || "") +
       '</small></div><span class="od-chip s-completed">' + I.check + "تم الاستلام</span></div>" + invBlock(o) +
-      (o.pilotName ? '<div class="od-meta">' + I.bike + "الطيار: <b>" + esc(o.pilotName) + "</b></div>" : "") +
       '<div class="od-tot"><span>إجمالي الحساب</span><b>' + fmt(o.total) + "</b></div></article>";
   }
   var lastSig = "";
