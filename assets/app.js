@@ -326,28 +326,29 @@ function checkoutView(){
   openSheet("checkout");
   $("sheet").innerHTML = `<h2>بيانات الطلب <button class="x" data-a="close" aria-label="إغلاق">✕</button></h2>
    ${saveLine(totals().sav)}<div class="total"><span>الإجمالي</span><span>${fmt(totals().s)}</span></div>
+   <div id="coForm"></div>
    <div class="f">
-     <input id="fn" placeholder="الاسم بالكامل" autocomplete="name" value="${esc(PF().name)}">
-     <input id="fp" type="tel" inputmode="tel" placeholder="رقم الموبايل" autocomplete="tel" value="${esc(PF().phone)}">
-     <textarea id="fa" rows="3" placeholder="العنوان بالتفصيل">${esc(PF().addr)}</textarea>
      <textarea id="fo" rows="2" placeholder="ملاحظات (اختياري)"></textarea>
-     <div class="err" id="err">من فضلك اكتب الاسم ورقم الموبايل والعنوان.</div>
+     <div class="err" id="err">راجع بياناتك.</div>
    </div>
    <button class="go" data-a="send">تأكيد الطلب</button>
    <button class="ghost" data-a="cartv">رجوع للسلة</button>`;
+  const R = window.MuradReg;
+  if(R){ coF = R.mountForm($("coForm"),"co"); coF.set(R.getProfile()); }
 }
 function send(){
-  const n=$("fn").value.trim(), p=$("fp").value.trim(), a=$("fa").value.trim(), o=$("fo").value.trim();
-  const R = window.MuradReg, ve = R ? (R.errName(n)||R.errPhone(p)||R.errAddr(a)) : "";
-  if(!n||!p||!a||ve){ $("err").textContent = ve || "من فضلك اكتب الاسم ورقم الموبايل والعنوان."; $("err").style.display="block"; return; }
+  const R = window.MuradReg, o=$("fo").value.trim();
+  if(R && coF && !coF.validate()){ $("err").textContent = "راجع الخانات اللي باللون الأحمر"; $("err").style.display="block"; return; }
+  const d = (R && coF) ? coF.get() : PF(), n=d.name, p=d.phone, a=d.addr;
+  $("err").style.display="none";
   const {s,sav} = totals();
   let msg = `*طلب جديد - صيدليات د/ مراد صادق*\n\n`;
   for(const id in cart) msg += `• ${label(id)} × ${cart[id]} = ${lineTotal(id)} ${CURRENCY}\n`;
   if(sav>0) msg += `\nوفّر العميل: ${sav} ${CURRENCY}\n`;
-  msg += `\n*الإجمالي: ${s} ${CURRENCY}*\n\nالاسم: ${n}\nالموبايل: ${p}` + (PF().gov?`\nالمحافظة: ${PF().gov}`:"") + `\nالعنوان: ${a}` + (PF().landmark?`\nعلامة مميزة: ${PF().landmark}`:"") + (o?`\nملاحظات: ${o}`:"");
+  msg += `\n*الإجمالي: ${s} ${CURRENCY}*\n\nالاسم: ${n}\nالموبايل: ${p}` + (d.gov?`\nالمحافظة: ${d.gov}`:"") + `\nالعنوان: ${a}` + (d.landmark?`\nعلامة مميزة: ${d.landmark}`:"") + (o?`\nملاحظات: ${o}`:"");
   window.open(`https://wa.me/${PHARMACY_PHONE}?text=${encodeURIComponent(msg)}`,"_blank");
-  if(window.Orders) window.Orders.add({name:n,phone:R?R.digits(p):p,gov:PF().gov||"",addr:a,landmark:PF().landmark||"",notes:o,total:s,items:Object.keys(cart).map(id=>`${label(id)} × ${cart[id]} = ${lineTotal(id)} ${CURRENCY}`)});
-  saveOrder(s); if(R) R.saveProfile({name:n,phone:p,addr:a}); else sv("mrad_profile",{name:n,phone:p,addr:a});
+  if(window.Orders) window.Orders.add({name:n,phone:p,gov:d.gov||"",addr:a,landmark:d.landmark||"",notes:o,total:s,items:Object.keys(cart).map(id=>`${label(id)} × ${cart[id]} = ${lineTotal(id)} ${CURRENCY}`)});
+  saveOrder(s); if(R) R.saveProfile(d); else sv("mrad_profile",d);
   cart = {}; refresh();
   $("sheet").innerHTML = `<div class="done"><b>${svg("check")}</b><h2 style="border:0;justify-content:center">تم تجهيز طلبك</h2>
     <p style="color:var(--gr)">أكمل إرسال الرسالة في واتساب وهنتواصل معاك لتأكيد التوصيل.</p></div>
@@ -541,8 +542,11 @@ function saveOrder(total){
   list.unshift({d:new Date().toLocaleDateString("ar-EG",{year:"numeric",month:"long",day:"numeric"}), total, items});
   sv("mrad_orders", list.slice(0,20));
 }
+let accF = null, coF = null;
 function accountView(){
-  const p = PF(); $("an").value = p.name; $("ap").value = p.phone; $("aa").value = p.addr; $("pok").textContent = "";
+  const R = window.MuradReg;
+  if(R){ if(!accF) accF = R.mountForm($("accForm"),"ac"); accF.set(R.getProfile()); }
+  $("pok").textContent = "";
   const list = ld("mrad_orders",[]);
   $("orders").innerHTML = list.length ? list.map(o=>`<div class="ord"><div>${esc(o.d)}<small>${o.items.map(esc).join("، ")}</small></div><b>${fmt(o.total)}</b></div>`).join("")
     : `<div class="empty" style="padding:20px 0"><b>${svg("receipt")}</b>لسه ما عملتش أي طلب</div>`;
@@ -562,11 +566,10 @@ function show(v){
 }
 $("nav").addEventListener("click", e=>{ const b=e.target.closest("[data-v]"); if(b) show(b.dataset.v); });
 $("saveProfile").onclick = ()=>{
-  const n=$("an").value.trim(), p=$("ap").value.trim(), a=$("aa").value.trim(), R=window.MuradReg;
-  const ve = R ? (R.errName(n)||R.errPhone(p)||R.errAddr(a)) : "";
-  if(ve){ $("pok").style.color="#c62828"; $("pok").textContent = ve; return; }
-  if(R){ const pr = R.saveProfile({name:n,phone:p,addr:a}); $("an").value=pr.name; $("ap").value=pr.phone; $("aa").value=pr.addr; }
-  else sv("mrad_profile",{name:n,phone:p,addr:a});
+  if(!accF) return;
+  if(!accF.validate()){ $("pok").style.color="#c62828"; $("pok").textContent = "راجع الخانات اللي باللون الأحمر"; return; }
+  const pr = window.MuradReg.saveProfile(accF.get());
+  accF.set(pr);
   $("pok").style.color=""; $("pok").textContent = "✓ تم حفظ بياناتك، وهتتعبى تلقائي في الطلب الجاي";
 };
 // الإعدادات
