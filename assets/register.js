@@ -27,7 +27,7 @@
   ];
   var PIN = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s7-5.6 7-11a7 7 0 0 0-14 0c0 5.4 7 11 7 11z"/><circle cx="12" cy="10" r="2.6"/></svg>';
   var CHEV = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
-  var gvEl = null;
+  var gvEl = null, curForm = null;
   function govSheet() {
     if (gvEl) return gvEl;
     gvEl = document.createElement("div"); gvEl.id = "gvSheet"; gvEl.hidden = true;
@@ -45,7 +45,7 @@
   }
   function normAr(s) { return String(s || "").replace(/[\u064B-\u0652\u0640]/g, "").replace(/[أإآ]/g, "ا").replace(/ة/g, "ه").replace(/ى/g, "ي").trim(); }
   function paintGov(q) {
-    var cur = els.gov.input.value, nq = normAr(q), html = "";
+    var cur = curForm ? curForm.els.gov.input.value : "", nq = normAr(q), html = "";
     GOV_GROUPS.forEach(function (g) {
       var items = g[1].filter(function (n) { return !nq || normAr(n).indexOf(nq) >= 0; });
       if (!items.length) return;
@@ -55,7 +55,8 @@
     });
     gvEl.querySelector("#gvBody").innerHTML = html || '<div class="gv-none">مفيش محافظة بالاسم ده</div>';
   }
-  function openGov() {
+  function openGov(F) {
+    curForm = F;
     govSheet(); gvEl.querySelector("#gvQ").value = ""; paintGov("");
     gvEl.hidden = false; requestAnimationFrame(function () { gvEl.classList.add("on"); });
     var on = gvEl.querySelector(".gv-i.on"); if (on) setTimeout(function () { on.scrollIntoView({ block: "center" }); }, 60);
@@ -63,17 +64,13 @@
   function closeGov() {
     if (!gvEl || gvEl.hidden) return;
     gvEl.classList.remove("on"); setTimeout(function () { gvEl.hidden = true; }, 200);
-    touched.gov = true; paint("gov");
-  }
-  function setGov(v) {
-    els.gov.input.value = v || "";
-    var b = document.getElementById("rg-govbtn");
-    if (b) { b.querySelector(".gv-t").textContent = v || "اختار المحافظة"; b.classList.toggle("has", !!v); }
+    if (curForm) { curForm.touched.gov = true; curForm.paint("gov"); }
   }
   function pickGov(v) {
-    setGov(v); els.gov.input.dispatchEvent(new Event("change"));
+    var F = curForm; if (!F) return;
+    F.setGov(v); F.els.gov.input.dispatchEvent(new Event("change"));
     gvEl.classList.remove("on"); setTimeout(function () { gvEl.hidden = true; }, 200);
-    touched.gov = true; paint("gov"); refreshBtn();
+    F.touched.gov = true; F.paint("gov");
   }
 
   // ===== أدوات التنضيف =====
@@ -154,12 +151,14 @@
   // ===== منع الأرقام والرموز أثناء الكتابة (في كل خانات الاسم والموبايل في التطبيق) =====
   var NAME_IDS = { "rg-name": 1, an: 1, fn: 1 }, PHONE_IDS = { "rg-phone": 1, "rg-phone2": 1, ap: 1, fp: 1 };
   document.addEventListener("input", function (e) {
-    var el = e.target; if (!el || !el.id) return;
+    var el = e.target; if (!el) return;
+    var rk = el.getAttribute && el.getAttribute("data-rk");
+    if (!el.id && !rk) return;
     var v = el.value, n = v;
-    if (NAME_IDS[el.id]) {
+    if (NAME_IDS[el.id] || rk === "name") {
       n = v.replace(/[\u064B-\u0652\u0640]/g, "").replace(/[^A-Za-z\u0621-\u063A\u0641-\u064A\s]/g, "")
         .replace(/^\s+/, "").replace(/\s{2,}/g, " ").slice(0, 60);
-    } else if (PHONE_IDS[el.id]) {
+    } else if (PHONE_IDS[el.id] || rk === "phone" || rk === "phone2") {
       n = digits(v).slice(0, 11);
     }
     if (n !== v) el.value = n;
@@ -208,8 +207,7 @@
     return prof;
   }
 
-  // ===== شاشة التسجيل =====
-  var root = document.getElementById("reg"), built = false, touched = {}, els = {};
+  // ===== نموذج البيانات (بيتستخدم في: التسجيل / حسابي / تأكيد الطلب) =====
   var HINT = {
     name: "اكتب اسمك رباعي زي ما في البطاقة",
     phone: "رقم موبايل مصري من 11 رقم",
@@ -218,13 +216,76 @@
     addr: "المركز / المنطقة + اسم أو رقم الشارع + رقم العمارة والشقة",
     landmark: "حاجة معروفة قريبة منك تساعد المندوب يوصلك (مسجد، صيدلية، محل...)"
   };
-  var KEYS = ["name", "phone", "phone2", "gov", "addr", "landmark"];
   var IC = '<svg class="rg-ic y" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M7.8 12.5l3 3 5.6-6.2"/></svg>' +
            '<svg class="rg-ic n" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M9 9l6 6M15 9l-6 6"/></svg>';
-  function fieldHTML(key, label, ctrl) {
-    return '<div class="rg-field" id="rgf-' + key + '"><label for="rg-' + key + '">' + label + ' <i>*</i></label>' +
-      '<div class="rg-box">' + ctrl + IC + '</div><div class="rg-msg" id="rgm-' + key + '"></div></div>';
+  function mountForm(host, pfx, opts) {
+    opts = opts || {};
+    var keys = opts.confirm ? ["name", "phone", "phone2", "gov", "addr", "landmark"] : ["name", "phone", "gov", "addr", "landmark"];
+    var F = { els: {}, touched: {}, keys: keys, onChange: opts.onChange || null };
+    function fh(key, label, ctrl) {
+      return '<div class="rg-field" id="' + pfx + 'f-' + key + '"><label for="' + pfx + '-' + key + '">' + label + ' <i>*</i></label>' +
+        '<div class="rg-box">' + ctrl + IC + '</div><div class="rg-msg" id="' + pfx + 'm-' + key + '"></div></div>';
+    }
+    var html = fh("name", "الاسم الرباعي", '<input id="' + pfx + '-name" data-rk="name" type="text" autocomplete="name" placeholder="مثال: محمد أحمد علي حسن" maxlength="60">') +
+      fh("phone", "رقم الموبايل", '<input id="' + pfx + '-phone" data-rk="phone" type="tel" inputmode="numeric" autocomplete="tel" placeholder="01xxxxxxxxx" maxlength="11">') +
+      (opts.confirm ? fh("phone2", "تأكيد رقم الموبايل", '<input id="' + pfx + '-phone2" data-rk="phone2" type="tel" inputmode="numeric" autocomplete="off" placeholder="أعد كتابة الرقم" maxlength="11">') : "") +
+      fh("gov", "المحافظة", '<input type="hidden" id="' + pfx + '-gov"><button type="button" class="rg-pick" id="' + pfx + '-govbtn" aria-haspopup="dialog"><span class="gv-pin">' + PIN + '</span><span class="gv-t">اختار المحافظة</span><span class="gv-chev">' + CHEV + '</span></button>') +
+      fh("addr", "العنوان بالتفصيل", '<textarea id="' + pfx + '-addr" rows="3" autocomplete="street-address" placeholder="مثال: الزقازيق - شارع الجمهورية - عمارة 5 - الدور الثالث - شقة 8" maxlength="250"></textarea>') +
+      fh("landmark", "علامة مميزة", '<input id="' + pfx + '-landmark" type="text" autocomplete="off" placeholder="مثال: بجوار مسجد الرحمن" maxlength="120">');
+    host.innerHTML = html;
+    keys.forEach(function (k) {
+      F.els[k] = { wrap: document.getElementById(pfx + "f-" + k), input: document.getElementById(pfx + "-" + k), msg: document.getElementById(pfx + "m-" + k) };
+    });
+    F.errOf = function (k) {
+      var v = F.els[k].input.value;
+      return k === "name" ? errName(v) : k === "phone" ? errPhone(v) : k === "phone2" ? errConfirm(v, F.els.phone.input.value) : k === "gov" ? errGov(v) : k === "landmark" ? errLandmark(v) : errAddr(v);
+    };
+    F.paint = function (k) {
+      var w = F.els[k].wrap, e = F.errOf(k);
+      w.classList.remove("ok", "bad");
+      if (F.touched[k]) { w.classList.add(e ? "bad" : "ok"); F.els[k].msg.textContent = e || ""; }
+      else F.els[k].msg.textContent = HINT[k];
+      if (F.touched[k] && !e) F.els[k].msg.textContent = "";
+    };
+    F.allOk = function () { return keys.every(function (k) { return !F.errOf(k); }); };
+    F.setGov = function (v) {
+      F.els.gov.input.value = v || "";
+      var b = document.getElementById(pfx + "-govbtn");
+      if (b) { b.querySelector(".gv-t").textContent = v || "اختار المحافظة"; b.classList.toggle("has", !!v); }
+    };
+    F.set = function (p) {
+      F.touched = {};
+      F.els.name.input.value = cleanName(p.name); F.els.phone.input.value = digits(p.phone).slice(0, 11);
+      if (F.els.phone2) F.els.phone2.input.value = "";
+      F.els.addr.input.value = cleanAddr(p.addr); F.setGov(GOVS.indexOf(p.gov) >= 0 ? p.gov : "");
+      F.els.landmark.input.value = cleanLandmark(p.landmark);
+      ["name", "phone", "addr", "gov", "landmark"].forEach(function (k) { if (F.els[k].input.value) F.touched[k] = true; });   // نوريه الناقص علطول
+      keys.forEach(F.paint);
+      if (F.onChange) F.onChange();
+    };
+    F.get = function () {
+      return { name: cleanName(F.els.name.input.value), phone: digits(F.els.phone.input.value), gov: F.els.gov.input.value,
+        addr: cleanAddr(F.els.addr.input.value), landmark: cleanLandmark(F.els.landmark.input.value) };
+    };
+    F.validate = function () {
+      var bad = null;
+      keys.forEach(function (k) { F.touched[k] = true; F.paint(k); if (!bad && F.errOf(k)) bad = k; });
+      if (bad) { var el = F.els[bad].wrap; try { el.scrollIntoView({ block: "center", behavior: "smooth" }); } catch (e) {} if (bad !== "gov") F.els[bad].input.focus(); return false; }
+      return true;
+    };
+    keys.forEach(function (k) {
+      F.els[k].input.addEventListener(k === "gov" ? "change" : "input", function () {
+        if (k === "phone" && F.touched.phone2) F.paint("phone2");
+        F.paint(k); if (F.onChange) F.onChange();
+      });
+      F.els[k].input.addEventListener("blur", function () { F.touched[k] = true; F.paint(k); });
+    });
+    document.getElementById(pfx + "-govbtn").onclick = function () { openGov(F); };
+    return F;
   }
+
+  // ===== شاشة التسجيل =====
+  var root = document.getElementById("reg"), built = false, RF = null;
   function build() {
     if (built || !root) return; built = true;
     root.innerHTML =
@@ -232,50 +293,17 @@
         '<div class="rg-head"><img class="rg-logo" src="assets/logo.png" alt="">' +
           '<h1 id="rgT">أهلاً بيك في صيدليات د/ مراد صادق</h1>' +
           '<p>سجّل بياناتك مرة واحدة بس، وهنحفظها علشان طلباتك توصلك أسرع وأسهل.</p><div class="rg-gold"></div></div>' +
-        '<div class="rg-card">' +
-          fieldHTML("name", "الاسم الرباعي", '<input id="rg-name" type="text" autocomplete="name" placeholder="مثال: محمد أحمد علي حسن" maxlength="60">') +
-          fieldHTML("phone", "رقم الموبايل", '<input id="rg-phone" type="tel" inputmode="numeric" autocomplete="tel" placeholder="01xxxxxxxxx" maxlength="11">') +
-          fieldHTML("phone2", "تأكيد رقم الموبايل", '<input id="rg-phone2" type="tel" inputmode="numeric" autocomplete="off" placeholder="أعد كتابة الرقم" maxlength="11">') +
-          fieldHTML("gov", "المحافظة", '<input type="hidden" id="rg-gov"><button type="button" class="rg-pick" id="rg-govbtn" aria-haspopup="dialog"><span class="gv-pin">' + PIN + '</span><span class="gv-t">اختار المحافظة</span><span class="gv-chev">' + CHEV + '</span></button>') +
-          fieldHTML("addr", "العنوان بالتفصيل", '<textarea id="rg-addr" rows="3" autocomplete="street-address" placeholder="مثال: الزقازيق - شارع الجمهورية - عمارة 5 - الدور الثالث - شقة 8" maxlength="250"></textarea>') +
-          fieldHTML("landmark", "علامة مميزة", '<input id="rg-landmark" type="text" autocomplete="off" placeholder="مثال: بجوار مسجد الرحمن" maxlength="120">') +
+        '<div class="rg-card"><div id="rg-form"></div>' +
           '<button class="rg-go" id="rg-go" type="button" disabled>حفظ والدخول للتطبيق</button>' +
         '</div>' +
         '<p class="rg-note">بياناتك بنستخدمها لتجهيز وتوصيل طلباتك بس، وتقدر تعدّلها في أي وقت من صفحة "حسابي".</p>' +
       '</div>';
-    KEYS.forEach(function (k) {
-      els[k] = { wrap: document.getElementById("rgf-" + k), input: document.getElementById("rg-" + k), msg: document.getElementById("rgm-" + k) };
-    });
-    KEYS.forEach(function (k) {
-      els[k].input.addEventListener(k === "gov" ? "change" : "input", function () {
-        if (k === "phone" && touched.phone2) paint("phone2");
-        paint(k); refreshBtn();
-      });
-      els[k].input.addEventListener("blur", function () { touched[k] = true; paint(k); });
-    });
-    els.gov.input.focus = function () { var b = document.getElementById("rg-govbtn"); if (b) b.focus(); };
-    document.getElementById("rg-govbtn").onclick = openGov;
+    RF = mountForm(document.getElementById("rg-form"), "rg", { confirm: true, onChange: function () { var b = document.getElementById("rg-go"); if (b) b.disabled = !RF.allOk(); } });
     document.getElementById("rg-go").onclick = submit;
   }
-  function errOf(k) {
-    var v = els[k].input.value;
-    return k === "name" ? errName(v) : k === "phone" ? errPhone(v) : k === "phone2" ? errConfirm(v, els.phone.input.value) : k === "gov" ? errGov(v) : k === "landmark" ? errLandmark(v) : errAddr(v);
-  }
-  function paint(k) {
-    var w = els[k].wrap, e = errOf(k);
-    w.classList.remove("ok", "bad");
-    if (touched[k]) { w.classList.add(e ? "bad" : "ok"); els[k].msg.textContent = e || ""; }
-    else els[k].msg.textContent = HINT[k];
-    if (touched[k] && !e) els[k].msg.textContent = "";
-  }
-  function allOk() { return KEYS.every(function (k) { return !errOf(k); }); }
-  function refreshBtn() { var b = document.getElementById("rg-go"); if (b) b.disabled = !allOk(); }
-
   function submit() {
-    var firstBad = null;
-    KEYS.forEach(function (k) { touched[k] = true; paint(k); if (!firstBad && errOf(k)) firstBad = k; });
-    if (firstBad) { els[firstBad].input.focus(); return; }
-    var prof = saveProfile({ name: els.name.input.value, phone: els.phone.input.value, gov: els.gov.input.value, addr: els.addr.input.value, landmark: els.landmark.input.value });
+    if (!RF.validate()) return;
+    var prof = saveProfile(RF.get());
     try { if (window.MuradGuard) window.MuradGuard.recheck(); } catch (e) {}   // لو الرقم ده محظور في الشيت: الحظر يظهر فورًا
     closeReg();
     if (document.body.dataset.view === "account" && typeof window.accountView === "function") window.accountView();
@@ -285,19 +313,7 @@
   function openReg() {
     if (!root) return;
     build();
-    var p = getProfile();
-    touched = {};
-    els.name.input.value = cleanName(p.name); els.phone.input.value = digits(p.phone).slice(0, 11);
-    els.phone2.input.value = ""; els.addr.input.value = cleanAddr(p.addr);
-    setGov(GOVS.indexOf(p.gov) >= 0 ? p.gov : ""); els.landmark.input.value = cleanLandmark(p.landmark);
-    // بيانات قديمة ناقصة/غلط: نوريله إيه المطلوب تعديله علطول
-    if (els.name.input.value) touched.name = true;
-    if (els.phone.input.value) touched.phone = true;
-    if (els.addr.input.value) touched.addr = true;
-    if (els.gov.input.value) touched.gov = true;
-    if (els.landmark.input.value) touched.landmark = true;
-    KEYS.forEach(paint);
-    refreshBtn();
+    RF.set(getProfile());
     document.documentElement.classList.add("need-reg");
     root.scrollTop = 0;
   }
@@ -308,7 +324,7 @@
   window.MuradReg = {
     errName: errName, errPhone: errPhone, errAddr: errAddr, errGov: errGov, errLandmark: errLandmark,
     cleanName: cleanName, cleanAddr: cleanAddr, digits: digits,
-    isValid: isValid, saveProfile: saveProfile, check: check
+    isValid: isValid, saveProfile: saveProfile, check: check, mountForm: mountForm, getProfile: getProfile
   };
   check();
 })();
