@@ -303,24 +303,37 @@ function toast(m){ const t=$("toast"); t.textContent=m; t.classList.add("show");
 
 // ====== السلة وإتمام الشراء ======
 function openSheet(v){ $("sheet").dataset.v=v; $("ov").classList.add("show"); }
-function close(){ $("ov").classList.remove("show"); }
+function close(){ $("ov").classList.remove("show"); addOpen=false; addQ=""; }
 const saveLine = sav => sav>0 ? `<div class="save"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l3 3 5-6"/></svg>وفرت ${fmt(sav)} من إجمالي المبلغ</div>` : "";
+// حالة لوحة "إضافة منتج" جوه الفاتورة
+let addOpen = false, addQ = "";
+const toEn = v => String(v==null?"":v).replace(/[٠-٩]/g, x=>"٠١٢٣٤٥٦٧٨٩".indexOf(x));
+function addResults(){
+  const q = norm(addQ);
+  let list = PRODUCTS.filter(p=>!p.out && (!q || norm(p.name).includes(q) || norm(p.cat||"").includes(q)));
+  const more = list.length>8; list = list.slice(0,8);
+  if(!list.length) return `<div class="cv-none">مفيش منتج بالاسم ده</div>`;
+  return list.map(p=>`<button type="button" class="cv-pick" data-a="addpick" data-i="${p.id}"><span class="cv-pn">${escN(p.name)}</span><small>${fmt(p.price)}</small><b>${cart[p.id]?"✓ "+ar(cart[p.id]):"+"}</b></button>`).join("") + (more?`<div class="cv-none">اكتب أكتر عشان تحدد المنتج</div>`:"");
+}
 function cartView(){
   openSheet("cart");
   const ids = Object.keys(cart), {s,sav} = totals();
-  $("sheet").innerHTML = `<h2>سلة المشتريات <button class="x" data-a="close" aria-label="إغلاق">✕</button></h2>` +
-  (ids.length ? ids.map(id=>{
-     const {p,u}=parseK(id), q=cart[id], d = u==="b" ? saveOf(p,q) : 0;
-     let hint = "";
-     if(u==="b" && p.disc>0) hint = q>=p.min ? `<em class="okk">العرض شغال ✓ وفرت ${fmt(d)} على ${cnt(covered(p,q))}${p.inc>0&&q>p.inc?" — والباقي بالسعر العادي":""}</em>` : `<em class="hintx">ناقصك ${cnt(p.min-q)} عشان العرض يشتغل</em>`;
-     return `<div class="row"><div class="e">${thumb(p)}</div>
-     <div class="t">${escN(label(id))}<small>${d>0?`<s>${fmt(q*p.price)}</s> `:""}${fmt(lineTotal(id))}</small>${hint}</div>
-     <div class="qty"><button data-a="plus" data-i="${id}">+</button><span>${ar(q)}</span><button data-a="minus" data-i="${id}">−</button></div></div>`}).join("") +
-     saveLine(sav)+
-     `<div class="total"><span>الإجمالي</span><span>${fmt(s)}</span></div>
+  const rows = ids.map(id=>{
+    const {p,u}=parseK(id), q=cart[id], d = u==="b" ? saveOf(p,q) : 0, unit = u==="s" ? stripPrice(p) : p.price;
+    let hint = "";
+    if(u==="b" && p.disc>0) hint = q>=p.min ? `<em class="okk">العرض شغال ✓ وفرت ${fmt(d)}${p.inc>0&&q>p.inc?" — والباقي بالسعر العادي":""}</em>` : `<em class="hintx">ناقصك ${cnt(p.min-q)} عشان العرض يشتغل</em>`;
+    return `<div class="cv-row"><div class="cv-top"><span class="cv-th">${thumb(p)}</span><div class="cv-n">${escN(label(id))}</div>
+      <button class="cv-rm" data-a="rm" data-i="${id}" aria-label="حذف"><svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12h10l1-12M9 7V4h6v3"/></svg></button></div>
+      <div class="cv-bot"><div class="cv-st"><button data-a="plus" data-i="${id}" aria-label="زيادة">+</button><input class="cv-in" inputmode="numeric" data-cq="${id}" value="${q}" aria-label="العدد"><button data-a="minus" data-i="${id}" aria-label="نقص">−</button></div>
+      <div class="cv-pr">${fmt(unit)}<small>للواحدة</small></div>
+      <div class="cv-lt">${d>0?`<s>${fmt(q*p.price)}</s>`:""}<b>${fmt(lineTotal(id))}</b></div></div>${hint}</div>`;}).join("");
+  $("sheet").innerHTML = `<h2><span class="cv-ttl"><svg viewBox="0 0 24 24">${IC.receipt}</svg>فاتورة الطلب</span> <button class="x" data-a="close" aria-label="إغلاق">✕</button></h2>` +
+  (ids.length ? rows : `<div class="empty"><b>${svg("receipt")}</b>الفاتورة فاضية، ضيف منتج من تحت</div>`) +
+  `<button type="button" class="cv-add${addOpen?" on":""}" data-a="addtog"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>إضافة منتج</button>` +
+  (addOpen ? `<div class="cv-ap"><input type="search" id="cvQ" class="cv-q" placeholder="ابحث باسم المنتج" autocomplete="off" value="${esc(addQ)}"><div id="cvRes">${addResults()}</div></div>` : "") +
+  (ids.length ? saveLine(sav)+`<div class="total"><span>الإجمالي</span><span>${fmt(s)}</span></div>
       <button class="go" data-a="checkout">متابعة لإتمام الطلب</button>
-      <button class="ghost" data-a="clear">إفراغ السلة</button>`
-   : `<div class="empty"><b>${svg("cart")}</b>السلة فاضية، ابحث عن منتج وأضفه</div>`);
+      <button class="ghost" data-a="clear">إفراغ الفاتورة</button>` : "");
 }
 function checkoutView(){
   openSheet("checkout");
@@ -342,17 +355,32 @@ function send(){
   const d = (R && coF) ? coF.get() : PF(), n=d.name, p=d.phone, a=d.addr;
   $("err").style.display="none";
   const {s,sav} = totals();
-  let msg = `*طلب جديد - صيدليات د/ مراد صادق*\n\n`;
-  for(const id in cart) msg += `• ${label(id)} × ${cart[id]} = ${lineTotal(id)} ${CURRENCY}\n`;
-  if(sav>0) msg += `\nوفّر العميل: ${sav} ${CURRENCY}\n`;
-  msg += `\n*الإجمالي: ${s} ${CURRENCY}*\n\nالاسم: ${n}\nالموبايل: ${p}` + (d.gov?`\nالمحافظة: ${d.gov}`:"") + `\nالعنوان: ${a}` + (d.landmark?`\nعلامة مميزة: ${d.landmark}`:"") + (o?`\nملاحظات: ${o}`:"");
-  window.open(`https://wa.me/${PHARMACY_PHONE}?text=${encodeURIComponent(msg)}`,"_blank");
-  if(window.Orders) window.Orders.add({name:n,phone:p,gov:d.gov||"",addr:a,landmark:d.landmark||"",notes:o,total:s,items:Object.keys(cart).map(id=>`${label(id)} × ${cart[id]} = ${lineTotal(id)} ${CURRENCY}`)});
+  const lines = Object.keys(cart).map(id=>`${label(id)} × ${cart[id]} = ${lineTotal(id)} ${CURRENCY}`);
+  const buildMsg = bon => {
+    let msg = `*طلب جديد - صيدليات د/ مراد صادق*\n` + (bon?`*رقم البون: ${bon}*\n`:"") + `\n`;
+    msg += lines.map(l=>"• "+l).join("\n") + "\n";
+    if(sav>0) msg += `\nوفّر العميل: ${sav} ${CURRENCY}\n`;
+    return msg + `\n*الإجمالي: ${s} ${CURRENCY}*\n\nاسم العميل: ${n}\nالموبايل: ${p}` + (d.gov?`\nالمحافظة: ${d.gov}`:"") + `\nالعنوان: ${a}` + (d.landmark?`\nعلامة مميزة: ${d.landmark}`:"") + (o?`\nملاحظات: ${o}`:"");
+  };
+  const waUrl = bon => `https://wa.me/${PHARMACY_PHONE}?text=${encodeURIComponent(buildMsg(bon))}`;
+  // نفتح نافذة الواتس فوراً (علشان المتصفح ما يمنعهاش) ونكمّل الرابط أول ما السيرفر يرجّع رقم البون
+  let w = null; try{ w = window.open("","_blank"); }catch(e){}
+  const ord = window.Orders ? window.Orders.add({name:n,phone:p,gov:d.gov||"",addr:a,landmark:d.landmark||"",notes:o,total:s,items:lines}) : null;
   saveOrder(s); if(R) R.saveProfile(d); else sv("mrad_profile",d);
   cart = {}; refresh();
-  $("sheet").innerHTML = `<div class="done"><b>${svg("check")}</b><h2 style="border:0;justify-content:center">تم تجهيز طلبك</h2>
-    <p style="color:var(--gr)">أكمل إرسال الرسالة في واتساب وهنتواصل معاك لتأكيد التوصيل.</p></div>
-    <button class="go" data-a="close">تمام</button>`;
+  $("sheet").innerHTML = `<div class="done"><b>${svg("check")}</b><h2 style="border:0;justify-content:center">جاري تجهيز طلبك…</h2>
+    <p style="color:var(--gr)" id="waNote">بنسجّل الطلب ونجهّز رسالة الواتساب.</p></div>
+    <a class="go" id="waGo" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none" href="${waUrl("")}">فتح واتساب</a>
+    <button class="ghost" data-a="close">إغلاق</button>`;
+  (ord && window.Orders.whenBon ? window.Orders.whenBon(ord,6000) : Promise.resolve(null)).then(bon=>{
+    const url = waUrl(bon||"");
+    if(w && !w.closed){ try{ w.location.href = url; }catch(e){} }
+    else { try{ window.open(url,"_blank"); }catch(e){} }
+    const g=$("waGo"); if(g) g.href=url;
+    const h=$("sheet").querySelector(".done h2"), nt=$("waNote");
+    if(h) h.textContent="تم تجهيز طلبك" + (bon?` — رقم البون ${bon}`:"");
+    if(nt) nt.textContent="أكمل إرسال الرسالة في واتساب وهنتواصل معاك لتأكيد التوصيل. لو الواتساب ما فتحش اضغط الزرار.";
+  });
 }
 
 // ====== الأحداث ======
@@ -374,7 +402,20 @@ document.addEventListener("click", e=>{
   else if(a==="send") send();
   else if(a==="need") change(i, +b.dataset.n);
   else if(a==="clear"){ cart={}; refresh(); cartView(); }
+  else if(a==="rm"){ if(cart[i]) change(i,-cart[i]); }
+  else if(a==="addtog"){ addOpen=!addOpen; if(!addOpen) addQ=""; cartView(); if(addOpen){ const q=$("cvQ"); if(q) q.focus(); } }
+  else if(a==="addpick"){ change(i,1); const r=$("cvRes"); if(r) r.innerHTML=addResults(); }
 });
+$("sheet").addEventListener("change", e=>{
+  const t=e.target; if(!t.dataset || !t.dataset.cq) return;
+  const k=t.dataset.cq, v=parseInt(toEn(t.value),10);
+  if(isNaN(v)||v<0){ t.value=cart[k]||0; return; }
+  change(k, v-(cart[k]||0));
+});
+$("sheet").addEventListener("input", e=>{ if(e.target.id!=="cvQ") return; addQ=e.target.value; const r=$("cvRes"); if(r) r.innerHTML=addResults(); });
+$("sheet").addEventListener("keydown", e=>{ if(e.key==="Enter" && e.target.dataset && e.target.dataset.cq) e.target.blur(); });
+// أيقونة الزرار العايم: فاتورة بدل السلة
+(function(){ const ic=document.querySelector("#openCart svg"); if(ic) ic.innerHTML=IC.receipt; $("openCart").setAttribute("aria-label","الفاتورة"); })();
 document.addEventListener("keydown", e=>{ if(e.key==="Escape") close(); if(e.key==="Enter" && e.target.classList && e.target.classList.contains("c")) openCat(e.target.dataset.c); });
 
 // ====== شريط العروض ======
