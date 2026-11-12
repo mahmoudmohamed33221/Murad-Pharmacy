@@ -90,10 +90,15 @@ function normProduct(r,i){
   const drw = String(r.disc==null?"":r.disc);
   // الخصم دايمًا نسبة مئوية: ١٠ أو ١٠٪ = ١٠٪، وكمان ٠.١ (اللي جوجل شيت بيطلعه لخلية نسبة) = ١٠٪
   let dv = num(drw); if(!/[%٪]/.test(drw) && dv>0 && dv<1) dv = Math.round(dv*100); dv = Math.min(100,dv); const dpct = true;
+  // عرض القطعة الإضافية: هدية = 0% من السعر، نص السعر = 50%، أو نسبة (مثلاً 25%)
+  const bw = toAscii(String(r.bonus==null?"":r.bonus)).replace(/\s+/g,"");
+  let bx = null;
+  if(bw){ if(/هدي|مجان|free|gift/i.test(bw)) bx = 0; else if(/نص|نصف|half/i.test(bw)) bx = 50; else { const m = bw.match(/(\d+(?:\.\d+)?)/); if(m){ const v = parseFloat(m[1]); if(v>0 && v<=100) bx = v; } } }
+  if(bx!=null) dv = 0;       // العرض الجديد بيكسب لو فيه خصم نسبة معاه
   const sh = /^\s*\d+([.,]\d+)?\s*$/.test(toAscii(r.sh)) ? num(r.sh) : 0;     // رقم أكبر من صفر فقط = في شرايط
   const k = sh>0 ? Math.max(1,Math.floor(sh)) : 1;
   const stock = Math.max(0,Math.floor(/^\s*\d+([.,]\d+)?\s*$/.test(toAscii(r.stock)) ? num(r.stock) : 0));   // فاضي/كلام = غير متوفر
-  return { id:String(r.id||("p"+(i+1))).trim(), name, cat:String(r.cat||"").replace(/\s+/g," ").trim(), offer:offerOf(r.offer)||(dv>0?"عرض خاص":""), disc:dv, discPct:dpct, min:Math.max(1,Math.floor(num(r.min))||1), inc:Math.max(0,Math.floor(num(r.inc))||0), price:num(r.price), strips:k, stripPrice:num(r.strip_price),
+  return { id:String(r.id||("p"+(i+1))).trim(), name, cat:String(r.cat||"").replace(/\s+/g," ").trim(), offer:offerOf(r.offer)||(bx!=null?(bx===0?"١+١ هدية":bx===50?"التانية بنص السعر":"التانية بـ"+bx+"٪"):(dv>0?"عرض خاص":"")), bx, disc:dv, discPct:dpct, min:Math.max(1,Math.floor(num(r.min))||1), inc:Math.max(0,Math.floor(num(r.inc))||0), price:num(r.price), strips:k, stripPrice:num(r.strip_price),
     img:driveImg(r.image), alts:driveAlts(r.image), catImg:driveImg(r.catimg), catAlts:driveAlts(r.catimg),
     offerImg:driveImg(r.offerimg).replace("sz=w500","sz=w1200"), offerAlts:driveAlts(r.offerimg).map(u=>u.replace("=w500","=w1200")), alias:String(r.alias||"").trim(), type:String(r.type||"").replace(/\s+/g," ").trim(), company:String(r.company||"").replace(/\s+/g," ").trim(), stock, out:stock<=0 };
 }
@@ -108,7 +113,7 @@ function parseCSV(t){
   return rows;
 }
 // الأعمدة: عمود القسم ("لينك القسم" أو "القسم") بعد "رابط الصوره": اللي بيتكتب جنب كل منتج هو اسم القسم، والأقسام بتتكوّن منه تلقائي.
-const HK = {"الرقم":"id","اسم المنتج":"name","علبه":"stock","شرايط":"sh","سعر العلبه":"price","سعر الشريط":"strip_price","رابط الصوره":"image","لينك القسم":"catimg","لينك المجموعه":"catimg","رابط المجموعه":"catimg","صوره المجموعه":"catimg","لينك صوره المجموعه":"catimg","المجموعه":"cat","المجموعات":"cat","لينك العرض":"offerimg","رابط العرض":"offerimg","صوره العرض":"offerimg","بوستر العرض":"offerimg","لينك البوستر":"offerimg","رابط القسم":"catimg","صوره القسم":"catimg","لينك صوره القسم":"catimg","القسم":"cat","لينك الصوره":"image","الصوره":"image","صوره":"image","عرض خاص":"offer","عرض":"offer","قيمه الخصم":"disc","الخصم":"disc","الحد الادني":"min","الحد الادنى":"min","العدد المشمول":"inc","العدد المشمول بالخصم":"inc","عدد العلب المشمول":"inc","الاسم بالانجليزي":"alias","الاسم الانجليزي":"alias","اسم انجليزي":"alias","الاسم العلمي":"alias","الاسم التجاري":"alias","نوع المنتج":"type","النوع":"type","نوع":"type","الشكل الدوائي":"type","الشركه":"company","شركه":"company","اسم الشركه":"company","الشركه المصنعه":"company","الشركه المنتجه":"company","english":"alias","name_en":"alias"};
+const HK = {"الرقم":"id","اسم المنتج":"name","علبه":"stock","شرايط":"sh","سعر العلبه":"price","سعر الشريط":"strip_price","رابط الصوره":"image","لينك القسم":"catimg","لينك المجموعه":"catimg","رابط المجموعه":"catimg","صوره المجموعه":"catimg","لينك صوره المجموعه":"catimg","المجموعه":"cat","المجموعات":"cat","لينك العرض":"offerimg","رابط العرض":"offerimg","صوره العرض":"offerimg","بوستر العرض":"offerimg","لينك البوستر":"offerimg","رابط القسم":"catimg","صوره القسم":"catimg","لينك صوره القسم":"catimg","القسم":"cat","لينك الصوره":"image","الصوره":"image","صوره":"image","عرض خاص":"offer","عرض":"offer","قيمه الخصم":"disc","الخصم":"disc","الحد الادني":"min","الحد الادنى":"min","العدد المشمول":"inc","العدد المشمول بالخصم":"inc","عدد العلب المشمول":"inc","عرض القطعه الاضافيه":"bonus","عرض القطعة الاضافية":"bonus","القطعه الاضافيه":"bonus","العرض الاضافي":"bonus","عرض اضافي":"bonus","الاسم بالانجليزي":"alias","الاسم الانجليزي":"alias","اسم انجليزي":"alias","الاسم العلمي":"alias","الاسم التجاري":"alias","نوع المنتج":"type","النوع":"type","نوع":"type","الشكل الدوائي":"type","الشركه":"company","شركه":"company","اسم الشركه":"company","الشركه المصنعه":"company","الشركه المنتجه":"company","english":"alias","name_en":"alias"};
 // عمود "عرض خاص": أي قيمة معناها نعم => العرض شغال. لو اتكتب نص مخصص (مثلا "خصم ٢٠٪") بيظهر هو بدل "عرض خاص"
 const offerOf = v => { v=String(v==null?"":v).trim(); if(!v || /^(0|لا|no|false|-|x)$/i.test(norm(v))) return ""; return /^(1|نعم|yes|true|✓|✔|عرض|عرض خاص|اوفر|offer)$/i.test(norm(v)) ? "عرض خاص" : v; };
 // مطابقة عنوان العمود: الأول بالاسم بالظبط (بعد توحيد الهمزات)، وبعدين بالكلمة المفتاحية (أي عنوان فيه "قسم" أو "تصنيف" = القسم)
@@ -117,6 +122,7 @@ function headerKey(x){
   if(!HKN) HKN = Object.fromEntries(Object.entries(HK).map(([k,v])=>[norm(k).replace(/\s+/g," "),v]));
   const n = norm(String(x==null?"":x)).replace(/\s+/g," "); if(!n) return "";
   if(HKN[n]) return HKN[n];
+  if(/قطعه.*اضاف|اضاف.*قطعه/.test(n)) return "bonus";
   if(/عرض|offer|poster|بوستر/.test(n) && /لينك|رابط|صور|link|image|url|بوستر|poster/.test(n)) return "offerimg";
   if(/قسم|تصنيف|فئه|مجموع|category|group/.test(n)) return /لينك|رابط|صور|link|image|url/.test(n) ? "catimg" : "cat";
   if(/سعر/.test(n)) return /شريط|شرايط|شرائط|strip/.test(n) ? "strip_price" : "price";
@@ -257,7 +263,15 @@ const ar = v => Number(v).toLocaleString("ar-EG");
 // (لو العدد المشمول فاضي = الخصم على كل العلب). قيمة الخصم: ١٠٪ = نسبة، ورقم عادي = جنيه لكل علبة
 const perBox = p => p.discPct ? Math.round(p.price*p.disc)/100 : Math.min(p.disc,p.price);
 const covered = (p,boxes) => p.inc>0 ? Math.min(p.inc,boxes) : boxes;
-const saveOf = (p,boxes) => (p.disc>0 && boxes>=p.min) ? covered(p,boxes)*perBox(p) : 0;
+// عرض القطعة الإضافية: لكل علبة بيشتريها العميل بياخد علبة إضافية (هدية أو بنسبة من سعرها) — على قد المتاح في المخزون
+const isBonus = p => p.bx!=null;
+const hasOff = p => p.disc>0 || isBonus(p);
+const extraOf = (p,q) => isBonus(p) ? Math.max(0,Math.min(q,p.stock-q)) : 0;
+const bonusWord = p => p.bx===0 ? "هدية" : p.bx===50 ? "بنص السعر" : "بـ"+p.bx+"% من السعر";
+const bonusTitle = p => p.bx===0 ? "اشتري علبة وخد التانية هدية 🎁" : p.bx===50 ? "اشتري علبة وخد التانية بنص السعر" : `اشتري علبة وخد التانية بـ${ar(p.bx)}٪ من سعرها`;
+const r2 = x => Math.round(x*100)/100;
+const saveOf = (p,boxes) => isBonus(p) ? r2(extraOf(p,boxes)*p.price*(100-p.bx)/100) : (p.disc>0 && boxes>=p.min) ? covered(p,boxes)*perBox(p) : 0;
+const boxCost = (p,q) => isBonus(p) ? r2(q*p.price + extraOf(p,q)*p.price*p.bx/100) : q*p.price - saveOf(p,q);
 const discTxt = p => p.discPct ? ar(p.disc)+"٪" : fmt(p.disc);
 const boxWord = n => n>2 && n<11 ? "علب" : (n===2 ? "علبتين" : "علبة");
 const cnt = n => n===1 ? "علبة واحدة" : n===2 ? "علبتين" : ar(n)+" "+boxWord(n);
@@ -269,8 +283,9 @@ function offerExplain(p){
   return `<div>لما تشتري <b>${cnt(p.min)} أو أكتر</b> بتاخد خصم <b>${discTxt(p)}</b> على <b>${cnt(p.inc)} فقط</b>.</div>
     <div>أي علب زيادة عن كده بتتحسب <b>بسعرها العادي من غير خصم</b>.</div>`;
 }
+const lineText = id => { const {p,u}=parseK(id), q=cart[id], ex = u==="b" ? extraOf(p,q) : 0; return `${label(id)} × ${q}${ex>0?` (+${ex} ${bonusWord(p)})`:""} = ${lineTotal(id)} ${CURRENCY}`; };
 const label = k => { const {p,u} = parseK(k); return p.name + (u==="s" ? " (شريط)" : ""); };
-const lineTotal = k => { const {p,u}=parseK(k), q=cart[k]||0; return u==="s" ? q*stripPrice(p) : q*p.price - saveOf(p,q); };
+const lineTotal = k => { const {p,u}=parseK(k), q=cart[k]||0; return u==="s" ? q*stripPrice(p) : boxCost(p,q); };
 function totals(){
   let n=0,s=0,sav=0; for(const k in cart){ n+=cart[k]; s+=lineTotal(k); const {p,u}=parseK(k); if(u==="b") sav+=saveOf(p,cart[k]); }
   return {n,s,sav};
@@ -314,7 +329,10 @@ const TRASH = '<svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 1
 function addResults(){
   const words = norm(addQ).split(/\s+/).filter(Boolean);
   if(!words.length) return `<div class="cv-none">اكتب اسم المنتج اللي عايز تضيفه</div>`;
-  let list = PRODUCTS.filter(p=>!p.out && words.every(w=>(p._h||norm(p.name)).includes(w)));
+  // نفس بحث الصفحة: تطابق حرفي الأول، وبعده التطابق الصوتي (panadol = بنادول)
+  let list = [], seen = new Set();
+  for(const p of PRODUCTS){ if(!p.out && words.every(w=>p._h.includes(w))){ list.push(p); seen.add(p); if(list.length>=11) break; } }
+  if(list.length<11) for(const p of PRODUCTS){ if(!p.out && !seen.has(p) && words.every(w=>p._h.includes(w)||phon(p,w))){ list.push(p); if(list.length>=11) break; } }
   const more = list.length>10; list = list.slice(0,10);
   if(!list.length) return `<div class="cv-none">مفيش منتج بالاسم ده</div>`;
   return list.map(p=>`<div class="cv-pick"><div class="cv-pi"><b class="cv-pn">${esc(p.name)}</b><small>${fmt(p.price)}${cart[p.id]||cart[p.id+":s"]?` · في الفاتورة ✓`:""}</small></div><button type="button" class="cv-show" data-a="pvshow" data-i="${p.id}">عرض</button></div>`).join("") + (more?`<div class="cv-none">اكتب أكتر عشان تحدد المنتج</div>`:"");
@@ -323,30 +341,31 @@ function addResults(){
 function cvLine(id){
   const {p,u}=parseK(id), q=cart[id]||0, d = u==="b" ? saveOf(p,q) : 0;
   let hint = "";
-  if(u==="b" && p.disc>0 && q>0) hint = q>=p.min ? `<em class="okk">العرض شغال ✓ وفرت ${fmt(d)}${p.inc>0&&q>p.inc?" — والباقي بالسعر العادي":""}</em>` : `<em class="hintx">ناقصك ${cnt(p.min-q)} عشان العرض يشتغل</em>`;
-  return {tot:(d>0?`<s>${nf(q*p.price)}</s>`:"")+`<b>${nf(lineTotal(id))}</b>`, hint};
+  if(u==="b" && isBonus(p) && q>0){
+    const ex = extraOf(p,q);
+    hint = ex>0 ? `<em class="okk">+${ar(ex)} ${bonusWord(p)}${p.bx===0?" 🎁":""}${ex<q?" (المتاح من الإضافية "+ar(ex)+" بس)":""}</em>` : `<em class="hintx">الإضافية خلصت من المخزون</em>`;
+  } else if(u==="b" && p.disc>0 && q>0) hint = q>=p.min ? `<em class="okk">العرض شغال ✓ وفرت ${fmt(d)}${p.inc>0&&q>p.inc?" — والباقي بالسعر العادي":""}</em>` : `<em class="hintx">ناقصك ${cnt(p.min-q)} عشان العرض يشتغل</em>`;
+  return {tot:(d>0&&!isBonus(p)?`<s>${nf(q*p.price)}</s>`:"")+`<b>${nf(lineTotal(id))}</b>`, hint};
 }
 function cvTotals(){
   const {s,sav} = totals();
   const t=$("cvTot"); if(t) t.textContent = nf(s)+" "+CURRENCY;
-  const v=$("cvSave"); if(v) v.innerHTML = saveLine(sav);
+  const v=$("cvSv"); if(v){ v.hidden = !(sav>0); $("cvSvA").textContent = nf(sav)+" "+CURRENCY; }
 }
 function cartView(){
   openSheet("cart");
   const ids = Object.keys(cart);
   const rows = ids.map(id=>{
-    const {p,u}=parseK(id), unit = u==="s" ? stripPrice(p) : p.price, L = cvLine(id);
-    return `<tr><td class="inv-n">${escN(label(id))}<span data-ch="${id}">${L.hint}</span></td><td>${nf(unit)}</td>
-      <td><input class="cv-in" inputmode="numeric" data-cq="${id}" value="${cart[id]}" aria-label="العدد"></td>
+    const L = cvLine(id);
+    return `<tr><td class="inv-n">${escN(label(id))}<span data-ch="${id}">${L.hint}</span></td><td><input class="cv-in" inputmode="numeric" data-cq="${id}" value="${cart[id]}" aria-label="العدد"></td>
       <td data-lt="${id}">${L.tot}</td>
       <td><button class="cv-rm" data-a="rm" data-i="${id}" aria-label="حذف">${TRASH}</button></td></tr>`;}).join("");
   const {s} = totals();
   $("sheet").innerHTML = `<h2><span class="cv-ttl"><svg viewBox="0 0 24 24">${IC.receipt}</svg>فاتورة الطلب</span> <button class="x" data-a="close" aria-label="إغلاق">✕</button></h2>` +
   `<div class="inv"><div class="inv-h"><b>صيدليات د/ مراد صادق</b><img src="assets/logo.png" alt=""></div>` +
-  (ids.length ? `<table class="inv-t cv-t"><thead><tr><th class="inv-n">اسم الصنف</th><th>سعر القطعة</th><th>العدد</th><th>الإجمالي</th><th>حذف</th></tr></thead><tbody>${rows}</tbody>
-     <tfoot><tr><td colspan="5"><div class="inv-f"><span>الإجمالي النهائي</span><b id="cvTot">${nf(s)} ${CURRENCY}</b></div></td></tr></tfoot></table>`
+  (ids.length ? `<table class="inv-t cv-t"><thead><tr><th class="inv-n">اسم الصنف</th><th>العدد</th><th>الإجمالي</th><th>حذف</th></tr></thead><tbody>${rows}</tbody>
+     <tfoot><tr><td colspan="4"><div class="inv-f"><span>الإجمالي النهائي</span><b id="cvTot">${nf(s)} ${CURRENCY}</b></div><div class="inv-sv" id="cvSv" hidden><span>تم توفير مبلغ</span><b id="cvSvA"></b></div></td></tr></tfoot></table>`
    : `<div class="empty cv-empty"><b>${svg("receipt")}</b>الفاتورة فاضية، ضيف منتج من تحت</div>`) + `</div>` +
-  `<div id="cvSave"></div>` +
   `<button type="button" class="cv-add${addOpen?" on":""}" data-a="addtog"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>إضافة منتج</button>` +
   (addOpen ? `<div class="cv-ap"><input type="search" id="cvQ" class="cv-q" placeholder="ابحث باسم المنتج" autocomplete="off" value="${esc(addQ)}"><div id="cvRes">${addResults()}</div></div>` : "") +
   (ids.length ? `<button class="go" data-a="checkout">متابعة لإتمام الطلب</button>
@@ -386,7 +405,7 @@ function send(){
   const d = (R && coF) ? coF.get() : PF(), n=d.name, p=d.phone, a=d.addr;
   $("err").style.display="none";
   const {s,sav} = totals();
-  const lines = Object.keys(cart).map(id=>`${label(id)} × ${cart[id]} = ${lineTotal(id)} ${CURRENCY}`);
+  const lines = Object.keys(cart).map(lineText);
   const buildMsg = bon => {
     let msg = `*طلب جديد - صيدليات د/ مراد صادق*\n` + (bon?`*رقم البون: ${bon}*\n`:"") + `\n`;
     msg += lines.map(l=>"• "+l).join("\n") + "\n";
@@ -396,7 +415,7 @@ function send(){
   const waUrl = bon => `https://wa.me/${PHARMACY_PHONE}?text=${encodeURIComponent(buildMsg(bon))}`;
   // نفتح نافذة الواتس فوراً (علشان المتصفح ما يمنعهاش) ونكمّل الرابط أول ما السيرفر يرجّع رقم البون
   let w = null; try{ w = window.open("","_blank"); }catch(e){}
-  const ord = window.Orders ? window.Orders.add({name:n,phone:p,gov:d.gov||"",addr:a,landmark:d.landmark||"",notes:o,total:s,items:lines}) : null;
+  const ord = window.Orders ? window.Orders.add({name:n,phone:p,gov:d.gov||"",addr:a,landmark:d.landmark||"",notes:o,total:s,sav,items:lines}) : null;
   saveOrder(s); if(R) R.saveProfile(d); else sv("mrad_profile",d);
   cart = {}; refresh();
   $("sheet").innerHTML = `<div class="done"><b>${svg("check")}</b><h2 style="border:0;justify-content:center">جاري تجهيز طلبك…</h2>
@@ -573,6 +592,7 @@ let offersSig = null;
 function offerDetail(p){
   const lines = [];
   if(p.offer && p.offer!=="عرض خاص") lines.push(`<b class="otag">${esc(p.offer)}</b>`);
+  if(isBonus(p)){ lines.push(`<b>${bonusTitle(p)}</b>`); lines.push("وده على كل علبة بتشتريها"); if(p.price>0) lines.push(`<span class="oprice">${fmt(p.price)} للعلبة${p.bx===0?"":" والتانية بـ"+fmt(r2(p.price*p.bx/100))}</span>`); return lines.map(l=>`<p>${l}</p>`).join(""); }
   if(p.min<=1 && !(p.inc>0)) lines.push(`خصم <b>${discTxt(p)}</b> على كل علبة`);
   else if(p.min<=1) lines.push(`خصم <b>${discTxt(p)}</b> على أول <b>${cnt(p.inc)}</b>`);
   else if(p.inc>0) lines.push(`اشتري <b>${cnt(p.min)}</b> واحصل على خصم <b>${discTxt(p)}</b> على <b>${cnt(p.inc)}</b>`);
@@ -592,8 +612,8 @@ function offerCard(p){
   return `<button class="slide s1 offer-card" data-id="${esc(p.id)}" aria-label="${esc(p.name)}" style="background:${bg}"><div class="ofb"><h3>${escN(p.name)}</h3>${offerDetail(p)}<em>شاهد المنتج</em></div>${img}</button>`;
 }
 function buildOffers(){
-  const list = PRODUCTS.filter(p=>p.disc>0);
-  const sig = list.map(p=>[p.id,p.name,p.disc,p.offerImg].join("~")).join("|");
+  const list = PRODUCTS.filter(hasOff);
+  const sig = list.map(p=>[p.id,p.name,p.disc,p.bx,p.offerImg].join("~")).join("|");
   if(sig === offersSig) return; offersSig = sig;
   stop(); track.scrollLeft = 0; near = 0;
   track.innerHTML = list.length ? list.map(offerCard).join("") : `<div class="slide offer-empty"><span>لا توجد أي عروض حاليًا</span></div>`;
@@ -616,7 +636,7 @@ const escN = t => esc(t).replace(/([+/،])(?=\S)/g,"$1\u200b");
 const PF = () => ld("mrad_profile",{name:"",phone:"",gov:"",addr:"",landmark:""});
 function saveOrder(total){
   const list = ld("mrad_orders",[]);
-  const items = Object.keys(cart).map(id=>`${label(id)} × ${cart[id]}`);
+  const items = Object.keys(cart).map(id=>{ const {p,u}=parseK(id), ex = u==="b"?extraOf(p,cart[id]):0; return `${label(id)} × ${cart[id]}${ex>0?` (+${ex} ${bonusWord(p)})`:""}`; });
   list.unshift({d:new Date().toLocaleDateString("ar-EG",{year:"numeric",month:"long",day:"numeric"}), total, items});
   sv("mrad_orders", list.slice(0,20));
 }
@@ -683,7 +703,7 @@ function rowHTML(p){
     <b class="pn">${escN(p.name)}</b>
     ${metaHTML(p)}
     <div class="pp"><small class="pl">سعر العبوة الواحدة</small><span class="pv">${fmt(p.price)}</span></div>
-    ${p.disc>0?`<div class="pd">${offerLine(p)}</div>`:""}</div>`;
+    ${hasOff(p)?`<div class="pd">${isBonus(p)?bonusTitle(p):offerLine(p)}</div>`:""}</div>`;
 }
 const toNum = s => parseInt(String(s).replace(/[٠-٩]/g,x=>"٠١٢٣٤٥٦٧٨٩".indexOf(x)).replace(/\D/g,""),10)||1;
 function fixPick(p,pk){
@@ -705,17 +725,21 @@ let pvId = null;
 function productView(id){
   const p = P(id); if(!p) return; pvId = id; openSheet("product");
   const pk = getPick(id), k = p.strips>1?p.strips:1, isS = pk.u==="s" && k>1, inCart = cart[id]||0;
-  const boxes = inCart + (isS?0:pk.n), d = saveOf(p,boxes), add = isS ? 0 : d - saveOf(p,inCart);
-  const line = (isS ? stripPrice(p) : p.price)*pk.n - add;
+  const boxes = inCart + (isS?0:pk.n), d = saveOf(p,boxes);
+  const line = isS ? stripPrice(p)*pk.n : boxCost(p,boxes) - boxCost(p,inCart);
   let ofr = "";
-  if(p.disc>0){
+  if(isBonus(p)){
+    const ex = extraOf(p,boxes);
+    ofr = `<div class="ofr on"><b>${bonusTitle(p)}</b><div>العرض ده على <b>كل علبة</b> بتشتريها — من غير حد أقصى.</div>` +
+      (isS ? "" : `<em class="okk">هتاخد ${ar(boxes+ex)} علب: ${ar(boxes)} بالسعر الكامل + ${ar(ex)} ${bonusWord(p)}${ex<boxes?" (المتاح من الإضافية "+ar(ex)+" بس)":""}</em>`) + `</div>`;
+  } else if(p.disc>0){
     const need = p.min - boxes, over = p.inc>0 ? Math.max(0, boxes-p.inc) : 0;
     ofr = `<div class="ofr ${need<=0?"on":""}"><b>${esc(p.offer)}</b>${offerExplain(p)}`+
       (need>0 ? `<em class="hintx">لسه ناقصك ${cnt(need)} عشان العرض يشتغل</em>`
               : `<em class="okk">العرض شغال ✓ وفرت ${fmt(d)} على ${cnt(covered(p,boxes))}${over>0?" — و"+cnt(over)+" الزيادة بالسعر العادي":""}</em>`)+`</div>`;
   }
   // صورة العرض تظهر لو: فتحنا من العروض المتحركة، أو العميل حقق شرط العرض (الحد الأدنى من العلب)
-  const showPoster = !!(p.offerImg && p.disc>0 && (pvFromOffer || boxes>=p.min));
+  const showPoster = !!(p.offerImg && hasOff(p) && (pvFromOffer || boxes>=p.min));
   const dis = p.out?"disabled":"";
   $("sheet").innerHTML = `<h2><span class="ttl">${escN(p.name)}</span> <button class="x" data-a="close" aria-label="إغلاق">✕</button></h2>
     <div class="pimg big${showPoster?" poster":""}">${thumb(showPoster ? {...p, img:p.offerImg, alts:p.offerAlts} : p)}${offerTag(p)}</div>
