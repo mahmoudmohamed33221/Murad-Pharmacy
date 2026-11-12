@@ -21,7 +21,7 @@
   function add(p) {
     var now = new Date();
     var o = { cid: rid(), ts: now.getTime(), d: now.toLocaleDateString("ar-EG", { weekday: "long", year: "numeric", month: "numeric", day: "numeric" }),
-      t: now.toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" }), items: p.items, total: p.total, sent: false, status: "",
+      t: now.toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" }), items: p.items, total: p.total, sav: p.sav || 0, sent: false, status: "",
       payload: { action: "newOrder", name: p.name, phone: p.phone, gov: p.gov || "", addr: p.addr, landmark: p.landmark || "", notes: p.notes || "", total: p.total,
         items: p.items.join("\n"), device: (window.MuradGuard && window.MuradGuard.device && window.MuradGuard.device()) || "" } };
     o.payload.cid = o.cid;
@@ -90,10 +90,11 @@
   function parseLines(o) {
     var a = Array.isArray(o.items) ? o.items : String(o.items || "").split("\n").filter(Boolean);
     return a.map(function (x) {
-      var m = String(x).match(/^(.*)\s×\s(\d+)\s=\s([\d.,]+)/);
+      var m = String(x).match(/^(.*?)\s×\s(\d+)(?:\s\(\+(\d+)\s([^)]*)\))?\s=\s([\d.,]+)/);
       if (!m) return { n: String(x), q: 0, t: 0, p: 0, raw: true };
-      var q = +m[2], t = parseFloat(m[3].replace(/,/g, "")) || 0;
-      return { n: m[1].trim(), q: q, t: t, p: q ? t / q : 0 };
+      var q = +m[2], t = parseFloat(m[5].replace(/,/g, "")) || 0, ex = +m[3] || 0, w = m[4] || "", f = 0;
+      if (ex) { var pc = w.match(/(\d+(?:\.\d+)?)\s*%/); f = /هدي/.test(w) ? 0 : /نص/.test(w) ? 0.5 : pc ? parseFloat(pc[1]) / 100 : 0; }
+      return { n: m[1].trim(), q: q, t: t, p: q ? t / (q + ex * f) : 0, ex: ex, w: w };
     });
   }
   var num = function (n) { return (Math.round(n * 100) / 100).toLocaleString("en-US", { maximumFractionDigits: 2 }); };
@@ -101,14 +102,14 @@
     var L = parseLines(o), sum = L.reduce(function (a, l) { return a + l.t; }, 0);
     var total = Math.max(Number(o.total) || 0, sum), ship = Math.round((total - sum) * 100) / 100;
     var rows = L.map(function (l) {
-      return "<tr><td class=\"inv-n\">" + esc(l.n) + "</td><td>" + (l.raw ? "-" : num(l.p)) + "</td><td>" + (l.raw ? "-" : l.q) + "</td><td><b>" + (l.raw ? "-" : num(l.t)) + "</b></td></tr>";
+      return "<tr><td class=\"inv-n\">" + esc(l.n) + (l.ex ? '<span class="inv-bx">+' + l.ex + " " + esc(l.w) + (/هدي/.test(l.w) ? " 🎁" : "") + "</span>" : "") + "</td><td>" + (l.raw ? "-" : num(l.p)) + "</td><td>" + (l.raw ? "-" : l.q) + "</td><td><b>" + (l.raw ? "-" : num(l.t)) + "</b></td></tr>";
     }).join("");
     rows += "<tr class=\"ship\"><td class=\"inv-n\">التوصيل</td><td>0</td><td>0</td><td><b>" + num(ship) + "</b></td></tr>";
     return '<div class="inv"><div class="inv-h"><b>صيدليات د/ مراد صادق</b><img src="assets/logo.png" alt=""></div>' +
       '<div class="inv-sub">' + (o.bon ? "فاتورة طلب رقم " + o.bon + " · " : "") + esc(o.d || "") + " · " + esc(o.t || "") + "</div>" +
       (o.pilotName ? '<div class="inv-pilot">' + I.bike + "الطيار: <b>" + esc(o.pilotName) + "</b></div>" : "") +
       '<table class="inv-t"><thead><tr><th class="inv-n">اسم الصنف</th><th>سعر القطعة</th><th>العدد</th><th>إجمالي سعر القطع</th></tr></thead><tbody>' + rows +
-      '</tbody><tfoot><tr><td colspan="4"><div class="inv-f"><span>الإجمالي النهائي</span><b>' + num(total) + " " + CURRENCY + "</b></div></td></tr></tfoot></table></div>";
+      '</tbody><tfoot><tr><td colspan="4"><div class="inv-f"><span>الإجمالي النهائي</span><b>' + num(total) + " " + CURRENCY + "</b></div>" + (Number(o.sav) > 0 ? '<div class="inv-sv"><span>تم توفير مبلغ</span><b>' + num(Number(o.sav)) + " " + CURRENCY + "</b></div>" : "") + "</td></tr></tfoot></table></div>";
   }
   var openInv = {};
   var CHEVRON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
