@@ -11,7 +11,7 @@ header{border-radius:0 0 28px 28px}
 /* --- العروض: مستطيل ملي عرض الشاشة --- */
 .offers{margin-inline:-16px}
 .track{border-radius:0}
-.slide{border-radius:0;box-shadow:none;min-height:236px;padding:30px 24px}
+.slide{border-radius:28px;box-shadow:none;min-height:236px;padding:30px 24px}
 .slide h3{font-size:clamp(1.6rem,7.2vw,2.1rem);line-height:1.35}
 .slide p{font-size:1.1rem;margin-top:8px}
 .slide em{font-size:1.05rem;padding:10px 22px;margin-top:16px}
