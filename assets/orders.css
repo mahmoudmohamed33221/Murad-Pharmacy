@@ -115,3 +115,53 @@ html[data-theme="dark"] .inv-t tfoot td{border-color:#3a3a40}
 html[data-theme="dark"] .inv-f{background:#2a2518}
 .inv-f b{color:#a8761a;font-size:.86rem}
 html[data-theme="dark"] .inv-f b{color:#FF9A2E}
+
+/* ===== زرار الفاتورة العايم: ثابت مكانه، والشريط بيسيبله مساحة ===== */
+.bar.show{padding-left:80px}
+.bar.show ~ .cartbtn.fab,.cartbtn.fab{bottom:calc(var(--nav) + 6px + env(safe-area-inset-bottom,0px))}
+
+/* ===== الفاتورة (السلة) في نص الشاشة ===== */
+.ov.show .sheet[data-v="cart"]{animation:cvpop .28s ease}
+@keyframes cvpop{from{opacity:0;transform:translateY(-46%) scale(.96)}}
+.sheet[data-v="cart"]{top:50%;bottom:auto;left:0;right:0;transform:translateY(-50%);width:calc(100% - 28px);max-width:520px;margin:0 auto;border-radius:22px;max-height:86vh;padding:16px 14px}
+.cv-ttl{display:flex;align-items:center;gap:8px;font-size:1.05rem}
+.cv-ttl svg{width:22px;height:22px;fill:none;stroke:var(--gold,#C8A24A);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.cv-row{padding:10px;margin-bottom:8px;border:1px solid var(--ln);border-radius:14px;background:var(--bg)}
+html[data-theme="dark"] .cv-row{background:#141416;border-color:#2f2f35}
+.cv-top{display:flex;align-items:center;gap:9px}
+.cv-th{width:36px;height:36px;border-radius:10px;overflow:hidden;flex:none;background:#FFF6DD;position:relative;display:block}
+html[data-theme="dark"] .cv-th{background:linear-gradient(145deg,#2d2616,#1f1a0f)}
+.cv-th .th{width:100%;height:100%}
+.cv-th .th svg{width:20px;height:20px}
+.cv-n{flex:1;min-width:0;font-weight:700;font-size:.88rem;line-height:1.45}
+.cv-rm{flex:none;width:32px;height:32px;border-radius:10px;border:0;background:#fdecea;display:grid;place-items:center;cursor:pointer}
+html[data-theme="dark"] .cv-rm{background:#3a1613}
+.cv-rm svg{width:18px;height:18px;fill:none;stroke:#c62828;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+html[data-theme="dark"] .cv-rm svg{stroke:#ff8a80}
+.cv-bot{display:flex;align-items:center;gap:8px;margin-top:9px}
+.cv-st{display:flex;align-items:center;border-radius:11px;background:var(--bk);color:#fff;flex:none}
+html[data-theme="dark"] .cv-st{background:#2a2a2e}
+.cv-st button{width:32px;height:34px;border:0;background:none;color:#fff;font-size:1.2rem;cursor:pointer}
+.cv-in{width:40px;height:34px;border:0;background:none;color:#fff;text-align:center;font:800 .95rem Cairo,sans-serif;outline:0;padding:0;-moz-appearance:textfield}
+.cv-in:focus{background:rgba(255,255,255,.14);border-radius:8px}
+.cv-pr{flex:1;text-align:center;font-weight:700;font-size:.8rem;line-height:1.3}
+.cv-pr small,.cv-lt s{display:block;color:var(--gr);font-weight:500;font-size:.68rem}
+.cv-lt{min-width:74px;text-align:left;font-size:.95rem;line-height:1.3}
+.cv-lt b{color:var(--or-d);font-weight:800}
+html[data-theme="dark"] .cv-lt b{color:#FF9A2E}
+.cv-row .okk,.cv-row .hintx{display:block;margin-top:6px;font-size:.72rem}
+.cv-add{width:100%;display:flex;align-items:center;justify-content:center;gap:7px;padding:11px;margin:4px 0 10px;border:1.5px dashed var(--gold,#C8A24A);border-radius:13px;background:none;color:var(--gold-d,#9C7A2B);font:inherit;font-weight:800;font-size:.9rem;cursor:pointer}
+html[data-theme="dark"] .cv-add{color:#E6C36A}
+.cv-add svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round}
+.cv-add.on{background:rgba(200,162,74,.1);border-style:solid}
+.cv-ap{margin-bottom:12px}
+.cv-q{width:100%;padding:11px 12px;border:1.5px solid var(--ln);border-radius:11px;background:var(--wh);color:var(--bk);font:inherit;font-size:.92rem;outline:0}
+html[data-theme="dark"] .cv-q{background:#131316;color:#f2f2f2;border-color:#35353b}
+.cv-q:focus{border-color:var(--or)}
+#cvRes{margin-top:8px;max-height:30vh;overflow:auto;display:flex;flex-direction:column;gap:6px}
+.cv-pick{display:flex;align-items:center;gap:8px;width:100%;padding:9px 10px;border:1px solid var(--ln);border-radius:11px;background:var(--wh);color:var(--bk);font:inherit;text-align:right;cursor:pointer}
+html[data-theme="dark"] .cv-pick{background:#18181b;border-color:#2f2f35}
+.cv-pn{flex:1;min-width:0;font-weight:700;font-size:.82rem}
+.cv-pick small{color:var(--gr);font-size:.74rem;white-space:nowrap}
+.cv-pick b{flex:none;min-width:30px;height:28px;border-radius:9px;background:var(--or);color:#fff;display:grid;place-items:center;font-size:.9rem;padding:0 6px}
+.cv-none{text-align:center;color:var(--gr);font-size:.8rem;padding:8px}
