@@ -88,3 +88,13 @@ html[data-theme="dark"] .gv-i{background:#232327;border-color:#35353b}
 html[data-theme="dark"] .gv-i.on{background:#3a2610;color:#FF9A2E}
 .gv-i.on svg{opacity:1;stroke:var(--or)}
 .gv-none{text-align:center;color:var(--gr);padding:26px 0;font-weight:600}
+
+/* مسافات أصغر بين خانات الفورم */
+.rg-field{margin-bottom:6px}
+.rg-field label{margin-bottom:4px;font-size:.9rem}
+.rg-box input,.rg-box select{padding-top:11px;padding-bottom:11px}
+.rg-box textarea{min-height:74px}
+.rg-msg{min-height:0;margin-top:2px;font-size:.78rem;line-height:1.4}
+.rg-msg:empty{display:none}
+.rg-box .rg-ic{top:50%;margin-top:-11px}
+.rg-box textarea ~ .rg-ic{top:12px;margin-top:0}
