@@ -6,7 +6,7 @@
   var KEY = "mrad_orders2", MAX = 40;
   var CFG = window.APP_CONFIG || {};
   var list = ld(KEY, []);
-  var syncing = false, pollT = null, sending = false;
+  var syncing = false, pollT = null, sending = false, waits = {};
 
   var SHORT = { queued: "جاري الإرسال", pending: "في انتظار القبول", accepted: "تم قبول طلبك", preparing: "جاري تجهيز طلبك", delivering: "طلبك في الطريق", arrived: "المندوب وصل", completed: "تم الاستلام" };
 
@@ -30,6 +30,15 @@
     return o;
   }
 
+  // بيرجّع رقم البون أول ما السيرفر يرد (أو null بعد المهلة)
+  function whenBon(o, ms) {
+    return new Promise(function (res) {
+      if (o.bon) return res(o.bon);
+      var t = setTimeout(function () { res(null); }, ms || 5000);
+      (waits[o.cid] = waits[o.cid] || []).push(function (b) { clearTimeout(t); res(b); });
+    });
+  }
+
   // ===== إرسال الطلبات اللي لسه ما وصلتش للشيت =====
   function push() {
     var url = CFG.ORDERS_URL; if (!url || sending) return;
@@ -39,7 +48,7 @@
     fetch(url, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(o.payload), redirect: "follow" })
       .then(function (r) { return r.json(); })
       .then(function (j) {
-        if (j && j.ok) { o.sent = true; o.bon = j.bon; if (!o.status) o.status = "pending"; delete o.payload; }
+        if (j && j.ok) { o.sent = true; o.bon = j.bon; if (!o.status) o.status = "pending"; delete o.payload; (waits[o.cid] || []).forEach(function (f) { f(j.bon); }); delete waits[o.cid]; }
         else if (j && j.error) { o.sent = true; o.status = "pending"; o.rejected = j.error; delete o.payload; }   // السيرفر رفضه (حظر/بيانات): مفيش فايدة من التكرار
         save(); render(); badge();
       })
@@ -183,5 +192,5 @@
   document.addEventListener("visibilitychange", function () { if (!document.hidden) { push(); sync(); } });
   render(); badge(); push(); sync();
   function reset() { list = []; openInv = {}; lastSig = ""; save(); render(); badge(); }
-  window.Orders = { reset: reset, add: add, open: open, sync: sync, render: render };
+  window.Orders = { whenBon: whenBon, reset: reset, add: add, open: open, sync: sync, render: render };
 })();
