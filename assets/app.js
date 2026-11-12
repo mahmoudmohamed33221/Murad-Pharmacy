@@ -248,7 +248,7 @@ function cardHTML(p){
       <div class="ico">${thumb(p)}${offerTag(p)}</div><div class="cat">${esc(p.cat)}</div>
       <div class="nm">${escN(p.name)}</div>${metaHTML(p)}<div class="pr"><small class="pl">سعر العبوة الواحدة</small> ${fmt(p.price)}</div>
       ${q? `<div class="qty"><button data-a="plus" data-i="${p.id}" aria-label="زيادة">+</button><span>${q.toLocaleString("ar-EG")}</span><button data-a="minus" data-i="${p.id}" aria-label="نقص">−</button></div>`
-         : `<button class="add" ${p.out?"disabled":""} data-a="plus" data-i="${p.id}">${p.out?"غير متوفر":"أضف للسلة"}</button>`}
+         : `<button class="add" ${p.out?"disabled":""} data-a="plus" data-i="${p.id}">${p.out?"غير متوفر":"أضف للفاتورة"}</button>`}
     </div>`;}
 function grid(){ renderCats(); }   // الرئيسية: الأقسام بس، من غير منتجات تحتها
 const parseK = k => { const [id,u] = String(k).split(":"); return {p:P(id), u:u==="s"?"s":"b"}; };
@@ -303,37 +303,68 @@ function toast(m){ const t=$("toast"); t.textContent=m; t.classList.add("show");
 
 // ====== السلة وإتمام الشراء ======
 function openSheet(v){ $("sheet").dataset.v=v; $("ov").classList.add("show"); }
-function close(){ $("ov").classList.remove("show"); addOpen=false; addQ=""; }
+function close(){ $("ov").classList.remove("show"); addOpen=false; addQ=""; pvFromCart=false; }
 const saveLine = sav => sav>0 ? `<div class="save"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l3 3 5-6"/></svg>وفرت ${fmt(sav)} من إجمالي المبلغ</div>` : "";
 // حالة لوحة "إضافة منتج" جوه الفاتورة
-let addOpen = false, addQ = "";
+let addOpen = false, addQ = "", pvFromCart = false;
 const toEn = v => String(v==null?"":v).replace(/[٠-٩]/g, x=>"٠١٢٣٤٥٦٧٨٩".indexOf(x));
+const nf = n => Number(n).toLocaleString("en-US",{maximumFractionDigits:2});
+const TRASH = '<svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12h10l1-12M9 7V4h6v3"/></svg>';
+// نتائج البحث: مفيش حاجة تظهر قبل ما العميل يكتب، والاسم الطويل بيتقصّ
 function addResults(){
-  const q = norm(addQ);
-  let list = PRODUCTS.filter(p=>!p.out && (!q || norm(p.name).includes(q) || norm(p.cat||"").includes(q)));
-  const more = list.length>8; list = list.slice(0,8);
+  const words = norm(addQ).split(/\s+/).filter(Boolean);
+  if(!words.length) return `<div class="cv-none">اكتب اسم المنتج اللي عايز تضيفه</div>`;
+  let list = PRODUCTS.filter(p=>!p.out && words.every(w=>(p._h||norm(p.name)).includes(w)));
+  const more = list.length>10; list = list.slice(0,10);
   if(!list.length) return `<div class="cv-none">مفيش منتج بالاسم ده</div>`;
-  return list.map(p=>`<button type="button" class="cv-pick" data-a="addpick" data-i="${p.id}"><span class="cv-pn">${escN(p.name)}</span><small>${fmt(p.price)}</small><b>${cart[p.id]?"✓ "+ar(cart[p.id]):"+"}</b></button>`).join("") + (more?`<div class="cv-none">اكتب أكتر عشان تحدد المنتج</div>`:"");
+  return list.map(p=>`<div class="cv-pick"><div class="cv-pi"><b class="cv-pn">${esc(p.name)}</b><small>${fmt(p.price)}${cart[p.id]||cart[p.id+":s"]?` · في الفاتورة ✓`:""}</small></div><button type="button" class="cv-show" data-a="pvshow" data-i="${p.id}">عرض</button></div>`).join("") + (more?`<div class="cv-none">اكتب أكتر عشان تحدد المنتج</div>`:"");
+}
+// صف الفاتورة: سعر الواحدة، والإجمالي، وتلميح العرض (بيتحدّثوا فوراً لما العدد يتغيّر)
+function cvLine(id){
+  const {p,u}=parseK(id), q=cart[id]||0, d = u==="b" ? saveOf(p,q) : 0;
+  let hint = "";
+  if(u==="b" && p.disc>0 && q>0) hint = q>=p.min ? `<em class="okk">العرض شغال ✓ وفرت ${fmt(d)}${p.inc>0&&q>p.inc?" — والباقي بالسعر العادي":""}</em>` : `<em class="hintx">ناقصك ${cnt(p.min-q)} عشان العرض يشتغل</em>`;
+  return {tot:(d>0?`<s>${nf(q*p.price)}</s>`:"")+`<b>${nf(lineTotal(id))}</b>`, hint};
+}
+function cvTotals(){
+  const {s,sav} = totals();
+  const t=$("cvTot"); if(t) t.textContent = nf(s)+" "+CURRENCY;
+  const v=$("cvSave"); if(v) v.innerHTML = saveLine(sav);
 }
 function cartView(){
   openSheet("cart");
-  const ids = Object.keys(cart), {s,sav} = totals();
+  const ids = Object.keys(cart);
   const rows = ids.map(id=>{
-    const {p,u}=parseK(id), q=cart[id], d = u==="b" ? saveOf(p,q) : 0, unit = u==="s" ? stripPrice(p) : p.price;
-    let hint = "";
-    if(u==="b" && p.disc>0) hint = q>=p.min ? `<em class="okk">العرض شغال ✓ وفرت ${fmt(d)}${p.inc>0&&q>p.inc?" — والباقي بالسعر العادي":""}</em>` : `<em class="hintx">ناقصك ${cnt(p.min-q)} عشان العرض يشتغل</em>`;
-    return `<div class="cv-row"><div class="cv-top"><span class="cv-th">${thumb(p)}</span><div class="cv-n">${escN(label(id))}</div>
-      <button class="cv-rm" data-a="rm" data-i="${id}" aria-label="حذف"><svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12h10l1-12M9 7V4h6v3"/></svg></button></div>
-      <div class="cv-bot"><div class="cv-st"><button data-a="plus" data-i="${id}" aria-label="زيادة">+</button><input class="cv-in" inputmode="numeric" data-cq="${id}" value="${q}" aria-label="العدد"><button data-a="minus" data-i="${id}" aria-label="نقص">−</button></div>
-      <div class="cv-pr">${fmt(unit)}<small>للواحدة</small></div>
-      <div class="cv-lt">${d>0?`<s>${fmt(q*p.price)}</s>`:""}<b>${fmt(lineTotal(id))}</b></div></div>${hint}</div>`;}).join("");
+    const {p,u}=parseK(id), unit = u==="s" ? stripPrice(p) : p.price, L = cvLine(id);
+    return `<tr><td class="inv-n">${escN(label(id))}<span data-ch="${id}">${L.hint}</span></td><td>${nf(unit)}</td>
+      <td><input class="cv-in" inputmode="numeric" data-cq="${id}" value="${cart[id]}" aria-label="العدد"></td>
+      <td data-lt="${id}">${L.tot}</td>
+      <td><button class="cv-rm" data-a="rm" data-i="${id}" aria-label="حذف">${TRASH}</button></td></tr>`;}).join("");
+  const {s} = totals();
   $("sheet").innerHTML = `<h2><span class="cv-ttl"><svg viewBox="0 0 24 24">${IC.receipt}</svg>فاتورة الطلب</span> <button class="x" data-a="close" aria-label="إغلاق">✕</button></h2>` +
-  (ids.length ? rows : `<div class="empty"><b>${svg("receipt")}</b>الفاتورة فاضية، ضيف منتج من تحت</div>`) +
+  `<div class="inv"><div class="inv-h"><b>صيدليات د/ مراد صادق</b><img src="assets/logo.png" alt=""></div>` +
+  (ids.length ? `<table class="inv-t cv-t"><thead><tr><th class="inv-n">اسم الصنف</th><th>سعر القطعة</th><th>العدد</th><th>الإجمالي</th><th>حذف</th></tr></thead><tbody>${rows}</tbody>
+     <tfoot><tr><td colspan="5"><div class="inv-f"><span>الإجمالي النهائي</span><b id="cvTot">${nf(s)} ${CURRENCY}</b></div></td></tr></tfoot></table>`
+   : `<div class="empty cv-empty"><b>${svg("receipt")}</b>الفاتورة فاضية، ضيف منتج من تحت</div>`) + `</div>` +
+  `<div id="cvSave"></div>` +
   `<button type="button" class="cv-add${addOpen?" on":""}" data-a="addtog"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>إضافة منتج</button>` +
   (addOpen ? `<div class="cv-ap"><input type="search" id="cvQ" class="cv-q" placeholder="ابحث باسم المنتج" autocomplete="off" value="${esc(addQ)}"><div id="cvRes">${addResults()}</div></div>` : "") +
-  (ids.length ? saveLine(sav)+`<div class="total"><span>الإجمالي</span><span>${fmt(s)}</span></div>
-      <button class="go" data-a="checkout">متابعة لإتمام الطلب</button>
+  (ids.length ? `<button class="go" data-a="checkout">متابعة لإتمام الطلب</button>
       <button class="ghost" data-a="clear">إفراغ الفاتورة</button>` : "");
+  cvTotals();
+}
+// تعديل العدد لحظياً وهو بيكتب: بيغيّر الإجمالي في الفاتورة كلها فوراً من غير ما الخانة تفقد التركيز
+function cvLive(inp){
+  const k = inp.dataset.cq, raw = toEn(inp.value).replace(/\D/g,"");
+  if(raw===""){ cart[k]=0; }
+  else {
+    let v = parseInt(raw,10); const pp = P(String(k).split(":")[0]);
+    if(!String(k).endsWith(":s") && pp && v>pp.stock){ v = pp.stock; inp.value = v; toast("المتاح حاليًا: "+ar(pp.stock)); }
+    cart[k] = v;
+  }
+  const L = cvLine(k), t = $("sheet").querySelector(`[data-lt="${k}"]`), h = $("sheet").querySelector(`[data-ch="${k}"]`);
+  if(t) t.innerHTML = L.tot; if(h) h.innerHTML = L.hint;
+  cvTotals(); refresh(true);
 }
 function checkoutView(){
   openSheet("checkout");
@@ -345,7 +376,7 @@ function checkoutView(){
      <div class="err" id="err">راجع بياناتك.</div>
    </div>
    <button class="go" data-a="send">تأكيد الطلب</button>
-   <button class="ghost" data-a="cartv">رجوع للسلة</button>`;
+   <button class="ghost" data-a="cartv">رجوع للفاتورة</button>`;
   const R = window.MuradReg;
   if(R){ coF = R.mountForm($("coForm"),"co"); coF.set(R.getProfile()); }
 }
@@ -396,23 +427,29 @@ document.addEventListener("click", e=>{
   const a=b.dataset.a, i=b.dataset.i;
   if(a==="plus") change(i,1);
   else if(a==="minus") change(i,-1);
-  else if(a==="close") close();
+  else if(a==="close"){ if(pvFromCart && $("sheet").dataset.v==="product"){ pvFromCart=false; cartView(); } else close(); }
   else if(a==="checkout") checkoutView();
   else if(a==="cartv") cartView();
   else if(a==="send") send();
   else if(a==="need") change(i, +b.dataset.n);
   else if(a==="clear"){ cart={}; refresh(); cartView(); }
-  else if(a==="rm"){ if(cart[i]) change(i,-cart[i]); }
+  else if(a==="rm"){ change(i,-(cart[i]||0)); }
   else if(a==="addtog"){ addOpen=!addOpen; if(!addOpen) addQ=""; cartView(); if(addOpen){ const q=$("cvQ"); if(q) q.focus(); } }
-  else if(a==="addpick"){ change(i,1); const r=$("cvRes"); if(r) r.innerHTML=addResults(); }
+  else if(a==="pvshow"){ pvFromCart=true; productView(i); }
 });
+$("sheet").addEventListener("focusin", e=>{ const t=e.target; if(t.dataset && t.dataset.cq){ t.dataset.orig = cart[t.dataset.cq]||0; t.select(); } });
+$("sheet").addEventListener("input", e=>{
+  const t=e.target;
+  if(t.dataset && t.dataset.cq){ cvLive(t); return; }
+  if(t.id==="cvQ"){ addQ=t.value; const r=$("cvRes"); if(r) r.innerHTML=addResults(); }
+});
+// لما يخلّص كتابة: نظبّط (حذف لو صفر، تحويل شريط/علبة، حد المخزون) ونعيد رسم الفاتورة
 $("sheet").addEventListener("change", e=>{
   const t=e.target; if(!t.dataset || !t.dataset.cq) return;
-  const k=t.dataset.cq, v=parseInt(toEn(t.value),10);
-  if(isNaN(v)||v<0){ t.value=cart[k]||0; return; }
-  change(k, v-(cart[k]||0));
+  const k=t.dataset.cq, orig = +t.dataset.orig||0, v = parseInt(toEn(t.value).replace(/\D/g,""),10);
+  cart[k] = orig;
+  change(k, (isNaN(v)?orig:v)-orig);
 });
-$("sheet").addEventListener("input", e=>{ if(e.target.id!=="cvQ") return; addQ=e.target.value; const r=$("cvRes"); if(r) r.innerHTML=addResults(); });
 $("sheet").addEventListener("keydown", e=>{ if(e.key==="Enter" && e.target.dataset && e.target.dataset.cq) e.target.blur(); });
 // أيقونة الزرار العايم: فاتورة بدل السلة
 (function(){ const ic=document.querySelector("#openCart svg"); if(ic) ic.innerHTML=IC.receipt; $("openCart").setAttribute("aria-label","الفاتورة"); })();
@@ -630,7 +667,7 @@ setTheme((()=>{ try{ return localStorage.getItem("mrad_theme2") || "dark"; }catc
 $("waLink").href = "https://wa.me/"+PHARMACY_PHONE;
 $("telLink").href = "tel:+"+PHARMACY_PHONE;
 $("wipe").onclick = ()=>{
-  if(!confirm("هتتمسح بياناتك وطلباتك والسلة. متأكد؟")) return;
+  if(!confirm("هتتمسح بياناتك وطلباتك والفاتورة. متأكد؟")) return;
   try{ ["mrad_profile","mrad_orders","mrad_orders2","mrad_cart","mrad_fs"].forEach(k=>localStorage.removeItem(k)); }catch(e){}
   cart = {}; refresh(); setFs(16); if(window.Orders) window.Orders.reset();
   if(window.MuradReg) window.MuradReg.check();   // البيانات اتمسحت: نرجّع شاشة التسجيل
@@ -684,18 +721,18 @@ function productView(id){
     <div class="pimg big${showPoster?" poster":""}">${thumb(showPoster ? {...p, img:p.offerImg, alts:p.offerAlts} : p)}${offerTag(p)}</div>
     ${metaHTML(p,true)}
     <div class="pp big"><small class="pl">${isS?"سعر الشريط الواحد":"سعر العبوة الواحدة"}</small><span class="pv">${fmt(isS?stripPrice(p):p.price)}</span></div>
-    ${inCart?`<div class="inc">في سلتك: ${ar(inCart)} ${boxWord(inCart)}</div>`:""}
+    ${inCart?`<div class="inc">في فاتورتك: ${ar(inCart)} ${boxWord(inCart)}</div>`:""}
     ${ofr}
     <div class="prow"><div class="qty"><button data-pv="inc" ${dis}>+</button><input class="qin" data-pv="inp" inputmode="numeric" value="${pk.n}" ${dis}><button data-pv="dec" ${dis}>−</button></div>
       ${k>1?`<div class="seg sm"><button data-pv="ub" class="${isS?"":"on"}">علبة</button><button data-pv="us" class="${isS?"on":""}">شريط</button></div>`:""}</div>
-    <button class="go" data-pv="add" ${dis}>${p.out?"غير متوفر":"أضف للسلة · "+fmt(line)}</button>`;
+    <button class="go" data-pv="add" ${dis}>${p.out?"غير متوفر":"أضف للفاتورة · "+fmt(line)}</button>`;
 }
 function pvAct(a,val,n){
   const p = P(pvId), pk = getPick(pvId); if(!p) return;
   if(a==="ub"){ pk.u="b"; pk.n=1; } else if(a==="us"){ pk.u = p.strips>1?"s":"b"; pk.n=1; }
   else if(a==="inc") pk.n++; else if(a==="dec") pk.n--; else if(a==="inp") pk.n = toNum(val);
   else if(a==="need"){ pk.u="b"; pk.n += n; }
-  else if(a==="add"){ addPick(p,pk); pk.n=1; pk.u="b"; close(); return; }
+  else if(a==="add"){ addPick(p,pk); pk.n=1; pk.u="b"; if(pvFromCart){ pvFromCart=false; cartView(); } else close(); return; }
   fixPick(p,pk); productView(pvId);
 }
 $("sheet").addEventListener("click", e=>{ const b = e.target.closest("[data-pv]"); if(!b || b.tagName==="INPUT") return; pvAct(b.dataset.pv, null, +b.dataset.n||0); });
@@ -879,7 +916,7 @@ async function scan(file){
     stat.hidden = true;
     out.innerHTML = list.length
       ? `<div class="found"><h2>لقينا ${list.length.toLocaleString("ar-EG")} ${list.length>2?"أدوية":"دواء"}</h2></div>`+`<div class="pgrid">${list.map(rowHTML).join("")}</div>`+
-        `<button class="go" id="addAll">أضف الكل للسلة</button>`+rawBox(fullText)
+        `<button class="go" id="addAll">أضف الكل للفاتورة</button>`+rawBox(fullText)
       : `<div class="empty"><b>${svg("search")}</b>مقدرناش نتعرف على اسم دواء واضح<br>الخط اليدوي صعب على القارئ. جرب صورة أقرب وأوضح، أو ابحث بالاسم</div><button class="go" id="toName">ابحث بالاسم</button>`+rawBox(fullText);
     out._list = list;
   }catch(err){
@@ -895,7 +932,7 @@ $("scanRes").addEventListener("click", e=>{
   if(e.target.id==="addAll"){
     const list = $("scanRes")._list || []; let n=0;
     list.forEach(p=>{ if(p.out) return; const pk=getPick(p.id); addPick(p,pk); pk.n=1; pk.u="b"; n++; });
-    toast("تمت إضافة "+n.toLocaleString("ar-EG")+" صنف للسلة");
+    toast("تمت إضافة "+n.toLocaleString("ar-EG")+" صنف للفاتورة");
   }
 });
 
