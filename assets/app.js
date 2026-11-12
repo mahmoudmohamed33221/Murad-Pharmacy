@@ -93,12 +93,13 @@ function normProduct(r,i){
   // عرض القطعة الإضافية: هدية = 0% من السعر، نص السعر = 50%، أو نسبة (مثلاً 25%)
   const bw = toAscii(String(r.bonus==null?"":r.bonus)).replace(/\s+/g,"");
   let bx = null;
-  if(bw){ if(/هدي|مجان|free|gift/i.test(bw)) bx = 0; else if(/نص|نصف|half/i.test(bw)) bx = 50; else { const m = bw.match(/(\d+(?:\.\d+)?)/); if(m){ const v = parseFloat(m[1]); if(v>0 && v<=100) bx = v; } } }
+  if(bw){ if(/هدي|مجان|free|gift/i.test(bw)) bx = 0; else if(/نص|نصف|half/i.test(bw)) bx = 50; else { const m = bw.match(/(\d+(?:\.\d+)?)/); if(m){ const v = parseFloat(m[1]); if(v>0 && v<=100) bx = Math.round((100-v)*100)/100; } } }   // الرقم = نسبة الخصم على العلبة الإضافية (25 = بخصم 25٪)
+  const bxn = Math.max(1, Math.floor(num(r.bxn)) || 1);     // عدد القطع الإضافية مقابل كل مجموعة (فاضي أو 0 = 1)
   if(bx!=null) dv = 0;       // العرض الجديد بيكسب لو فيه خصم نسبة معاه
   const sh = /^\s*\d+([.,]\d+)?\s*$/.test(toAscii(r.sh)) ? num(r.sh) : 0;     // رقم أكبر من صفر فقط = في شرايط
   const k = sh>0 ? Math.max(1,Math.floor(sh)) : 1;
   const stock = Math.max(0,Math.floor(/^\s*\d+([.,]\d+)?\s*$/.test(toAscii(r.stock)) ? num(r.stock) : 0));   // فاضي/كلام = غير متوفر
-  return { id:String(r.id||("p"+(i+1))).trim(), name, cat:String(r.cat||"").replace(/\s+/g," ").trim(), offer:offerOf(r.offer)||(bx!=null?(bx===0?"١+١ هدية":bx===50?"التانية بنص السعر":"التانية بـ"+bx+"٪"):(dv>0?"عرض خاص":"")), bx, disc:dv, discPct:dpct, min:Math.max(1,Math.floor(num(r.min))||1), inc:Math.max(0,Math.floor(num(r.inc))||0), price:num(r.price), strips:k, stripPrice:num(r.strip_price),
+  return { id:String(r.id||("p"+(i+1))).trim(), name, cat:String(r.cat||"").replace(/\s+/g," ").trim(), offer:offerOf(r.offer)||(bx!=null?(()=>{ const m=Math.max(1,Math.floor(num(r.min))||1), mm=m.toLocaleString("ar-EG"), nn=bxn.toLocaleString("ar-EG"); return bx===0?mm+"+"+nn+" هدية":bx===50?mm+"+"+nn+" بنص السعر":mm+"+"+nn+" بخصم "+(100-bx)+"٪"; })():(dv>0?"عرض خاص":"")), bx, bxn, disc:dv, discPct:dpct, min:Math.max(1,Math.floor(num(r.min))||1), inc:Math.max(0,Math.floor(num(r.inc))||0), price:num(r.price), strips:k, stripPrice:num(r.strip_price),
     img:driveImg(r.image), alts:driveAlts(r.image), catImg:driveImg(r.catimg), catAlts:driveAlts(r.catimg),
     offerImg:driveImg(r.offerimg).replace("sz=w500","sz=w1200"), offerAlts:driveAlts(r.offerimg).map(u=>u.replace("=w500","=w1200")), alias:String(r.alias||"").trim(), type:String(r.type||"").replace(/\s+/g," ").trim(), company:String(r.company||"").replace(/\s+/g," ").trim(), stock, out:stock<=0 };
 }
@@ -113,7 +114,7 @@ function parseCSV(t){
   return rows;
 }
 // الأعمدة: عمود القسم ("لينك القسم" أو "القسم") بعد "رابط الصوره": اللي بيتكتب جنب كل منتج هو اسم القسم، والأقسام بتتكوّن منه تلقائي.
-const HK = {"الرقم":"id","اسم المنتج":"name","علبه":"stock","شرايط":"sh","سعر العلبه":"price","سعر الشريط":"strip_price","رابط الصوره":"image","لينك القسم":"catimg","لينك المجموعه":"catimg","رابط المجموعه":"catimg","صوره المجموعه":"catimg","لينك صوره المجموعه":"catimg","المجموعه":"cat","المجموعات":"cat","لينك العرض":"offerimg","رابط العرض":"offerimg","صوره العرض":"offerimg","بوستر العرض":"offerimg","لينك البوستر":"offerimg","رابط القسم":"catimg","صوره القسم":"catimg","لينك صوره القسم":"catimg","القسم":"cat","لينك الصوره":"image","الصوره":"image","صوره":"image","عرض خاص":"offer","عرض":"offer","قيمه الخصم":"disc","الخصم":"disc","الحد الادني":"min","الحد الادنى":"min","العدد المشمول":"inc","العدد المشمول بالخصم":"inc","عدد العلب المشمول":"inc","عرض القطعه الاضافيه":"bonus","عرض القطعة الاضافية":"bonus","القطعه الاضافيه":"bonus","العرض الاضافي":"bonus","عرض اضافي":"bonus","الاسم بالانجليزي":"alias","الاسم الانجليزي":"alias","اسم انجليزي":"alias","الاسم العلمي":"alias","الاسم التجاري":"alias","نوع المنتج":"type","النوع":"type","نوع":"type","الشكل الدوائي":"type","الشركه":"company","شركه":"company","اسم الشركه":"company","الشركه المصنعه":"company","الشركه المنتجه":"company","english":"alias","name_en":"alias"};
+const HK = {"الرقم":"id","اسم المنتج":"name","علبه":"stock","شرايط":"sh","سعر العلبه":"price","سعر الشريط":"strip_price","رابط الصوره":"image","لينك القسم":"catimg","لينك المجموعه":"catimg","رابط المجموعه":"catimg","صوره المجموعه":"catimg","لينك صوره المجموعه":"catimg","المجموعه":"cat","المجموعات":"cat","لينك العرض":"offerimg","رابط العرض":"offerimg","صوره العرض":"offerimg","بوستر العرض":"offerimg","لينك البوستر":"offerimg","رابط القسم":"catimg","صوره القسم":"catimg","لينك صوره القسم":"catimg","القسم":"cat","لينك الصوره":"image","الصوره":"image","صوره":"image","عرض خاص":"offer","عرض":"offer","قيمه الخصم":"disc","الخصم":"disc","الحد الادني":"min","الحد الادنى":"min","العدد المشمول":"inc","العدد المشمول بالخصم":"inc","عدد العلب المشمول":"inc","عدد القطع في العرض":"bxn","عدد القطع الاضافيه":"bxn","عدد القطع الاضافية":"bxn","عرض القطعه الاضافيه":"bonus","عرض القطعة الاضافية":"bonus","القطعه الاضافيه":"bonus","العرض الاضافي":"bonus","عرض اضافي":"bonus","الاسم بالانجليزي":"alias","الاسم الانجليزي":"alias","اسم انجليزي":"alias","الاسم العلمي":"alias","الاسم التجاري":"alias","نوع المنتج":"type","النوع":"type","نوع":"type","الشكل الدوائي":"type","الشركه":"company","شركه":"company","اسم الشركه":"company","الشركه المصنعه":"company","الشركه المنتجه":"company","english":"alias","name_en":"alias"};
 // عمود "عرض خاص": أي قيمة معناها نعم => العرض شغال. لو اتكتب نص مخصص (مثلا "خصم ٢٠٪") بيظهر هو بدل "عرض خاص"
 const offerOf = v => { v=String(v==null?"":v).trim(); if(!v || /^(0|لا|no|false|-|x)$/i.test(norm(v))) return ""; return /^(1|نعم|yes|true|✓|✔|عرض|عرض خاص|اوفر|offer)$/i.test(norm(v)) ? "عرض خاص" : v; };
 // مطابقة عنوان العمود: الأول بالاسم بالظبط (بعد توحيد الهمزات)، وبعدين بالكلمة المفتاحية (أي عنوان فيه "قسم" أو "تصنيف" = القسم)
@@ -122,6 +123,7 @@ function headerKey(x){
   if(!HKN) HKN = Object.fromEntries(Object.entries(HK).map(([k,v])=>[norm(k).replace(/\s+/g," "),v]));
   const n = norm(String(x==null?"":x)).replace(/\s+/g," "); if(!n) return "";
   if(HKN[n]) return HKN[n];
+  if(/^عدد.*قطع/.test(n)) return "bxn";
   if(/قطعه.*اضاف|اضاف.*قطعه/.test(n)) return "bonus";
   if(/عرض|offer|poster|بوستر/.test(n) && /لينك|رابط|صور|link|image|url|بوستر|poster/.test(n)) return "offerimg";
   if(/قسم|تصنيف|فئه|مجموع|category|group/.test(n)) return /لينك|رابط|صور|link|image|url/.test(n) ? "catimg" : "cat";
@@ -266,9 +268,12 @@ const covered = (p,boxes) => p.inc>0 ? Math.min(p.inc,boxes) : boxes;
 // عرض القطعة الإضافية: لكل علبة بيشتريها العميل بياخد علبة إضافية (هدية أو بنسبة من سعرها) — على قد المتاح في المخزون
 const isBonus = p => p.bx!=null;
 const hasOff = p => p.disc>0 || isBonus(p);
-const extraOf = (p,q) => isBonus(p) ? Math.max(0,Math.min(q,p.stock-q)) : 0;
-const bonusWord = p => p.bx===0 ? "هدية" : p.bx===50 ? "بنص السعر" : "بـ"+p.bx+"% من السعر";
-const bonusTitle = p => p.bx===0 ? "اشتري علبة وخد التانية هدية 🎁" : p.bx===50 ? "اشتري علبة وخد التانية بنص السعر" : `اشتري علبة وخد التانية بـ${ar(p.bx)}٪ من سعرها`;
+const wantEx = (p,q) => Math.floor(q/Math.max(1,p.min)) * (p.bxn||1);
+const extraOf = (p,q) => isBonus(p) ? Math.max(0,Math.min(wantEx(p,q),p.stock-q)) : 0;   // لكل (الحد الأدنى) علب = (عدد القطع في العرض) علب إضافية
+const bonusWord = p => p.bx===0 ? "هدية" : p.bx===50 ? "بنص السعر" : "بخصم "+(100-p.bx)+"%";
+const bonusN = p => Math.max(1,p.min||1);
+const cntW = n => n===1?"علبة":n===2?"علبتين":ar(n)+" علب";
+const bonusTitle = p => { const n=bonusN(p), m=p.bxn||1, ex = p.bx===0?"هدية":p.bx===50?"بنص السعر":`بخصم ${ar(100-p.bx)}٪`; return `اشتري ${cntW(n)} وخد ${cntW(m)}${p.bx===0?"":" إضافية"} ${ex}${p.bx===0?" 🎁":""}`; };
 const r2 = x => Math.round(x*100)/100;
 const saveOf = (p,boxes) => isBonus(p) ? r2(extraOf(p,boxes)*p.price*(100-p.bx)/100) : (p.disc>0 && boxes>=p.min) ? covered(p,boxes)*perBox(p) : 0;
 const boxCost = (p,q) => isBonus(p) ? r2(q*p.price + extraOf(p,q)*p.price*p.bx/100) : q*p.price - saveOf(p,q);
@@ -343,7 +348,7 @@ function cvLine(id){
   let hint = "";
   if(u==="b" && isBonus(p) && q>0){
     const ex = extraOf(p,q);
-    hint = ex>0 ? `<em class="okk">+${ar(ex)} ${bonusWord(p)}${p.bx===0?" 🎁":""}${ex<q?" (المتاح من الإضافية "+ar(ex)+" بس)":""}</em>` : `<em class="hintx">الإضافية خلصت من المخزون</em>`;
+    hint = ex>0 ? `<em class="okk">+${ar(ex)} ${bonusWord(p)}${p.bx===0?" 🎁":""}${ex<wantEx(p,q)?" (المتاح من الإضافية "+ar(ex)+" بس)":""}</em>` : (wantEx(p,q)>0 ? `<em class="hintx">الإضافية خلصت من المخزون</em>` : `<em class="hintx">ناقصك ${cnt(bonusN(p)-q)} عشان تاخد العلبة ${p.bx===0?"الهدية":"الإضافية"}</em>`);
   } else if(u==="b" && p.disc>0 && q>0) hint = q>=p.min ? `<em class="okk">العرض شغال ✓ وفرت ${fmt(d)}${p.inc>0&&q>p.inc?" — والباقي بالسعر العادي":""}</em>` : `<em class="hintx">ناقصك ${cnt(p.min-q)} عشان العرض يشتغل</em>`;
   return {tot:(d>0&&!isBonus(p)?`<s>${nf(q*p.price)}</s>`:"")+`<b>${nf(lineTotal(id))}</b>`, hint};
 }
@@ -592,7 +597,7 @@ let offersSig = null;
 function offerDetail(p){
   const lines = [];
   if(p.offer && p.offer!=="عرض خاص") lines.push(`<b class="otag">${esc(p.offer)}</b>`);
-  if(isBonus(p)){ lines.push(`<b>${bonusTitle(p)}</b>`); lines.push("وده على كل علبة بتشتريها"); if(p.price>0) lines.push(`<span class="oprice">${fmt(p.price)} للعلبة${p.bx===0?"":" والتانية بـ"+fmt(r2(p.price*p.bx/100))}</span>`); return lines.map(l=>`<p>${l}</p>`).join(""); }
+  if(isBonus(p)){ lines.push(`<b>${bonusTitle(p)}</b>`); lines.push(bonusN(p)===1?"وده على كل علبة بتشتريها":"وده بيتكرر على كل "+(bonusN(p)===2?"علبتين":ar(bonusN(p))+" علب")+" بتشتريها"); if(p.price>0) lines.push(`<span class="oprice">${fmt(p.price)} للعلبة${p.bx===0?"":" والتانية بـ"+fmt(r2(p.price*p.bx/100))}</span>`); return lines.map(l=>`<p>${l}</p>`).join(""); }
   if(p.min<=1 && !(p.inc>0)) lines.push(`خصم <b>${discTxt(p)}</b> على كل علبة`);
   else if(p.min<=1) lines.push(`خصم <b>${discTxt(p)}</b> على أول <b>${cnt(p.inc)}</b>`);
   else if(p.inc>0) lines.push(`اشتري <b>${cnt(p.min)}</b> واحصل على خصم <b>${discTxt(p)}</b> على <b>${cnt(p.inc)}</b>`);
@@ -613,7 +618,7 @@ function offerCard(p){
 }
 function buildOffers(){
   const list = PRODUCTS.filter(hasOff);
-  const sig = list.map(p=>[p.id,p.name,p.disc,p.bx,p.offerImg].join("~")).join("|");
+  const sig = list.map(p=>[p.id,p.name,p.disc,p.bx,p.min,p.bxn,p.offerImg].join("~")).join("|");
   if(sig === offersSig) return; offersSig = sig;
   stop(); track.scrollLeft = 0; near = 0;
   track.innerHTML = list.length ? list.map(offerCard).join("") : `<div class="slide offer-empty"><span>لا توجد أي عروض حاليًا</span></div>`;
@@ -730,8 +735,8 @@ function productView(id){
   let ofr = "";
   if(isBonus(p)){
     const ex = extraOf(p,boxes);
-    ofr = `<div class="ofr on"><b>${bonusTitle(p)}</b><div>العرض ده على <b>كل علبة</b> بتشتريها — من غير حد أقصى.</div>` +
-      (isS ? "" : `<em class="okk">هتاخد ${ar(boxes+ex)} علب: ${ar(boxes)} بالسعر الكامل + ${ar(ex)} ${bonusWord(p)}${ex<boxes?" (المتاح من الإضافية "+ar(ex)+" بس)":""}</em>`) + `</div>`;
+    ofr = `<div class="ofr on"><b>${bonusTitle(p)}</b><div>العرض ده بيتكرر على <b>كل ${bonusN(p)===1?"علبة":bonusN(p)===2?"علبتين":ar(bonusN(p))+" علب"}</b> بتشتريها — من غير حد أقصى.</div>` +
+      (isS ? "" : ex>0 ? `<em class="okk">هتاخد ${ar(boxes+ex)} علب: ${ar(boxes)} بالسعر الكامل + ${ar(ex)} ${bonusWord(p)}${ex<wantEx(p,boxes)?" (المتاح من الإضافية "+ar(ex)+" بس)":""}</em>` : `<em class="hintx">ناقصك ${cnt(bonusN(p)-boxes)} عشان تاخد العلبة ${p.bx===0?"الهدية":"الإضافية"}</em>`) + `</div>`;
   } else if(p.disc>0){
     const need = p.min - boxes, over = p.inc>0 ? Math.max(0, boxes-p.inc) : 0;
     ofr = `<div class="ofr ${need<=0?"on":""}"><b>${esc(p.offer)}</b>${offerExplain(p)}`+
