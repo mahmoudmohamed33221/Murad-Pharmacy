@@ -93,7 +93,7 @@
       var m = String(x).match(/^(.*?)\s×\s(\d+)(?:\s\(\+(\d+)\s([^)]*)\))?\s=\s([\d.,]+)/);
       if (!m) return { n: String(x), q: 0, t: 0, p: 0, raw: true };
       var q = +m[2], t = parseFloat(m[5].replace(/,/g, "")) || 0, ex = +m[3] || 0, w = m[4] || "", f = 0;
-      if (ex) { var pc = w.match(/(\d+(?:\.\d+)?)\s*%/); f = /هدي/.test(w) ? 0 : /نص/.test(w) ? 0.5 : pc ? parseFloat(pc[1]) / 100 : 0; }
+      if (ex) { var pc = w.match(/خصم\s*(\d+(?:\.\d+)?)\s*%/); f = /هدي/.test(w) ? 0 : /نص/.test(w) ? 0.5 : pc ? 1 - parseFloat(pc[1]) / 100 : 0; }
       return { n: m[1].trim(), q: q, t: t, p: q ? t / (q + ex * f) : 0, ex: ex, w: w };
     });
   }
