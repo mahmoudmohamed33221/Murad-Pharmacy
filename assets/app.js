@@ -299,9 +299,6 @@ function refresh(skip){
   const {n,s} = totals();
   $("badge").textContent = n.toLocaleString("ar-EG");
   $("badge").hidden = n===0; $("openCart").classList.toggle("has", n>0);
-  $("bar").classList.toggle("show", n>0);
-  $("barTxt").textContent = `إتمام الشراء (${n.toLocaleString("ar-EG")} منتج)`;
-  $("barTot").textContent = fmt(s);
   if(!skip) grid(); save();
 }
 function change(key,d){
@@ -404,38 +401,110 @@ function checkoutView(){
   const R = window.MuradReg;
   if(R){ coF = R.mountForm($("coForm"),"co"); coF.set(R.getProfile()); }
 }
+// ====== تأكيد الطلب: سؤال الموقع ← إرسال الواتساب ← مشترياتي ======
+let SD = null;                     // بيانات الطلب اللي بيتأكد (محفوظة لحد ما العميل يحدد الموقع)
+const capP = n => { try{ return window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins[n]; }catch(e){ return null; } };
+// فتح تطبيق خارجي مباشرة (من غير ما يسأل أي متصفح). لو مفتحش بنجرّب الرابط البديل.
+function openExternal(url, fallback){
+  const A = capP("App");
+  if(A && A.openUrl){
+    return Promise.resolve(A.openUrl({url})).then(r=>{ if(r && r.completed===false && fallback) return A.openUrl({url:fallback}); })
+      .catch(()=>{ if(fallback){ try{ return A.openUrl({url:fallback}); }catch(e){} } });
+  }
+  try{ if(!window.open(fallback||url,"_blank")) location.href = fallback||url; }catch(e){}
+  return Promise.resolve();
+}
+const MAPS_RE = /https?:\/\/(?:maps\.app\.goo\.gl\/|goo\.gl\/maps\/|(?:www\.)?google\.[a-z.]+\/maps|maps\.google\.[a-z.]+\/?)[^\s]*/i;
+function mapsLinkOf(s){ const m = String(s||"").match(MAPS_RE); return m ? m[0].replace(/[)\]\.,،;]+$/,"") : ""; }
+// أدق موقع ممكن: بنراقب الـ GPS كام ثانية ونختار أدق قراءة
+function getPrecise(onProg){
+  return new Promise((resolve,reject)=>{
+    const G = capP("Geolocation"); let best=null, done=false, wid=null; const t0 = Date.now();
+    const stopW = ()=>{ try{ if(wid!=null){ if(G) G.clearWatch({id:wid}); else navigator.geolocation.clearWatch(wid); } }catch(e){} };
+    const fin = err => { if(done) return; done=true; clearTimeout(to); stopW(); best ? resolve(best) : reject(err||new Error("noloc")); };
+    const upd = p => { if(!p || !p.coords) return; const c=p.coords;
+      if(!best || c.accuracy<best.acc){ best={lat:c.latitude,lng:c.longitude,acc:c.accuracy}; if(onProg) onProg(best); }
+      if(best.acc<=15 || (best.acc<=35 && Date.now()-t0>7000)) fin(); };
+    const to = setTimeout(()=>fin(), 18000);
+    if(G){
+      Promise.resolve(G.requestPermissions()).then(r=>{ if(r && r.location==="denied") throw new Error("denied");
+        return G.watchPosition({enableHighAccuracy:true,timeout:15000,maximumAge:0},(p,err)=>{ upd(p); }); }).then(id=>{ wid=id; if(done) stopW(); }).catch(e=>fin(e));
+    } else if(navigator.geolocation){
+      wid = navigator.geolocation.watchPosition(upd, e=>{ if(!best) fin(e); }, {enableHighAccuracy:true,timeout:15000,maximumAge:0});
+    } else fin(new Error("unsupported"));
+  });
+}
+const PIN_IC = '<svg viewBox="0 0 24 24"><path d="M12 22s7-6.2 7-12a7 7 0 0 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.6"/></svg>';
 function send(){
   const R = window.MuradReg, o=$("fo").value.trim();
   if(R && coF && !coF.validate()){ $("err").textContent = "راجع الخانات اللي باللون الأحمر"; $("err").style.display="block"; return; }
-  const d = (R && coF) ? coF.get() : PF(), n=d.name, p=d.phone, a=d.addr;
+  const d = (R && coF) ? coF.get() : PF(), n=d.name, p=d.phone, ad=d.addr;
   $("err").style.display="none";
   const {s,sav} = totals();
-  const lines = Object.keys(cart).map(lineText);
-  const buildMsg = bon => {
-    let msg = `*طلب جديد - صيدليات د/ مراد صادق*\n` + (bon?`*رقم البون: ${bon}*\n`:"") + `\n`;
-    msg += lines.map(l=>"• "+l).join("\n") + "\n";
-    if(sav>0) msg += `\nوفّر العميل: ${sav} ${CURRENCY}\n`;
-    return msg + `\n*الإجمالي: ${s} ${CURRENCY}*\n\nاسم العميل: ${n}\nالموبايل: ${p}` + (d.gov?`\nالمحافظة: ${d.gov}`:"") + `\nالعنوان: ${a}` + (d.landmark?`\nعلامة مميزة: ${d.landmark}`:"") + (o?`\nملاحظات: ${o}`:"");
-  };
-  const waUrl = bon => `https://wa.me/${PHARMACY_PHONE}?text=${encodeURIComponent(buildMsg(bon))}`;
-  // نفتح نافذة الواتس فوراً (علشان المتصفح ما يمنعهاش) ونكمّل الرابط أول ما السيرفر يرجّع رقم البون
-  let w = null; try{ w = window.open("","_blank"); }catch(e){}
-  const ord = window.Orders ? window.Orders.add({name:n,phone:p,gov:d.gov||"",addr:a,landmark:d.landmark||"",notes:o,total:s,sav,items:lines}) : null;
-  saveOrder(s); if(R) R.saveProfile(d); else sv("mrad_profile",d);
-  cart = {}; refresh();
-  $("sheet").innerHTML = `<div class="done"><b>${svg("check")}</b><h2 style="border:0;justify-content:center">جاري تجهيز طلبك…</h2>
-    <p style="color:var(--gr)" id="waNote">بنسجّل الطلب ونجهّز رسالة الواتساب.</p></div>
-    <a class="go" id="waGo" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none" href="${waUrl("")}">فتح واتساب</a>
-    <button class="ghost" data-a="close">إغلاق</button>`;
-  (ord && window.Orders.whenBon ? window.Orders.whenBon(ord,6000) : Promise.resolve(null)).then(bon=>{
-    const url = waUrl(bon||"");
-    if(w && !w.closed){ try{ w.location.href = url; }catch(e){} }
-    else { try{ window.open(url,"_blank"); }catch(e){} }
-    const g=$("waGo"); if(g) g.href=url;
-    const h=$("sheet").querySelector(".done h2"), nt=$("waNote");
-    if(h) h.textContent="تم تجهيز طلبك" + (bon?` — رقم البون ${bon}`:"");
-    if(nt) nt.textContent="أكمل إرسال الرسالة في واتساب وهنتواصل معاك لتأكيد التوصيل. لو الواتساب ما فتحش اضغط الزرار.";
+  SD = { d, n, p, a:ad, o, s, sav, lines:Object.keys(cart).map(lineText) };
+  locAsk();
+}
+function locAsk(){
+  openSheet("loc");
+  $("sheet").innerHTML = `<div class="lc"><b class="lc-ic">${PIN_IC}</b><h2>هل موقعك الحالي الآن هو مكان استلام طلبك؟</h2>
+    <p class="lc-p">هنحدد موقعك بدقة علشان المندوب يوصلك بسرعة.</p>
+    <div class="lc-st" id="lcSt"></div>
+    <button class="go" id="lcYes" data-a="locyes">نعم، أرسل إلى موقعي الحالي الآن</button>
+    <button class="ghost lc-other" data-a="locother">تحديد موقع آخر</button>
+    <button class="ghost" data-a="checkout">رجوع</button></div>`;
+}
+function locYes(){
+  const b=$("lcYes"), st=$("lcSt"); if(!b || b.dataset.busy) return;
+  b.dataset.busy="1"; b.disabled=true; b.textContent="جاري تحديد موقعك بدقة…";
+  getPrecise(x=>{ if(st) st.textContent = "الدقة الحالية: ±"+Math.round(x.acc)+" متر"; }).then(x=>{
+    const link = `https://www.google.com/maps?q=${x.lat.toFixed(6)},${x.lng.toFixed(6)}`;
+    sv("mrad_loc",{link,lat:x.lat,lng:x.lng,acc:Math.round(x.acc),t:Date.now()});
+    finishSend(link);
+  }).catch(()=>{
+    b.dataset.busy=""; b.disabled=false; b.textContent="نعم، أرسل إلى موقعي الحالي الآن";
+    if(st) st.innerHTML = "<em>مقدرناش نحدد موقعك. فعّل الموقع (GPS) واسمح للتطبيق بالوصول له، أو اختار «تحديد موقع آخر».</em>";
   });
+}
+function locOther(){
+  openSheet("loc");
+  $("sheet").innerHTML = `<div class="lc"><b class="lc-ic">${PIN_IC}</b><h2>قم بإضافة الموقع المراد التوصيل إليه بمنتهى الدقة</h2>
+    <p class="lc-p">اختار الموقع من خرائط جوجل ← مشاركة ← نسخ الرابط، وارجع هنا والصق الرابط تحت.</p>
+    <div class="f"><textarea id="lcIn" rows="2" placeholder="الصق لينك الموقع هنا" dir="ltr" autocomplete="off"></textarea></div>
+    <div class="lc-st" id="lcSt"></div>
+    <button class="go" id="lcGo" data-a="locgo" disabled>توصيل لهذا الموقع</button>
+    <button class="ghost lc-other" data-a="locmaps">فتح خرائط جوجل</button>
+    <button class="ghost" data-a="locask">رجوع</button></div>`;
+  openMaps();                                  // بيفتح خرائط جوجل على طول علشان يختار منها ويعمل نسخ
+}
+function openMaps(){ openExternal("geo:0,0?q=", "https://www.google.com/maps"); }
+function locCheck(){
+  const t=$("lcIn"), go=$("lcGo"), st=$("lcSt"); if(!t||!go) return;
+  const l = mapsLinkOf(t.value);
+  go.disabled = !l;
+  if(st) st.innerHTML = !t.value.trim() ? "" : l ? "<b class=\"ok\">✓ لينك موقع صحيح</b>" : "<em>لازم تلصق لينك موقع من خرائط جوجل (مش أي كتابة)</em>";
+}
+function locGo(){
+  const l = mapsLinkOf(($("lcIn")||{}).value); if(!l){ locCheck(); return; }
+  sv("mrad_loc",{link:l,t:Date.now(),manual:1});
+  finishSend(l);
+}
+function finishSend(loc){
+  const S = SD; if(!S) return; SD = null;
+  const R = window.MuradReg, {d,n,p,a,o,s,sav,lines} = S;
+  let msg = `*طلب جديد - صيدليات د/ مراد صادق*\n\n` + lines.map(l=>"• "+l).join("\n") + "\n";
+  if(sav>0) msg += `\nوفّر العميل: ${sav} ${CURRENCY}\n`;
+  msg += `\n*الإجمالي: ${s} ${CURRENCY}*\n\nاسم العميل: ${n}\nالموبايل: ${p}` + (d.gov?`\nالمحافظة: ${d.gov}`:"") + `\nالعنوان: ${a}` + (d.landmark?`\nعلامة مميزة: ${d.landmark}`:"") + (loc?`\nالموقع: ${loc}`:"") + (o?`\nملاحظات: ${o}`:"");
+  const enc = encodeURIComponent(msg);
+  const ord = window.Orders ? window.Orders.add({name:n,phone:p,gov:d.gov||"",addr:a,landmark:d.landmark||"",notes:o,total:s,sav,items:lines,location:loc||""}) : null;
+  saveOrder(s); if(R) R.saveProfile(d); else sv("mrad_profile",d);
+  cart = {}; refresh(); close();
+  // بعد ما الشاشة تقفل (الرجوع في التاريخ بيخلص) نروح لمشترياتي ونفتح الواتساب على طول من غير انتظار رد السيرفر
+  setTimeout(()=>{
+    show("orders");
+    if(ord && window.Orders && window.Orders.flash) window.Orders.flash(ord.cid);
+    setTimeout(()=>{ openExternal(`whatsapp://send?phone=${PHARMACY_PHONE}&text=${enc}`, `https://wa.me/${PHARMACY_PHONE}?text=${enc}`);
+      setTimeout(()=>{ if(!document.hidden && window.Orders && window.Orders.flashNow) window.Orders.flashNow(); }, 1400); }, 150);
+  }, 280);
 }
 
 // ====== الأحداث ======
@@ -444,7 +513,6 @@ $("cats").addEventListener("click", e=>{
   openCat(b.dataset.c);
 });
 $("openCart").onclick = cartView;
-$("barBtn").onclick = cartView;
 $("ov").addEventListener("click", e=>{ if(e.target.id==="ov") close(); });
 document.addEventListener("click", e=>{
   const b = e.target.closest("[data-a]"); if(!b) return;
@@ -455,6 +523,11 @@ document.addEventListener("click", e=>{
   else if(a==="checkout") checkoutView();
   else if(a==="cartv") cartView();
   else if(a==="send") send();
+  else if(a==="locyes") locYes();
+  else if(a==="locother") locOther();
+  else if(a==="locask") locAsk();
+  else if(a==="locgo") locGo();
+  else if(a==="locmaps") openMaps();
   else if(a==="need") change(i, +b.dataset.n);
   else if(a==="clear"){ cart={}; refresh(); cartView(); }
   else if(a==="rm"){ change(i,-(cart[i]||0)); }
@@ -466,6 +539,7 @@ $("sheet").addEventListener("input", e=>{
   const t=e.target;
   if(t.dataset && t.dataset.cq){ cvLive(t); return; }
   if(t.id==="cvQ"){ addQ=t.value; const r=$("cvRes"); if(r) r.innerHTML=addResults(); }
+  if(t.id==="lcIn") locCheck();
 });
 // لما يخلّص كتابة: نظبّط (حذف لو صفر، تحويل شريط/علبة، حد المخزون) ونعيد رسم الفاتورة
 $("sheet").addEventListener("change", e=>{
