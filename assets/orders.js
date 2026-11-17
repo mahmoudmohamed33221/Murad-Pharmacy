@@ -22,7 +22,7 @@
     var now = new Date();
     var o = { cid: rid(), ts: now.getTime(), d: now.toLocaleDateString("ar-EG", { weekday: "long", year: "numeric", month: "numeric", day: "numeric" }),
       t: now.toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" }), items: p.items, total: p.total, sav: p.sav || 0, sent: false, status: "",
-      payload: { action: "newOrder", name: p.name, phone: p.phone, gov: p.gov || "", addr: p.addr, landmark: p.landmark || "", notes: p.notes || "", total: p.total,
+      payload: { action: "newOrder", name: p.name, phone: p.phone, gov: p.gov || "", addr: p.addr, landmark: p.landmark || "", notes: p.notes || "", total: p.total, location: p.location || "",
         items: p.items.join("\n"), device: (window.MuradGuard && window.MuradGuard.device && window.MuradGuard.device()) || "" } };
     o.payload.cid = o.cid;
     list.unshift(o); save(); badge(); push();
@@ -98,27 +98,26 @@
     });
   }
   var num = function (n) { return (Math.round(n * 100) / 100).toLocaleString("en-US", { maximumFractionDigits: 2 }); };
-  function invoiceHTML(o) {
+  function invoiceInner(o) {
     var L = parseLines(o), sum = L.reduce(function (a, l) { return a + l.t; }, 0);
     var total = Math.max(Number(o.total) || 0, sum), ship = Math.round((total - sum) * 100) / 100;
     var rows = L.map(function (l) {
       return "<tr><td class=\"inv-n\">" + esc(l.n) + (l.ex ? '<span class="inv-bx">+' + l.ex + " " + esc(l.w) + (/هدي/.test(l.w) ? " 🎁" : "") + "</span>" : "") + "</td><td>" + (l.raw ? "-" : num(l.p)) + "</td><td>" + (l.raw ? "-" : l.q) + "</td><td><b>" + (l.raw ? "-" : num(l.t)) + "</b></td></tr>";
     }).join("");
     rows += "<tr class=\"ship\"><td class=\"inv-n\">التوصيل</td><td>0</td><td>0</td><td><b>" + num(ship) + "</b></td></tr>";
-    return '<div class="inv"><div class="inv-h"><b>صيدليات د/ مراد صادق</b><img src="assets/logo.png" alt=""></div>' +
+    return '' +
       '<div class="inv-sub">' + (o.bon ? "فاتورة طلب رقم " + o.bon + " · " : "") + esc(o.d || "") + " · " + esc(o.t || "") + "</div>" +
       (o.pilotName ? '<div class="inv-pilot">' + I.bike + "الطيار: <b>" + esc(o.pilotName) + "</b></div>" : "") +
       '<table class="inv-t"><thead><tr><th class="inv-n">اسم الصنف</th><th>سعر القطعة</th><th>العدد</th><th>إجمالي سعر القطع</th></tr></thead><tbody>' + rows +
-      '</tbody><tfoot><tr><td colspan="4"><div class="inv-f"><span>الإجمالي النهائي</span><b>' + num(total) + " " + CURRENCY + "</b></div>" + (Number(o.sav) > 0 ? '<div class="inv-sv"><span>تم توفير مبلغ</span><b>' + num(Number(o.sav)) + " " + CURRENCY + "</b></div>" : "") + "</td></tr></tfoot></table></div>";
+      '</tbody><tfoot><tr><td colspan="4"><div class="inv-f"><span>الإجمالي النهائي</span><b>' + num(total) + " " + CURRENCY + "</b></div>" + (Number(o.sav) > 0 ? '<div class="inv-sv"><span>تم توفير مبلغ</span><b>' + num(Number(o.sav)) + " " + CURRENCY + "</b></div>" : "") + "</td></tr></tfoot></table>";
   }
   var openInv = {};
   var CHEVRON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
   var RECEIPT = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg>';
   function invBlock(o) {
     var on = !!openInv[o.cid];
-    return '<div class="od-inv' + (on ? " open" : "") + '"><button type="button" class="od-inv-btn" data-inv="' + o.cid + '" aria-expanded="' + on + '">' +
-      '<span class="ic">' + RECEIPT + '</span><span class="tx">' + (on ? "إخفاء الفاتورة" : "اظهر الفاتورة") + '</span><span class="chev">' + CHEVRON + "</span></button>" +
-      '<div class="od-inv-wrap"><div class="od-inv-in">' + invoiceHTML(o) + "</div></div></div>";
+    return '<div class="invx' + (on ? " open" : "") + '"><button type="button" class="invx-h" data-inv="' + o.cid + '" aria-expanded="' + on + '"><b class="invx-title">' + (on ? "صيدليات د/ مراد صادق" : "افتح الفاتورة") +
+      '</b><span class="invx-arw">' + CHEVRON + '</span><img src="assets/logo.png" alt=""></button><div class="invx-body">' + invoiceInner(o) + "</div></div>";
   }
 
   // ===== شريط المراحل =====
@@ -150,7 +149,7 @@
       (tel(o.pilotPhone) ? '<a class="pcall" href="tel:' + tel(o.pilotPhone) + '" aria-label="اتصال بالطيار">' + I.phone + "</a>" : "") + "</div>" : "";
     var note = o.rejected === "banned" ? '<div class="od-warn">تعذر تسجيل الطلب. تواصل مع الصيدلية.</div>' : "";
     var wait = st === "queued" ? '<div class="od-wait">جاري إرسال الطلب للصيدلية... تأكد من الإنترنت وهيتبعت لوحده.</div>' : "";
-    return '<article class="od-card act"><div class="od-top"><div><b class="od-bon">' + (o.bon ? "طلب رقم " + o.bon : "طلب جديد") + "</b><small>" + esc(o.d) + " · " + esc(o.t || "") +
+    return '<article class="od-card act' + (flashOn && o.cid === flashCid ? " hl" : "") + '" data-cid="' + o.cid + '"><div class="od-top"><div><b class="od-bon">' + (o.bon ? "طلب رقم " + o.bon : "طلب جديد") + "</b><small>" + esc(o.d) + " · " + esc(o.t || "") +
       '</small></div><span class="od-chip s-' + st + '">' + SHORT[st] + "</span></div>" + stepsHTML(st) + wait +
       eta + pilot + note + invBlock(o) + '<div class="od-tot"><span>إجمالي الحساب</span><b>' + fmt(o.total) + "</b></div></article>";
   }
@@ -170,11 +169,21 @@
   }
   document.addEventListener("click", function (e) {
     var b = e.target.closest && e.target.closest("[data-inv]"); if (!b) return;
-    var id = b.getAttribute("data-inv"), box = b.closest(".od-inv"), on = !box.classList.contains("open");
+    var id = b.getAttribute("data-inv"), box = b.closest(".invx"), on = !box.classList.contains("open");
     openInv[id] = on; box.classList.toggle("open", on); b.setAttribute("aria-expanded", on);
-    b.querySelector(".tx").textContent = on ? "إخفاء الفاتورة" : "اظهر الفاتورة";
+    b.querySelector(".invx-title").textContent = on ? "صيدليات د/ مراد صادق" : "افتح الفاتورة";
     lastSig = "";   // الرسم الجاي يتحدّث بالحالة الجديدة
   });
+  // ===== تمييز الطلب الجديد (وميض برتقالي 5 مرات) =====
+  var flashPend = null, flashCid = null, flashOn = false;
+  function flash(cid) { flashPend = cid; }
+  function flashNow() {
+    if (!flashPend) return; flashCid = flashPend; flashPend = null; flashOn = true; lastSig = ""; render();
+    var el = document.querySelector('[data-cid="' + flashCid + '"]');
+    if (el && el.scrollIntoView) { try { el.scrollIntoView({ block: "center", behavior: "smooth" }); } catch (x) {} }
+    setTimeout(function () { flashOn = false; flashCid = null; lastSig = ""; render(); }, 5400);
+  }
+  document.addEventListener("visibilitychange", function () { if (!document.hidden && flashPend) setTimeout(flashNow, 350); });
   function badge() {
     var n = list.filter(function (o) { return !isDone(o); }).length, b = $("odBadge");
     if (b) { b.textContent = n.toLocaleString("ar-EG"); b.hidden = !n; }
@@ -193,5 +202,5 @@
   document.addEventListener("visibilitychange", function () { if (!document.hidden) { push(); sync(); } });
   render(); badge(); push(); sync();
   function reset() { list = []; openInv = {}; lastSig = ""; save(); render(); badge(); }
-  window.Orders = { whenBon: whenBon, reset: reset, add: add, open: open, sync: sync, render: render };
+  window.Orders = { whenBon: whenBon, reset: reset, add: add, open: open, sync: sync, render: render, flash: flash, flashNow: flashNow };
 })();
