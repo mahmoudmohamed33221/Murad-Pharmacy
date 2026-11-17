@@ -41,10 +41,10 @@ jobs:
           M=android-app/android/app/src/main/AndroidManifest.xml
           sed -i 's#<application#<uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />\n    <application#' $M
 
-      - name: Permissions (camera) + launcher icons
+      - name: Permissions (camera + location) + launcher icons
         run: |
           M=android-app/android/app/src/main/AndroidManifest.xml
-          sed -i 's#<application#<uses-permission android:name="android.permission.CAMERA" />\n    <uses-feature android:name="android.hardware.camera" android:required="false" />\n    <application#' $M
+          sed -i 's#<application#<uses-permission android:name="android.permission.CAMERA" />\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />\n    <uses-feature android:name="android.hardware.camera" android:required="false" />\n    <application#' $M
           pip install pillow
           python3 tools/make_android_icons.py android-app/android/app/src/main/res
 
