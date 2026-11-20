@@ -1080,3 +1080,16 @@ if("serviceWorker" in navigator && location.protocol.startsWith("http")){
     toast(reg.installing || reg.waiting ? "في نسخة جديدة، هتظهر لك رسالة التحديث" : "أنت على آخر نسخة");
   };
 } else { $("chkUpd").onclick = ()=>toast("التحديث متاح على النسخة المنشورة بس"); }
+
+// ===== شغل برنامج مش متصفح: ممنوع القائمة المنبثقة (كليك يمين / ضغطة مطولة) والتحديد والسحب (إلا داخل خانات الكتابة علشان اللصق يشتغل) =====
+(function () {
+  var isField = function (t) { return !!(t && t.closest && t.closest("input,textarea,[contenteditable='true']")); };
+  document.addEventListener("contextmenu", function (e) { if (!isField(e.target)) e.preventDefault(); }, true);
+  document.addEventListener("selectstart", function (e) { if (!isField(e.target)) e.preventDefault(); }, true);
+  document.addEventListener("dragstart", function (e) { e.preventDefault(); }, true);
+  ["copy", "cut"].forEach(function (n) { document.addEventListener(n, function (e) { if (!isField(e.target)) e.preventDefault(); }, true); });
+  document.addEventListener("keydown", function (e) {
+    var k = String(e.key || "").toLowerCase();
+    if (e.key === "F12" || ((e.ctrlKey || e.metaKey) && (k === "u" || k === "s" || k === "p")) || ((e.ctrlKey || e.metaKey) && e.shiftKey && (k === "i" || k === "j" || k === "c"))) e.preventDefault();
+  }, true);
+})();
