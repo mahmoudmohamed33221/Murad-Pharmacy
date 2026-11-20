@@ -202,3 +202,5 @@ html[data-theme="dark"] .pr,html[data-theme="dark"] .pp .pv,html[data-theme="dar
 html[data-theme="dark"] .ord b,html[data-theme="dark"] .total span:last-child{color:#FF9A2E}
 html[data-theme="dark"] .all{color:var(--gold)}
 /* صور المنتجات تفضل على خلفية بيضا زي الصور الأصلية */
+
+.total .nodel{font-size:.68rem;font-weight:700;opacity:.75;margin-inline-start:4px}
