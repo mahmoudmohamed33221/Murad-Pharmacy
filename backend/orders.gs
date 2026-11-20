@@ -50,6 +50,7 @@ var A_AT = 36;     // في ورقة المكتملة: وقت الأرشفة
 var PIL_HEADERS = ["رقم", "اسم الطيار", "رقم الهاتف", "الباسورد", "العنوان", "رقم البطاقه", "تاريخ الميلاد", "السن الحالي", "المركبه",
   "حالة الطلب", "وقت وتارخ قبول الطلب", "حالة الطيار", "شيفت الطيار", "المحفظه", "توكن الإشعارات"];
 var P = { NUM: 1, NAME: 2, PHONE: 3, PASS: 4, ADDR: 5, ID: 6, BIRTH: 7, AGE: 8, VEH: 9, REQ: 10, REQ_AT: 11, STATE: 12, SHIFT: 13, WALLET: 14, TOKEN: 15 };
+var PIL_AVAIL_FORMULA = '=IFERROR(ARRAYFORMULA(FILTER(TRIM(B2:B)&IF(TRIM(I2:I)<>""," - "&TRIM(I2:I),""), TRIM(J2:J)="مقبول", TRIM(L2:L)="يعمل", TRIM(M2:M)="يعمل الان")),"")';   // الاسم كما هو مكتوب - المركبة، بس لو الـ3 شروط متحققين: حالة الطلب مقبول + حالة الطيار يعمل + الشيفت يعمل الان
 var PIL_LIST_AVAIL = 21;   // عمود تلقائي: الطيارين المتاحين دلوقتي بالشكل "الاسم - المركبة" (مقبول + مش موقوف + يعمل الان)
 var PIL_LIST_REQ = 18, PIL_LIST_STATE = 19;   // عمودين القوائم المنسدلة (جنب الجدول بعد عمودين فاضيين)
 
@@ -130,7 +131,7 @@ function setupOrders_(ss) {
   // قائمة منسدلة لاسم الطيار: بس الطيارين المقبولين + حسابهم مفعل + شيفتهم "يعمل الان" (بالشكل: الاسم - المركبة)
   var pil = ss.getSheetByName(PIL_TAB);
   if (pil) {
-    var rule = SpreadsheetApp.newDataValidation().requireValueInRange(pil.getRange(2, PIL_LIST_AVAIL, Math.max(pil.getMaxRows() - 1, 1), 1), true).setAllowInvalid(true).build();
+    var rule = SpreadsheetApp.newDataValidation().requireValueInRange(pil.getRange(2, PIL_LIST_AVAIL, Math.max(pil.getMaxRows() - 1, 1), 1), true).setAllowInvalid(false).build();
     sh.getRange(2, O.PNAME, rows, 1).setDataValidation(rule);
   }
 }
@@ -175,7 +176,7 @@ function setupPilots_(ss) {
   // قائمة تلقائية بالطيارين المتاحين (مقبول + مش موقوف + "يعمل الان") بالشكل: الاسم - المركبة. بتتحدث لوحدها لما حالتهم تتغير
   sh.getRange(1, PIL_LIST_AVAIL).setValue("الطيارين المتاحين دلوقتي (تلقائي - لا تلمسه)");
   headerStyle_(sh.getRange(1, PIL_LIST_AVAIL));
-  sh.getRange(2, PIL_LIST_AVAIL).setFormula('=IFERROR(ARRAYFORMULA(FILTER(B2:B&" - "&I2:I, J2:J="مقبول", NOT(REGEXMATCH(L2:L&"","موقوف")), M2:M="يعمل الان")),"")');
+  sh.getRange(2, PIL_LIST_AVAIL).setFormula(PIL_AVAIL_FORMULA);
   sh.setColumnWidth(PIL_LIST_AVAIL, 260);
 }
 
@@ -937,4 +938,18 @@ function installTriggers() {
   ScriptApp.getProjectTriggers().forEach(function (t) { if (t.getHandlerFunction() === "onEdit") ScriptApp.deleteTrigger(t); });
   ScriptApp.newTrigger("onEdit").forSpreadsheet(ss).onEdit().create();
   Logger.log("✅ تم تركيب مشغّل التعديل");
+}
+
+
+// شغّلها مرة واحدة من محرر Apps Script (من غير ما تعيد setupSheets): بتحدّث قائمة الطيارين المتاحين في ورقة "الطيارين"
+// وبتربطها بعمود "اسم الطيار المستلم" في ورقة "الطلبات"
+function refreshPilotList() {
+  var ss = ssOpen_(), pil = ss.getSheetByName(PIL_TAB), sh = ss.getSheetByName(ORD_TAB);
+  if (!pil || !sh) return;
+  pil.getRange(1, PIL_LIST_AVAIL).setValue("الطيارين المتاحين دلوقتي (تلقائي - لا تلمسه)");
+  pil.getRange(2, PIL_LIST_AVAIL, Math.max(pil.getMaxRows() - 1, 1), 1).clearContent();
+  pil.getRange(2, PIL_LIST_AVAIL).setFormula(PIL_AVAIL_FORMULA);
+  var rows = Math.max(sh.getMaxRows() - 1, 1);
+  var rule = SpreadsheetApp.newDataValidation().requireValueInRange(pil.getRange(2, PIL_LIST_AVAIL, Math.max(pil.getMaxRows() - 1, 1), 1), true).setAllowInvalid(false).build();
+  sh.getRange(2, O.PNAME, rows, 1).setDataValidation(rule);
 }
