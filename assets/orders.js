@@ -12,7 +12,9 @@
 
   function save() { sv(KEY, list.slice(0, MAX)); }
   function rid() { return "o" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
-  function stOf(o) { return o.status || (o.sent ? "pending" : "queued"); }
+  function stOf(o) { var st = o.status || (o.sent ? "pending" : "queued"); return st === "delivering" && o.arrived ? "arrived" : st; }
+  // إجمالي الحساب = حساب الأصناف + التوصيل (للطلبات القديمة اللي معندهاش توصيل بنسيبها زي ما هي)
+  function grandOf(o) { return o.fee === undefined ? Number(o.total) || 0 : (Number(o.total) || 0) + (Number(o.fee) || 0); }
   function isDone(o) { return stOf(o) === "completed"; }
   var dig = function (s) { return String(s == null ? "" : s).replace(/[٠-٩]/g, function (x) { return "٠١٢٣٤٥٦٧٨٩".indexOf(x); }); };
   var tel = function (s) { return dig(s).replace(/\D/g, ""); };
@@ -48,7 +50,7 @@
     fetch(url, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(o.payload), redirect: "follow" })
       .then(function (r) { return r.json(); })
       .then(function (j) {
-        if (j && j.ok) { o.sent = true; o.bon = j.bon; if (!o.status) o.status = "pending"; delete o.payload; (waits[o.cid] || []).forEach(function (f) { f(j.bon); }); delete waits[o.cid]; }
+        if (j && j.ok) { o.sent = true; o.bon = j.bon; if (!o.status) o.status = "pending"; delete o.payload; setTimeout(sync, 1200); setTimeout(sync, 3200); (waits[o.cid] || []).forEach(function (f) { f(j.bon); }); delete waits[o.cid]; }
         else if (j && j.error) { o.sent = true; o.status = "pending"; o.rejected = j.error; delete o.payload; }   // السيرفر رفضه (حظر/بيانات): مفيش فايدة من التكرار
         save(); render(); badge();
       })
@@ -70,6 +72,7 @@
         list.forEach(function (o) {
           var s = by[o.cid]; if (!s) return;
           o.bon = s.bon; o.status = s.status; o.pilotName = s.pilotName; o.pilotPhone = s.pilotPhone; o.shopEta = s.shopEta; o.custEta = s.custEta;
+          o.fee = Number(s.fee) || 0; o.km = Number(s.km) || 0; o.hasLoc = !!s.hasLoc; o.priced = s.priced !== false; o.arrived = !!s.arrived;
           if (s.status === "completed") { o.final = true; o.doneAt = s.doneAt || o.doneAt || ""; }
           if (s.total) o.total = s.total;
         });
@@ -100,11 +103,12 @@
   var num = function (n) { return (Math.round(n * 100) / 100).toLocaleString("en-US", { maximumFractionDigits: 2 }); };
   function invoiceInner(o) {
     var L = parseLines(o), sum = L.reduce(function (a, l) { return a + l.t; }, 0);
-    var total = Math.max(Number(o.total) || 0, sum), ship = Math.round((total - sum) * 100) / 100;
+    var goods = Math.max(Number(o.total) || 0, sum), legacy = o.fee === undefined, pend = !!(o.hasLoc && o.priced === false);
+    var fee = legacy ? Math.round((goods - sum) * 100) / 100 : Number(o.fee) || 0, total = legacy ? goods : goods + fee;
     var rows = L.map(function (l) {
       return "<tr><td class=\"inv-n\">" + esc(l.n) + (l.ex ? '<span class="inv-bx">+' + l.ex + " " + esc(l.w) + (/هدي/.test(l.w) ? " 🎁" : "") + "</span>" : "") + "</td><td>" + (l.raw ? "-" : num(l.p)) + "</td><td>" + (l.raw ? "-" : l.q) + "</td><td><b>" + (l.raw ? "-" : num(l.t)) + "</b></td></tr>";
     }).join("");
-    rows += "<tr class=\"ship\"><td class=\"inv-n\">التوصيل</td><td>0</td><td>0</td><td><b>" + num(ship) + "</b></td></tr>";
+    rows += "<tr class=\"ship\"><td class=\"inv-n\">التوصيل</td><td>—</td><td>—</td><td><b>" + (pend ? "جاري الحساب…" : num(fee)) + "</b></td></tr>";
     return '' +
       '<div class="inv-sub">' + (o.bon ? "فاتورة طلب رقم " + o.bon + " · " : "") + esc(o.d || "") + " · " + esc(o.t || "") + "</div>" +
       (o.pilotName ? '<div class="inv-pilot">' + I.bike + "الطيار: <b>" + esc(o.pilotName) + "</b></div>" : "") +
@@ -147,16 +151,17 @@
     else if ((st === "accepted" || st === "preparing") && o.shopEta) eta = '<div class="od-eta">' + I.clock + "الطيار يصل للصيدلية خلال <b>" + esc(o.shopEta) + "</b></div>";
     var pilot = o.pilotName ? '<div class="od-pilot"><span class="pi">' + I.bike + "</span><div><small>الطيار</small><b>" + esc(o.pilotName) + "</b></div>" +
       (tel(o.pilotPhone) ? '<a class="pcall" href="tel:' + tel(o.pilotPhone) + '" aria-label="اتصال بالطيار">' + I.phone + "</a>" : "") + "</div>" : "";
+    var arr = st === "arrived" ? '<div class="od-arr">' + I.bike + "تم وصول المندوب إلى موقعك</div>" : "";
     var note = o.rejected === "banned" ? '<div class="od-warn">تعذر تسجيل الطلب. تواصل مع الصيدلية.</div>' : "";
     var wait = st === "queued" ? '<div class="od-wait">جاري إرسال الطلب للصيدلية... تأكد من الإنترنت وهيتبعت لوحده.</div>' : "";
     return '<article class="od-card act' + (flashOn && o.cid === flashCid ? " hl" : "") + '" data-cid="' + o.cid + '"><div class="od-top"><div><b class="od-bon">' + (o.bon ? "طلب رقم " + o.bon : "طلب جديد") + "</b><small>" + esc(o.d) + " · " + esc(o.t || "") +
       '</small></div><span class="od-chip s-' + st + '">' + SHORT[st] + "</span></div>" + stepsHTML(st) + wait +
-      eta + pilot + note + invBlock(o) + '<div class="od-tot"><span>إجمالي الحساب</span><b>' + fmt(o.total) + "</b></div></article>";
+      arr + eta + pilot + note + invBlock(o) + '<div class="od-tot"><span>إجمالي الحساب' + (o.hasLoc && o.priced === false ? '<small class="od-pend">جاري حساب التوصيل…</small>' : "") + "</span><b>" + fmt(grandOf(o)) + "</b></div></article>";
   }
   function doneCard(o) {
     return '<article class="od-card dn"><div class="od-top"><div><b class="od-bon">' + (o.bon ? "طلب رقم " + o.bon : "طلب") + "</b><small>" + esc(o.d) + " · " + esc(o.t || "") +
       '</small></div><span class="od-chip s-completed">' + I.check + "تم الاستلام</span></div>" + invBlock(o) +
-      '<div class="od-tot"><span>إجمالي الحساب</span><b>' + fmt(o.total) + "</b></div></article>";
+      '<div class="od-tot"><span>إجمالي الحساب</span><b>' + fmt(grandOf(o)) + "</b></div></article>";
   }
   var lastSig = "";
   function render() {
@@ -187,7 +192,7 @@
   function badge() {
     var n = list.filter(function (o) { return !isDone(o); }).length, b = $("odBadge");
     if (b) { b.textContent = n.toLocaleString("ar-EG"); b.hidden = !n; }
-    if (n && !pollT) pollT = setInterval(function () { if (!document.hidden) sync(); }, 20000);
+    if (n && !pollT) pollT = setInterval(function () { if (!document.hidden) sync(); }, 5000);
     if (!n && pollT) { clearInterval(pollT); pollT = null; }
   }
 
@@ -195,7 +200,7 @@
   var viewT = null;
   function open() {
     render(); sync(); push();
-    clearInterval(viewT); viewT = setInterval(function () { if (document.body.dataset.view !== "orders") { clearInterval(viewT); return; } if (!document.hidden) { sync(); push(); } }, 8000);
+    clearInterval(viewT); viewT = setInterval(function () { if (document.body.dataset.view !== "orders") { clearInterval(viewT); return; } if (!document.hidden) { sync(); push(); } }, 5000);
   }
 
   window.addEventListener("online", function () { push(); sync(); });
@@ -204,3 +209,4 @@
   function reset() { list = []; openInv = {}; lastSig = ""; save(); render(); badge(); }
   window.Orders = { whenBon: whenBon, reset: reset, add: add, open: open, sync: sync, render: render, flash: flash, flashNow: flashNow };
 })();
+l
