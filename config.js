@@ -20,7 +20,7 @@ window.APP_CONFIG = {
   CUSTOMERS_URL: "https://script.google.com/macros/s/AKfycbylNxiKp409Ox8t8IqOStHSgyiNAireDF65lBU82PjU3_K2PhQVFFHTOXJftKKFH2Y/exec",
 
   // رابط سكربت الطلبات ومشترياتي (مشروع Apps Script اسمه اوردارس) - شوف backend/orders.gs
-  ORDERS_URL: "https://script.google.com/macros/s/AKfycbxAy8ZPURholLMaaq16nBcwLE49uS50yq-SCJkeCVFipDbs8f7wlLfnO2bdbCE0jKU/exec",
+  ORDERS_URL: "https://script.google.com/macros/s/AKfycbxbF_wetRGJHx64O8tvS9cXBkL7OzIs4FjFwExdzI7RCEnOpKp5ZalarJj8Kz9QDJ8/exec",
 
   // رابط سيرفر الذكاء الاصطناعي لقراءة الروشتات (اختياري) - شوف README قسم 8
   RECOGNIZE_URL: "",
