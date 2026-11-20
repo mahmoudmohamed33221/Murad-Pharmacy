@@ -390,7 +390,7 @@ function cvLive(inp){
 function checkoutView(){
   openSheet("checkout");
   $("sheet").innerHTML = `<h2>بيانات الطلب <button class="x" data-a="close" aria-label="إغلاق">✕</button></h2>
-   ${saveLine(totals().sav)}<div class="total"><span>الإجمالي</span><span>${fmt(totals().s)}</span></div>
+   ${saveLine(totals().sav)}<div class="total"><span>الإجمالي <small class="nodel">(بدون التوصيل)</small></span><span>${fmt(totals().s)}</span></div>
    <div id="coForm"></div>
    <div class="f">
      <textarea id="fo" rows="2" placeholder="ملاحظات (اختياري)"></textarea>
@@ -424,8 +424,8 @@ function getPrecise(onProg){
     const fin = err => { if(done) return; done=true; clearTimeout(to); stopW(); best ? resolve(best) : reject(err||new Error("noloc")); };
     const upd = p => { if(!p || !p.coords) return; const c=p.coords;
       if(!best || c.accuracy<best.acc){ best={lat:c.latitude,lng:c.longitude,acc:c.accuracy}; if(onProg) onProg(best); }
-      if(best.acc<=15 || (best.acc<=35 && Date.now()-t0>7000)) fin(); };
-    const to = setTimeout(()=>fin(), 18000);
+      const el=Date.now()-t0; if(best.acc<=25 || (best.acc<=60 && el>1800) || el>4500) fin(); };
+    const to = setTimeout(()=>fin(), 6000);
     if(G){
       Promise.resolve(G.requestPermissions()).then(r=>{ if(r && r.location==="denied") throw new Error("denied");
         return G.watchPosition({enableHighAccuracy:true,timeout:15000,maximumAge:0},(p,err)=>{ upd(p); }); }).then(id=>{ wid=id; if(done) stopW(); }).catch(e=>fin(e));
@@ -444,7 +444,9 @@ function send(){
   SD = { d, n, p, a:ad, o, s, sav, lines:Object.keys(cart).map(lineText) };
   locAsk();
 }
+let locWarm = null;   // تحديد الموقع بيبدأ من أول ما سؤال الموقع يظهر، فلما العميل يضغط «نعم» يكون جاهز
 function locAsk(){
+  if(!locWarm || Date.now()-locWarm.t>30000){ const w={t:Date.now()}; w.p=getPrecise().catch(()=>null); locWarm=w; }
   openSheet("loc");
   $("sheet").innerHTML = `<div class="lc"><b class="lc-ic">${PIN_IC}</b><h2>هل موقعك الحالي الآن هو مكان استلام طلبك؟</h2>
     <p class="lc-p">هنحدد موقعك بدقة علشان المندوب يوصلك بسرعة.</p>
@@ -456,7 +458,9 @@ function locAsk(){
 function locYes(){
   const b=$("lcYes"), st=$("lcSt"); if(!b || b.dataset.busy) return;
   b.dataset.busy="1"; b.disabled=true; b.textContent="جاري تحديد موقعك بدقة…";
-  getPrecise(x=>{ if(st) st.textContent = "الدقة الحالية: ±"+Math.round(x.acc)+" متر"; }).then(x=>{
+  const W = locWarm && Date.now()-locWarm.t<30000 ? locWarm.p.then(x=> x || getPrecise(y=>{ if(st) st.textContent = "الدقة الحالية: ±"+Math.round(y.acc)+" متر"; })) : getPrecise(x=>{ if(st) st.textContent = "الدقة الحالية: ±"+Math.round(x.acc)+" متر"; });
+  locWarm = null;
+  W.then(x=>{
     const link = `https://www.google.com/maps?q=${x.lat.toFixed(6)},${x.lng.toFixed(6)}`;
     sv("mrad_loc",{link,lat:x.lat,lng:x.lng,acc:Math.round(x.acc),t:Date.now()});
     finishSend(link);
@@ -495,16 +499,30 @@ function finishSend(loc){
   if(sav>0) msg += `\nوفّر العميل: ${sav} ${CURRENCY}\n`;
   msg += `\n*الإجمالي: ${s} ${CURRENCY}*\n\nاسم العميل: ${n}\nالموبايل: ${p}` + (d.gov?`\nالمحافظة: ${d.gov}`:"") + `\nالعنوان: ${a}` + (d.landmark?`\nعلامة مميزة: ${d.landmark}`:"") + (loc?`\nالموقع: ${loc}`:"") + (o?`\nملاحظات: ${o}`:"");
   const enc = encodeURIComponent(msg);
+  const wa = `whatsapp://send?phone=${PHARMACY_PHONE}&text=${enc}`, waWeb = `https://wa.me/${PHARMACY_PHONE}?text=${enc}`;
+  waLock(()=>openExternal(wa, waWeb));            // قفل الصفحة لحد ما العميل يدخل الواتساب ويرجع
+  openExternal(wa, waWeb);                        // الواتساب بيتفتح فوراً، قبل أي شغل تاني
   const ord = window.Orders ? window.Orders.add({name:n,phone:p,gov:d.gov||"",addr:a,landmark:d.landmark||"",notes:o,total:s,sav,items:lines,location:loc||""}) : null;
   saveOrder(s); if(R) R.saveProfile(d); else sv("mrad_profile",d);
   cart = {}; refresh(); close();
-  // بعد ما الشاشة تقفل (الرجوع في التاريخ بيخلص) نروح لمشترياتي ونفتح الواتساب على طول من غير انتظار رد السيرفر
-  setTimeout(()=>{
-    show("orders");
-    if(ord && window.Orders && window.Orders.flash) window.Orders.flash(ord.cid);
-    setTimeout(()=>{ openExternal(`whatsapp://send?phone=${PHARMACY_PHONE}&text=${enc}`, `https://wa.me/${PHARMACY_PHONE}?text=${enc}`);
-      setTimeout(()=>{ if(!document.hidden && window.Orders && window.Orders.flashNow) window.Orders.flashNow(); }, 1400); }, 150);
-  }, 280);
+  show("orders");
+  if(ord && window.Orders && window.Orders.flash) window.Orders.flash(ord.cid);
+}
+// شاشة القفل: مفيش أي تحكم في البرنامج لحد ما العميل يدخل الواتساب (يتأكد إنه بعت) ويرجع
+function waLock(reopen){
+  let el = $("waLock"); if(el) el.remove();
+  el = document.createElement("div"); el.id = "waLock";
+  el.innerHTML = `<div class="wl-b"><h3>جاري فتح الواتساب…</h3><p>ابعت الرسالة للصيدلية من الواتساب وارجع للتطبيق.</p><button type="button" class="wl-go">فتح الواتساب</button><button type="button" class="wl-skip">رجوع للتطبيق</button></div>`;
+  document.body.appendChild(el);
+  let left = false, done = false;
+  const end = ()=>{ if(done) return; done = true; clearTimeout(tm); document.removeEventListener("visibilitychange", vc); window.removeEventListener("focus", fc); el.remove(); setTimeout(()=>{ if(window.Orders && window.Orders.flashNow) window.Orders.flashNow(); }, 250); };
+  const vc = ()=>{ if(document.hidden) left = true; else if(left) end(); };
+  const fc = ()=>{ if(left) end(); };
+  document.addEventListener("visibilitychange", vc); window.addEventListener("focus", fc);
+  const A = capP("App"); if(A && A.addListener){ try{ A.addListener("appStateChange", st=>{ if(!st.isActive) left = true; else if(left) end(); }); }catch(e){} }
+  el.querySelector(".wl-go").onclick = ()=>{ reopen(); };
+  const sk = el.querySelector(".wl-skip"); sk.onclick = end;
+  const tm = setTimeout(()=>{ sk.style.display = "block"; }, 8000);   // لو الواتساب مش متسطّب أو معلّق: زرار رجوع بعد 8 ثواني
 }
 
 // ====== الأحداث ======
