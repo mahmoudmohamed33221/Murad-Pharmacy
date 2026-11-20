@@ -204,3 +204,8 @@ html[data-theme="dark"] .all{color:var(--gold)}
 /* صور المنتجات تفضل على خلفية بيضا زي الصور الأصلية */
 
 .total .nodel{font-size:.68rem;font-weight:700;opacity:.75;margin-inline-start:4px}
+
+/* منع التحديد والقائمة المنبثقة (إلا داخل خانات الكتابة) */
+html,body,*{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
+input,textarea,[contenteditable="true"]{-webkit-user-select:text;user-select:text;-webkit-touch-callout:default}
+img,a,svg{-webkit-user-drag:none}
