@@ -522,7 +522,7 @@ function priceOrder_(sh, r) {
   var cloc = String(rv[O.CLOC - 1] || "").trim(), rate = rateOf_(rv), goods = goodsOf_(rv), km = 0, fee = 0, ok = true;
   if (cloc) {
     var a = storeCoords_(rv[O.SLOC - 1]), b = coordsOfLink_(cloc);
-    if (a && b) { var m = routeMeters_(a, b, true); if (m >= 0) { km = Math.round(m / 10) / 100; fee = Math.round(km * rate); } else ok = false; } else ok = false;
+    if (a && b) { var m = routeMeters_(a, b, true); if (m >= 0) { km = Math.round(m) / 1000; fee = Math.round(km * rate); } else ok = false; } else ok = false;
   }
   if (!ok) { cache.put("pf_" + bon, "1", 40); return false; }      // فشل: نستنى شوية ونجرب تاني (من غير ما نبطّأ الباقي)
   sh.getRange(r, O_KM, 1, 3).setValues([[km, fee, goods]]);
