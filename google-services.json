@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "550870481904",
+    "project_id": "murad-pharmacy",
+    "storage_bucket": "murad-pharmacy.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:550870481904:android:71f82869ea942e0e99fb35",
+        "android_client_info": {
+          "package_name": "com.muradpharmacy.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBN-cmmSkOQgnf8If2QofR6AM9dt3PHFGs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:550870481904:android:1a0e6116daf9e25199fb35",
+        "android_client_info": {
+          "package_name": "com.muradpharmacy.rider"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBN-cmmSkOQgnf8If2QofR6AM9dt3PHFGs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
