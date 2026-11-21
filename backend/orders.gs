@@ -218,7 +218,7 @@ function doPost(e) {
     if (a !== "newOrder" && a !== "custToken" && !RIDER_WRITE[a]) return out_({ ok: false, error: "action" });
     lock = LockService.getScriptLock(); lock.waitLock(20000); locked = true;
     if (a === "newOrder") return out_(newOrder_(d));
-    if (a === "custToken") return out_({ ok: saveCustToken_(ssOpen_(), d.cids, d.token) });
+    if (a === "custToken") return out_({ ok: saveCustToken_(ssOpen_(), d.cids, d.token, d.phone) });
     if (a === "pilotRegister") return out_(pilotRegister_(d));
     if (a === "riderAccept") return out_(riderAccept_(d));
     if (a === "riderStage") return out_(riderStage_(d));
@@ -906,7 +906,7 @@ function fcmSendMany_(items, title, body, tag, data) {
     var c = rs[i].getResponseCode();
     if (c >= 200 && c < 300) sent++;
     else {
-      failed++; err = "FCM " + c;
+      failed++; err = "FCM " + c + " " + String(rs[i].getContentText() || "").replace(/\s+/g, " ").slice(0, 150);
       if (c === 404 && items[i].sh && items[i].row) { try { items[i].sh.getRange(items[i].row, P.TOKEN).setValue(""); } catch (e) {} }   // التوكن مات (التطبيق اتمسح)
       else Logger.log("FCM error " + c + ": " + rs[i].getContentText());
     }
@@ -948,14 +948,16 @@ function ctkSheet_(ss) {
   }
   return sh;
 }
-function saveCustToken_(ss, cids, token) {
+function saveCustToken_(ss, cids, token, phone) {
   token = String(token || "").trim();
-  if (!/^[A-Za-z0-9_:\-\.]{20,600}$/.test(token) || !cids || !cids.length) return false;
+  if (!/^[A-Za-z0-9_:\-\.]{20,600}$/.test(token)) return false;
+  var keys = (cids || []).slice(0, 30).map(function (c) { return cleanCid_(c); }).filter(function (c) { return !!c; });
+  var ph = normPhone_(phone); if (ph) keys.push("tel:" + ph);        // التوكن مربوط برقم العميل كمان: بيوصله إشعار أي طلب جديد حتى لو اتعمل قبل تسجيل التوكن
+  if (!keys.length) return false;
   var sh = ctkSheet_(ss), n = sh.getLastRow(), cur = n >= 2 ? sh.getRange(2, 1, n - 1, 2).getDisplayValues() : [], idx = {};
   for (var i = 0; i < cur.length; i++) idx[String(cur[i][0])] = i + 2;
   var stamp = Utilities.formatDate(new Date(), TZ, "dd/MM/yyyy hh:mm a"), add = [];
-  cids.slice(0, 30).forEach(function (c) {
-    c = cleanCid_(c); if (!c) return;
+  keys.forEach(function (c) {
     if (idx[c]) { if (String(cur[idx[c] - 2][1]) !== token) sh.getRange(idx[c], 2, 1, 2).setNumberFormat("@").setValues([[token, stamp]]); }
     else add.push([c, token, stamp]);
   });
@@ -968,14 +970,30 @@ function custTokenOf_(cid) {
   var f = sh.getRange(2, 1, sh.getLastRow() - 1, 1).createTextFinder(cid).matchEntireCell(true).findNext();
   return f ? String(sh.getRange(f.getRow(), 2).getDisplayValue() || "").trim() : "";
 }
-function notifyCust_(cid, title, body, tag, data) {
-  try { var t = custTokenOf_(cid); if (t) fcmSendMany_([{ token: t }], title, body, tag, data || {}); } catch (e) {}
+var NLOG_TAB = "سجل الإشعارات";   // ورقة تشخيص: كل محاولة إشعار (لمين، وإيه النتيجة). بتتمسح لوحدها بعد 300 سطر
+function nlog_(who, ref, what, res) {
+  try {
+    var ss = ssOpen_(), sh = ss.getSheetByName(NLOG_TAB);
+    if (!sh) { sh = ss.insertSheet(NLOG_TAB); sh.getRange(1, 1, 1, 5).setValues([["الوقت", "إلى", "مرجع", "الإشعار", "النتيجة"]]); sh.setFrozenRows(1); }
+    sh.appendRow([Utilities.formatDate(new Date(), TZ, "dd/MM hh:mm:ss a"), who, ref, what, res]);
+    var n = sh.getLastRow(); if (n > 400) sh.deleteRows(2, n - 300);
+  } catch (e) {}
+}
+function notifyCust_(cid, title, body, tag, data, phone) {
+  var res = "";
+  try {
+    var t = custTokenOf_(cid);
+    if (!t && phone) t = custTokenOf_("tel:" + normPhone_(phone));
+    if (!t) res = "❌ مفيش توكن لجهاز العميل (التطبيق لسه مسجّلش، أو الإشعارات مش مسموحة، أو الـ APK من غير Firebase)";
+    else { var r = fcmSendMany_([{ token: t }], title, body, tag, data || {}); res = r.sent ? "✅ اتبعت" : "❌ فشل: " + (r.err || "?"); }
+  } catch (e) { res = "❌ خطأ: " + e; }
+  nlog_("عميل", tag, title, res);
 }
 function shortName_(n) { return String(n || "").trim().split(/\s+/).slice(0, 2).join(" "); }
 // kind: accepted | prep | deliv | arrived | done | released
 function stageNotify_(sh, r, kind, who) {
   try {
-    var cid = String(sh.getRange(r, O_CID).getValue() || ""); if (!cid) return;
+    var cid = String(sh.getRange(r, O_CID).getValue() || "");
     var bon = sh.getRange(r, O.BON).getValue(), nm = shortName_(bareName_(who || sh.getRange(r, O.PNAME).getValue()));
     var M = {
       accepted: ["تم قبول طلبك ✅", (nm ? "المندوب " + nm + " " : "المندوب ") + "قبل طلبك رقم " + bon + " وبدأ في تجهيزه"],
@@ -985,14 +1003,15 @@ function stageNotify_(sh, r, kind, who) {
       done: ["تم توصيل طلبك 🎉", "شكراً لثقتك في صيدليات د/ مراد صادق"],
       released: ["جاري تعيين مندوب آخر 🔄", "المندوب مش هيقدر يكمل طلبك رقم " + bon + "، وجاري تعيين مندوب تاني حالاً"]
     }[kind];
-    if (M) notifyCust_(cid, M[0], M[1], "order_" + bon, { type: "order_status", bon: bon, stage: kind });
+    if (M) notifyCust_(cid, M[0], M[1], "order_" + bon, { type: "order_status", bon: bon, stage: kind }, sh.getRange(r, O.PHONE).getDisplayValue());
   } catch (e) {}
 }
 // إشعار لمندوب واحد (مثلاً لما الإدارة تعيّنله طلب من الشيت)
 function notifyRiderByPhone_(phone, title, body, tag, data) {
   try {
     var sh = ssOpen_().getSheetByName(PIL_TAB), f = sh && findPilot_(sh, phone), t = f ? String(f.v[P.TOKEN - 1] || "").trim() : "";
-    if (t) fcmSendMany_([{ token: t, row: f.row, sh: sh }], title, body, tag, data || {});
+    if (!t) nlog_("مندوب", tag, title, "❌ مفيش توكن للمندوب");
+    else { var r = fcmSendMany_([{ token: t, row: f.row, sh: sh }], title, body, tag, data || {}); nlog_("مندوب", tag, title, r.sent ? "✅ اتبعت" : "❌ فشل: " + (r.err || "?")); }
   } catch (e) {}
 }
 
