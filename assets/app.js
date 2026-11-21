@@ -499,6 +499,7 @@ function finishSend(loc){
   if(sav>0) msg += `\nوفّر العميل: ${sav} ${CURRENCY}\n`;
   msg += `\n*الإجمالي: ${s} ${CURRENCY}*\n\nاسم العميل: ${n}\nالموبايل: ${p}` + (d.gov?`\nالمحافظة: ${d.gov}`:"") + `\nالعنوان: ${a}` + (d.landmark?`\nعلامة مميزة: ${d.landmark}`:"") + (loc?`\nالموقع: ${loc}`:"") + (o?`\nملاحظات: ${o}`:"");
   const enc = encodeURIComponent(msg);
+  try{ localStorage.setItem("mrad_pt_phone", String(p||"")); }catch(e){}   // رقم العميل بيتربط بتوكن الإشعارات (بيوصله إشعار أي طلب حتى لو اتعمل قبل التسجيل)
   const wa = `whatsapp://send?phone=${PHARMACY_PHONE}&text=${enc}`, waWeb = `https://wa.me/${PHARMACY_PHONE}?text=${enc}`;
   waLock(()=>openExternal(wa, waWeb));            // قفل الصفحة لحد ما العميل يدخل الواتساب ويرجع
   openExternal(wa, waWeb);                        // الواتساب بيتفتح فوراً، قبل أي شغل تاني
@@ -1103,11 +1104,13 @@ if("serviceWorker" in navigator && location.protocol.startsWith("http")){
     const url = (window.APP_CONFIG||{}).ORDERS_URL; if(!tok || !url) return;
     const all = (window.Orders && window.Orders.cids) ? window.Orders.cids() : [];
     let done = {}; try{ done = JSON.parse(localStorage.getItem("mrad_pt_done") || "{}"); }catch(e){}
-    const need = all.filter(c => done[c] !== tok).slice(0, 30); if(!need.length) return;
+    let ph = ""; try{ ph = localStorage.getItem("mrad_pt_phone") || ""; }catch(e){}
+    const needC = all.filter(c => done[c] !== tok).slice(0, 30), needP = ph && done["tel:"+ph] !== tok;
+    if(!needC.length && !needP) return;
     try{
-      const r = await fetch(url, {method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"}, body: JSON.stringify({action:"custToken", token: tok, cids: need}), redirect:"follow"});
+      const r = await fetch(url, {method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"}, body: JSON.stringify({action:"custToken", token: tok, cids: needC, phone: needP ? ph : ""}), redirect:"follow"});
       const j = await r.json();
-      if(j && j.ok){ need.forEach(c => done[c] = tok); try{ localStorage.setItem("mrad_pt_done", JSON.stringify(done)); }catch(e){} }
+      if(j && j.ok){ needC.forEach(c => done[c] = tok); if(needP) done["tel:"+ph] = tok; try{ localStorage.setItem("mrad_pt_done", JSON.stringify(done)); }catch(e){} }
     }catch(e){}
   }
   async function init(ask){
@@ -1126,3 +1129,95 @@ if("serviceWorker" in navigator && location.protocol.startsWith("http")){
   window.MuradPush = { init, sync };
   setTimeout(() => init(false), 2500);
 })();
+
+// ===== الصلاحيات الإجبارية (بعد الانترو مباشرة) =====
+(function(){
+
+  // ===== بوابة الصلاحيات: مفيش استخدام للتطبيق قبل ما كل الصلاحيات المطلوبة تتوافق عليها =====
+  var Gate = (function (cfg) {
+    var el = null, started = false, busy = false, done = false, autoTries = 0, timer = null;
+    var P_ = function (n) { try { return window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins[n]; } catch (e) { return null; } };
+    var isNative = function () { try { return !!(window.Capacitor && window.Capacitor.getPlatform && window.Capacitor.getPlatform() !== "web"); } catch (e) { return false; } };
+    var norm = function (s) { return s === "granted" ? "granted" : (s === "denied" ? "denied" : "prompt"); };
+    function needs() {
+      var L = [{
+        id: "loc", icon: "📍", title: "الموقع الدقيق", desc: cfg.locDesc,
+        check: function () {
+          var G = P_("Geolocation");
+          if (G && G.checkPermissions) return Promise.resolve(G.checkPermissions()).then(function (s) { return s.location === "granted" ? "granted" : norm(s.location === "denied" ? "denied" : s.location); });
+          if (navigator.permissions && navigator.permissions.query) return navigator.permissions.query({ name: "geolocation" }).then(function (p) { return norm(p.state); }).catch(function () { return "prompt"; });
+          return Promise.resolve("prompt");
+        },
+        ask: function () {
+          var G = P_("Geolocation");
+          if (G && G.requestPermissions) return Promise.resolve(G.requestPermissions({ permissions: ["location"] }));
+          return new Promise(function (ok) { try { navigator.geolocation.getCurrentPosition(function () { ok(); }, function () { ok(); }, { timeout: 9000 }); } catch (e) { ok(); } });
+        }
+      }];
+      var PN = P_("PushNotifications");
+      if (cfg.notif() && PN) L.unshift({
+        id: "ntf", icon: "🔔", title: "الإشعارات", desc: cfg.ntfDesc,
+        check: function () { return Promise.resolve(PN.checkPermissions()).then(function (s) { return norm(s.receive); }); },
+        ask: function () { return Promise.resolve(PN.requestPermissions()); }
+      });
+      return L;
+    }
+    function css() {
+      if (document.getElementById("mgateCss")) return;
+      var s = document.createElement("style"); s.id = "mgateCss";
+      s.textContent = "#mgate{position:fixed;inset:0;z-index:2147483647;background:#0F1115;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;direction:rtl;overflow:auto;-webkit-user-select:none;user-select:none}" +
+        "#mgate .g-b{width:100%;max-width:380px}#mgate h2{margin:0 0 6px;font-size:1.3rem;text-align:center}#mgate .g-s{margin:0 0 18px;text-align:center;opacity:.75;font-size:.9rem;line-height:1.7}" +
+        "#mgate .g-i{display:flex;align-items:center;gap:12px;padding:14px;border-radius:14px;background:#1A1D24;border:1.5px solid #3a3f4a;margin-bottom:10px}" +
+        "#mgate .g-i.ok{border-color:#39FF14}#mgate .g-i.no{border-color:#FF4D4D}#mgate .g-ic{font-size:1.5rem}#mgate .g-t{flex:1}#mgate .g-t b{display:block;font-size:1rem}#mgate .g-t small{opacity:.7;font-size:.8rem;line-height:1.5}" +
+        "#mgate .g-st{font-weight:800;font-size:1.2rem}#mgate .ok .g-st{color:#39FF14}#mgate .no .g-st{color:#FF4D4D}" +
+        "#mgate button{display:block;width:100%;margin-top:14px;border:0;border-radius:14px;padding:15px;font:inherit;font-weight:800;font-size:1.05rem;background:#39FF14;color:#06210a}" +
+        "#mgate .g-h{margin-top:12px;padding:12px;border-radius:12px;background:rgba(255,77,77,.12);border:1px solid #FF4D4D;font-size:.85rem;line-height:1.8;display:none}";
+      document.head.appendChild(s);
+    }
+    function draw(list, st) {
+      css();
+      if (!el) { el = document.createElement("div"); el.id = "mgate"; document.body.appendChild(el); el.addEventListener("click", function (e) { if (e.target.closest && e.target.closest(".g-go")) { autoTries = 0; ask(); } }); }
+      var denied = st.some(function (s) { return s === "denied"; });
+      el.innerHTML = '<div class="g-b"><h2>صلاحيات مطلوبة</h2><p class="g-s">علشان ' + cfg.appName + ' يشتغل لازم توافق على الصلاحيات دي. مش هتقدر تكمل من غيرها.</p>' +
+        list.map(function (n, i) { var g = st[i] === "granted"; return '<div class="g-i ' + (g ? "ok" : "no") + '"><span class="g-ic">' + n.icon + '</span><span class="g-t"><b>' + n.title + "</b><small>" + n.desc + '</small></span><span class="g-st">' + (g ? "✓" : "✗") + "</span></div>"; }).join("") +
+        '<button type="button" class="g-go">السماح بالصلاحيات</button>' +
+        '<div class="g-h" style="display:' + (denied ? "block" : "none") + '">الصلاحية متقفلة من إعدادات الموبايل. افتح <b>الإعدادات ← التطبيقات ← ' + cfg.appName + ' ← الأذونات</b> وفعّلها، وبعدين ارجع للتطبيق وهيكمل لوحده.</div></div>';
+    }
+    function states() { var list = needs(); return Promise.all(list.map(function (n) { return n.check().catch(function () { return "prompt"; }); })).then(function (st) { return { list: list, st: st }; }); }
+    function refresh() {
+      if (!started || !isNative()) return Promise.resolve(true);
+      return states().then(function (r) {
+        var miss = r.st.some(function (s) { return s !== "granted"; });
+        if (!miss) { if (el) { el.remove(); el = null; } if (!done) { done = true; try { cfg.onGranted && cfg.onGranted(); } catch (e) {} } return true; }
+        done = false; draw(r.list, r.st); return false;
+      });
+    }
+    function ask() {
+      if (busy) return Promise.resolve(); busy = true;
+      return states().then(function (r) {
+        return r.list.reduce(function (p, n, i) { return p.then(function () { return r.st[i] === "granted" ? 0 : n.ask().catch(function () {}); }); }, Promise.resolve());
+      }).then(function () { busy = false; return refresh(); }, function () { busy = false; }).then(function (ok) {
+        if (ok === false) return states().then(function (r) {   // لو لسه ينفع يتسأل (لغى الرسالة) نرجّعها تاني لحد ما يوافق
+          if (r.st.some(function (s) { return s === "prompt"; }) && autoTries++ < 8) setTimeout(function () { if (el && !busy) ask(); }, 800);
+        });
+      });
+    }
+    function start() {
+      if (started || !isNative()) return; started = true;
+      refresh().then(function (ok) { if (!ok) ask(); });
+      var A = P_("App"); if (A && A.addListener) { try { A.addListener("appStateChange", function (s) { if (s && s.isActive) refresh(); }); } catch (e) {} }
+      document.addEventListener("visibilitychange", function () { if (!document.hidden) refresh(); });
+      window.addEventListener("focus", function () { refresh(); });
+      timer = setInterval(function () { if (el) refresh(); }, 1500);
+    }
+    return { start: start, refresh: refresh };
+  })({ appName: "تطبيق الصيدلية", locDesc: "علشان نحسب التوصيل ونوصّلك طلبك لمكانك بدقة", ntfDesc: "علشان توصلك حالة طلبك (قبول، تجهيز، في الطريق، وصول) حتى لو التطبيق مقفول", notif: function () { return !!capP("PushNotifications"); }, onGranted: function () { try { if (window.MuradPush) window.MuradPush.init(true); } catch (e) {} } });
+
+  window.MuradGate = Gate;
+  function go(){
+    const t0 = Date.now();
+    const iv = setInterval(()=>{ const b = document.body; if(!b || !b.classList.contains("intro-lock") || Date.now()-t0 > 20000){ clearInterval(iv); Gate.start(); } }, 250);
+  }
+  if(document.readyState === "complete") go(); else window.addEventListener("load", go);
+})();
+
