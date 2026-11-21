@@ -50,7 +50,7 @@
     fetch(url, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(o.payload), redirect: "follow" })
       .then(function (r) { return r.json(); })
       .then(function (j) {
-        if (j && j.ok) { o.sent = true; o.bon = j.bon; if (!o.status) o.status = "pending"; delete o.payload; setTimeout(sync, 1200); setTimeout(sync, 3200); (waits[o.cid] || []).forEach(function (f) { f(j.bon); }); delete waits[o.cid]; }
+        if (j && j.ok) { o.sent = true; o.bon = j.bon; if (!o.status) o.status = "pending"; delete o.payload; try { if (window.MuradPush) window.MuradPush.sync(); } catch (e) {} setTimeout(sync, 1200); setTimeout(sync, 3200); (waits[o.cid] || []).forEach(function (f) { f(j.bon); }); delete waits[o.cid]; }
         else if (j && j.error) { o.sent = true; o.status = "pending"; o.rejected = j.error; delete o.payload; }   // السيرفر رفضه (حظر/بيانات): مفيش فايدة من التكرار
         save(); render(); badge();
       })
@@ -207,6 +207,7 @@
   document.addEventListener("visibilitychange", function () { if (!document.hidden) { push(); sync(); } });
   render(); badge(); push(); sync();
   function reset() { list = []; openInv = {}; lastSig = ""; save(); render(); badge(); }
-  window.Orders = { whenBon: whenBon, reset: reset, add: add, open: open, sync: sync, render: render, flash: flash, flashNow: flashNow };
+  function cids() { return list.filter(function (o) { return o.cid; }).map(function (o) { return o.cid; }); }
+  window.Orders = { cids: cids, whenBon: whenBon, reset: reset, add: add, open: open, sync: sync, render: render, flash: flash, flashNow: flashNow };
 })();
 l
