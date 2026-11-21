@@ -215,9 +215,10 @@ function doPost(e) {
     var d = JSON.parse(e.postData.contents), a = d.action;
     if (a === "pilotLogin") return out_(pilotLogin_(d));
     if (a === "riderOrders") return out_(riderOrders_(d));
-    if (a !== "newOrder" && !RIDER_WRITE[a]) return out_({ ok: false, error: "action" });
+    if (a !== "newOrder" && a !== "custToken" && !RIDER_WRITE[a]) return out_({ ok: false, error: "action" });
     lock = LockService.getScriptLock(); lock.waitLock(20000); locked = true;
     if (a === "newOrder") return out_(newOrder_(d));
+    if (a === "custToken") return out_({ ok: saveCustToken_(ssOpen_(), d.cids, d.token) });
     if (a === "pilotRegister") return out_(pilotRegister_(d));
     if (a === "riderAccept") return out_(riderAccept_(d));
     if (a === "riderStage") return out_(riderStage_(d));
@@ -373,7 +374,7 @@ function onEdit(e) {
     var rg = e.range, sh = rg.getSheet(), r = rg.getRow(), c = rg.getColumn(), nm = sh.getName();
     if (r < 2) return;
     if (nm === ORD_TAB) {
-      if (c === O.DONE && isTrue_(rg.getValue())) { archiveOrder_(sh, r); return; }       // تم التوصيل: يتنقل لـ "الطلبات المكتملة"
+      if (c === O.DONE && isTrue_(rg.getValue())) { stageNotify_(sh, r, "done"); archiveOrder_(sh, r); return; }       // تم التوصيل: يتنقل لـ "الطلبات المكتملة"
       if (c === O.PNAME) {                                                                // اختيار الطيار: رقمه يتكتب لوحده + الطيار اللي اتشال يتسجل "سابق"
         var nv = String(rg.getValue() == null ? "" : rg.getValue()).trim(), ov = String(e.oldValue == null ? "" : e.oldValue).trim();
         var dk = "ed_" + r + "_" + hash_(ov + "|" + nv), cc = CacheService.getScriptCache();
@@ -381,11 +382,17 @@ function onEdit(e) {
         var oldPhone = String(sh.getRange(r, O.PPHONE).getValue() || "").replace(/'/g, "");
         var fp = nv ? findPilotByLabel_(sh.getParent().getSheetByName(PIL_TAB), nv) : null;
         if (ov && ov !== nv && !(fp && pilotLabel_(fp.name, fp.veh) === ov)) pushPrev_(sh, r, ov, oldPhone);
-        if (fp) { sh.getRange(r, O.PNAME).setValue(pilotLabel_(fp.name, fp.veh)); sh.getRange(r, O.PPHONE).setNumberFormat("@").setValue(fp.phone); }
+        if (fp) {
+          sh.getRange(r, O.PNAME).setValue(pilotLabel_(fp.name, fp.veh)); sh.getRange(r, O.PPHONE).setNumberFormat("@").setValue(fp.phone);
+          if (ov !== nv) notifyRiderByPhone_(fp.phone, "#" + sh.getRange(r, O.BON).getValue() + " طلب اتعيّن لك 📦", "الإدارة عيّنتلك طلب، افتح التطبيق وشوف التفاصيل", "assign_" + sh.getRange(r, O.BON).getValue(), { type: "assigned", bon: sh.getRange(r, O.BON).getValue() });
+        }
         else sh.getRange(r, O.PPHONE).setNumberFormat("@").setValue("");
       }
       if (c === O.CLOC || c === O.SLOC || c === O.RATE) sh.getRange(r, O_SIG).clearContent();   // اللوكيشن/الصيدلية/التسعيرة اتغيروا: التوصيل يتحسب تاني لوحده
-      if (c === O.ACCEPT || c === O.PREP || c === O.DELIV) styleOrderRow_(sh, r);
+      if (c === O.ACCEPT || c === O.PREP || c === O.DELIV) {
+        styleOrderRow_(sh, r);
+        if (isTrue_(rg.getValue())) stageNotify_(sh, r, c === O.ACCEPT ? "accepted" : (c === O.PREP ? "prep" : "deliv"));   // تعليم يدوي من الشيت برضه بيوصّل للعميل
+      }
     } else if (nm === PIL_TAB) {
       if (c === P.REQ && String(rg.getValue()).trim() === "مقبول" && !sh.getRange(r, P.REQ_AT).getValue()) {
         sh.getRange(r, P.REQ_AT).setValue(Utilities.formatDate(new Date(), TZ, "dd/MM/yyyy hh:mm a"));
@@ -759,6 +766,7 @@ function riderAccept_(d) {
   sh.getRange(r, O.PNAME).setValue(pilotLabel_(String(a.v[P.NAME - 1]), String(a.v[P.VEH - 1] || "")));
   sh.getRange(r, O.PPHONE).setNumberFormat("@").setValue(a.phone);
   try { styleOrderRow_(sh, r); } catch (e) {}
+  stageNotify_(sh, r, "accepted", String(a.v[P.NAME - 1]));
   var nv = rowVals_(sh, r);
   return { ok: true, bon: Number(d.bon), order: orderView_(nv, true, sh.getRange(r, 1, 1, O_CID).getDisplayValues()[0]) };
 }
@@ -772,16 +780,19 @@ function riderStage_(d) {
   var rv = rowVals_(sh, r);
   if (!isMine_(rv, a.phone)) return { ok: false, status: "not_yours", message: "الطلب ده مش بتاعك" };
   if (isTrue_(rv[O.DONE - 1])) return { ok: true, already: true };
-  if (stage === "prepare") { if (!isTrue_(rv[O.PREP - 1])) sh.getRange(r, O.PREP).setValue(true); }
-  else if (stage === "deliver") { if (!isTrue_(rv[O.PREP - 1])) sh.getRange(r, O.PREP).setValue(true); if (!isTrue_(rv[O.DELIV - 1])) sh.getRange(r, O.DELIV).setValue(true); }
+  var kind = "";
+  if (stage === "prepare") { if (!isTrue_(rv[O.PREP - 1])) { sh.getRange(r, O.PREP).setValue(true); kind = "prep"; } }
+  else if (stage === "deliver") { if (!isTrue_(rv[O.PREP - 1])) sh.getRange(r, O.PREP).setValue(true); if (!isTrue_(rv[O.DELIV - 1])) { sh.getRange(r, O.DELIV).setValue(true); kind = "deliv"; } }
   else {
     if (!isTrue_(rv[O.PREP - 1])) sh.getRange(r, O.PREP).setValue(true);
     if (!isTrue_(rv[O.DELIV - 1])) sh.getRange(r, O.DELIV).setValue(true);
     sh.getRange(r, O.DONE).setValue(true);
+    stageNotify_(sh, r, "done");                  // قبل الأرشفة (الصف بيتمسح من هنا)
     archiveOrder_(sh, r, d.at);                 // بيتنقل لـ "الطلبات المكتملة" (التعديل من السكربت مبيشغّلش onEdit، فبنؤرشف هنا بإيدينا)
     return { ok: true, stage: "complete" };
   }
   try { styleOrderRow_(sh, r); } catch (e) {}
+  if (kind) stageNotify_(sh, r, kind);
   return { ok: true, stage: stage };
 }
 
@@ -793,6 +804,7 @@ function riderRelease_(d) {
   var rv = rowVals_(sh, r);
   if (!isMine_(rv, a.phone)) return { ok: false, status: "not_yours", message: "الطلب ده مش بتاعك" };
   if (isTrue_(rv[O.PREP - 1]) || isTrue_(rv[O.DELIV - 1])) return { ok: false, status: "started", message: "مينفعش تتنازل بعد ما بدأت التجهيز" };
+  stageNotify_(sh, r, "released");
   pushPrev_(sh, r, rv[O.PNAME - 1], normPhone_(rv[O.PPHONE - 1]));      // الطيار اللي اتنازل يتسجل "سابق"
   sh.getRange(r, O.ACCEPT).setValue(false);
   sh.getRange(r, O.PNAME).setValue("");
@@ -838,7 +850,7 @@ function riderNear_(d) {
   var cust = coordsOfLink_(rv[O.CLOC - 1]); if (!cust) return { ok: true, status: "noloc" };
   var m = routeMeters_({ lat: lat, lng: lng }, cust, false); if (m < 0) return { ok: true, status: "noroute" };
   var was = !!rv[O_ARR - 1];
-  if (m <= ARRIVE_M) { if (!was) sh.getRange(r, O_ARR).setValue(Utilities.formatDate(new Date(), TZ, "hh:mm:ss a")); return { ok: true, arrived: true, m: Math.round(m) }; }
+  if (m <= ARRIVE_M) { if (!was) { sh.getRange(r, O_ARR).setValue(Utilities.formatDate(new Date(), TZ, "hh:mm:ss a")); stageNotify_(sh, r, "arrived"); } return { ok: true, arrived: true, m: Math.round(m) }; }
   if (was && m > ARRIVE_M * 2.5) sh.getRange(r, O_ARR).clearContent();
   return { ok: true, arrived: false, m: Math.round(m) };
 }
@@ -921,6 +933,69 @@ function broadcastToRiders_(title, body, tag, data, exceptPhone) {
   return "إشعار للطيارين: " + r.sent + " وصل" + (r.failed ? " / " + r.failed + " فشل" + (r.err ? " (" + r.err + ")" : "") : "") + " (" + stamp + ")";
 }
 
+// =====================================================================
+// ===== إشعارات العميل (حتى لو التطبيق مقفول) =========================
+// =====================================================================
+var CTK_TAB = "توكنات العملاء";   // ورقة مخفية: معرّف الطلب ← توكن إشعارات جهاز العميل (التطبيق بيبعتها لوحده)
+function ctkSheet_(ss) {
+  var sh = ss.getSheetByName(CTK_TAB);
+  if (!sh) {
+    sh = ss.insertSheet(CTK_TAB);
+    sh.getRange(1, 1, 1, 3).setValues([["معرّف الطلب", "توكن الإشعارات", "آخر تحديث"]]);
+    try { headerStyle_(sh.getRange(1, 1, 1, 3)); } catch (e) {}
+    sh.setFrozenRows(1);
+    try { sh.hideSheet(); } catch (e2) {}
+  }
+  return sh;
+}
+function saveCustToken_(ss, cids, token) {
+  token = String(token || "").trim();
+  if (!/^[A-Za-z0-9_:\-\.]{20,600}$/.test(token) || !cids || !cids.length) return false;
+  var sh = ctkSheet_(ss), n = sh.getLastRow(), cur = n >= 2 ? sh.getRange(2, 1, n - 1, 2).getDisplayValues() : [], idx = {};
+  for (var i = 0; i < cur.length; i++) idx[String(cur[i][0])] = i + 2;
+  var stamp = Utilities.formatDate(new Date(), TZ, "dd/MM/yyyy hh:mm a"), add = [];
+  cids.slice(0, 30).forEach(function (c) {
+    c = cleanCid_(c); if (!c) return;
+    if (idx[c]) { if (String(cur[idx[c] - 2][1]) !== token) sh.getRange(idx[c], 2, 1, 2).setNumberFormat("@").setValues([[token, stamp]]); }
+    else add.push([c, token, stamp]);
+  });
+  if (add.length) sh.getRange(n + 1, 1, add.length, 3).setNumberFormat("@").setValues(add);
+  return true;
+}
+function custTokenOf_(cid) {
+  cid = String(cid || ""); if (!cid) return "";
+  var sh = ssOpen_().getSheetByName(CTK_TAB); if (!sh || sh.getLastRow() < 2) return "";
+  var f = sh.getRange(2, 1, sh.getLastRow() - 1, 1).createTextFinder(cid).matchEntireCell(true).findNext();
+  return f ? String(sh.getRange(f.getRow(), 2).getDisplayValue() || "").trim() : "";
+}
+function notifyCust_(cid, title, body, tag, data) {
+  try { var t = custTokenOf_(cid); if (t) fcmSendMany_([{ token: t }], title, body, tag, data || {}); } catch (e) {}
+}
+function shortName_(n) { return String(n || "").trim().split(/\s+/).slice(0, 2).join(" "); }
+// kind: accepted | prep | deliv | arrived | done | released
+function stageNotify_(sh, r, kind, who) {
+  try {
+    var cid = String(sh.getRange(r, O_CID).getValue() || ""); if (!cid) return;
+    var bon = sh.getRange(r, O.BON).getValue(), nm = shortName_(bareName_(who || sh.getRange(r, O.PNAME).getValue()));
+    var M = {
+      accepted: ["تم قبول طلبك ✅", (nm ? "المندوب " + nm + " " : "المندوب ") + "قبل طلبك رقم " + bon + " وبدأ في تجهيزه"],
+      prep: ["جاري تجهيز طلبك 💊", "طلبك رقم " + bon + " بيتجهّز دلوقتي"],
+      deliv: ["طلبك في الطريق إليك 🛵", "المندوب خرج بطلبك رقم " + bon + "، استعد للاستلام"],
+      arrived: ["المندوب وصل لعندك 📍", "المندوب على باب العنوان بطلبك رقم " + bon],
+      done: ["تم توصيل طلبك 🎉", "شكراً لثقتك في صيدليات د/ مراد صادق"],
+      released: ["جاري تعيين مندوب آخر 🔄", "المندوب مش هيقدر يكمل طلبك رقم " + bon + "، وجاري تعيين مندوب تاني حالاً"]
+    }[kind];
+    if (M) notifyCust_(cid, M[0], M[1], "order_" + bon, { type: "order_status", bon: bon, stage: kind });
+  } catch (e) {}
+}
+// إشعار لمندوب واحد (مثلاً لما الإدارة تعيّنله طلب من الشيت)
+function notifyRiderByPhone_(phone, title, body, tag, data) {
+  try {
+    var sh = ssOpen_().getSheetByName(PIL_TAB), f = sh && findPilot_(sh, phone), t = f ? String(f.v[P.TOKEN - 1] || "").trim() : "";
+    if (t) fcmSendMany_([{ token: t, row: f.row, sh: sh }], title, body, tag, data || {});
+  } catch (e) {}
+}
+
 // ===== اختبارات من المحرر =====
 function testFirebase() {   // شغّلها مرة بعد ما تحط الـ Script properties، وشوف Execution log
   var t = fcmAccessToken_();
@@ -953,3 +1028,4 @@ function refreshPilotList() {
   var rule = SpreadsheetApp.newDataValidation().requireValueInRange(pil.getRange(2, PIL_LIST_AVAIL, Math.max(pil.getMaxRows() - 1, 1), 1), true).setAllowInvalid(false).build();
   sh.getRange(2, O.PNAME, rows, 1).setDataValidation(rule);
 }
+
