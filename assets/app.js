@@ -507,6 +507,7 @@ function finishSend(loc){
   cart = {}; refresh(); close();
   show("orders");
   if(ord && window.Orders && window.Orders.flash) window.Orders.flash(ord.cid);
+  try{ if(window.MuradPush) window.MuradPush.init(true); }catch(e){}
 }
 // شاشة القفل: مفيش أي تحكم في البرنامج لحد ما العميل يدخل الواتساب (يتأكد إنه بعت) ويرجع
 function waLock(reopen){
@@ -1092,4 +1093,36 @@ if("serviceWorker" in navigator && location.protocol.startsWith("http")){
     var k = String(e.key || "").toLowerCase();
     if (e.key === "F12" || ((e.ctrlKey || e.metaKey) && (k === "u" || k === "s" || k === "p")) || ((e.ctrlKey || e.metaKey) && e.shiftKey && (k === "i" || k === "j" || k === "c"))) e.preventDefault();
   }, true);
+})();
+
+// ===== إشعارات النظام (توصل حتى لو البرنامج مقفول) — بتشتغل في نسخة الأندرويد (APK) لما Firebase يكون متركّب =====
+(function(){
+  const PN = () => capP("PushNotifications");
+  let tok = ""; try{ tok = localStorage.getItem("mrad_pt") || ""; }catch(e){}
+  async function sync(){
+    const url = (window.APP_CONFIG||{}).ORDERS_URL; if(!tok || !url) return;
+    const all = (window.Orders && window.Orders.cids) ? window.Orders.cids() : [];
+    let done = {}; try{ done = JSON.parse(localStorage.getItem("mrad_pt_done") || "{}"); }catch(e){}
+    const need = all.filter(c => done[c] !== tok).slice(0, 30); if(!need.length) return;
+    try{
+      const r = await fetch(url, {method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"}, body: JSON.stringify({action:"custToken", token: tok, cids: need}), redirect:"follow"});
+      const j = await r.json();
+      if(j && j.ok){ need.forEach(c => done[c] = tok); try{ localStorage.setItem("mrad_pt_done", JSON.stringify(done)); }catch(e){} }
+    }catch(e){}
+  }
+  async function init(ask){
+    const p = PN(); if(!p) return;
+    try{
+      let s = await p.checkPermissions();
+      if(s.receive !== "granted"){ if(!ask || s.receive === "denied") return; s = await p.requestPermissions(); if(s.receive !== "granted") return; }
+      try{ await p.createChannel({id:"murad_orders_v1", name:"حالة الطلب", description:"إشعارات حالة طلبك", importance:5, visibility:1, sound:"default", vibration:true, lights:true}); }catch(e){}
+      await p.removeAllListeners();
+      p.addListener("registration", t => { tok = t.value; try{ localStorage.setItem("mrad_pt", tok); }catch(e){} sync(); });
+      p.addListener("pushNotificationReceived", () => { try{ if(window.Orders) window.Orders.sync(); }catch(e){} });
+      p.addListener("pushNotificationActionPerformed", () => { try{ show("orders"); if(window.Orders) window.Orders.sync(); }catch(e){} });
+      await p.register();
+    }catch(e){}
+  }
+  window.MuradPush = { init, sync };
+  setTimeout(() => init(false), 2500);
 })();
