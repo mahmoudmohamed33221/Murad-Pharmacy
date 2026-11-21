@@ -157,3 +157,4 @@ GitHub Pages ما بيقدرش يخبي مفتاح، فالسيرفر بيتعم
 3. مفاتيح السيرفر (`FIREBASE_PROJECT_ID` / `FIREBASE_CLIENT_EMAIL` / `FIREBASE_PRIVATE_KEY`) بتتحط في Apps Script «اوردارس» بس (شوف README تطبيق المندوب)، **مش** في GitHub.
 4. شغّل بناء الـ APK من **Actions ← Build Android APK ← Run workflow**. لو لقى الملف هيظهر في السجل `Firebase: ON`، ولو مش لاقيه `Firebase: OFF` والـ APK بيشتغل عادي من غير إشعارات.
 5. أول ما العميل يبعت طلب بيطلب منه البرنامج إذن الإشعارات.
+
