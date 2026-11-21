@@ -30,7 +30,15 @@ jobs:
         working-directory: android-app
         run: |
           npm install
+          # إشعارات Firebase (اختياري): لو ملف google-services.json موجود في أول المشروع بيتركّب لوحده
+          if [ -f ../google-services.json ]; then npm install @capacitor/push-notifications@^6.0.0; echo "Firebase: ON"; else echo "Firebase: OFF (no google-services.json)"; fi
           npx cap add android
+          if [ -f ../google-services.json ]; then
+            cp ../google-services.json android/app/google-services.json
+            sed -i "s#classpath 'com.android.tools.build:gradle:[^']*'#&\n        classpath 'com.google.gms:google-services:4.4.4'#" android/build.gradle
+            sed -i "s#^apply plugin: 'com.android.application'#&\napply plugin: 'com.google.gms.google-services'#" android/app/build.gradle
+            grep -n "google-services" android/build.gradle android/app/build.gradle
+          fi
           npx cap sync android
 
       - name: Native uninstall plugin (إلغاء التثبيت لما حالة البرنامج = حذف)
@@ -45,6 +53,8 @@ jobs:
         run: |
           M=android-app/android/app/src/main/AndroidManifest.xml
           sed -i 's#<application#<uses-permission android:name="android.permission.CAMERA" />\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />\n    <uses-feature android:name="android.hardware.camera" android:required="false" />\n    <application#' $M
+          sed -i 's#<application#<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <uses-permission android:name="android.permission.VIBRATE" />\n    <application#' $M
+          sed -i 's#</application>#    <meta-data android:name="com.google.firebase.messaging.default_notification_channel_id" android:value="murad_orders_v1" />\n    </application>#' $M
           pip install pillow
           python3 tools/make_android_icons.py android-app/android/app/src/main/res
 
@@ -109,3 +119,4 @@ jobs:
         with:
           name: Murad-Pharmacy-apk
           path: android-app/android/app/build/outputs/apk/release/*.apk
+
