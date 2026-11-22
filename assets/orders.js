@@ -120,7 +120,7 @@
   var RECEIPT = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg>';
   function invBlock(o) {
     var on = !!openInv[o.cid];
-    return '<div class="invx' + (on ? " open" : "") + '"><button type="button" class="invx-h" data-inv="' + o.cid + '" aria-expanded="' + on + '"><b class="invx-title">' + (on ? "صيدليات د/ مراد صادق" : "افتح الفاتورة") +
+    return '<div class="invx' + (on ? " open" : "") + '"><button type="button" class="invx-h" data-inv="' + o.cid + '" aria-expanded="' + on + '"><b class="invx-title">' + (on ? "صيدلية عوف" : "افتح الفاتورة") +
       '</b><span class="invx-arw">' + CHEVRON + '</span><img src="assets/logo.png" alt=""></button><div class="invx-body">' + invoiceInner(o) + "</div></div>";
   }
 
@@ -176,7 +176,7 @@
     var b = e.target.closest && e.target.closest("[data-inv]"); if (!b) return;
     var id = b.getAttribute("data-inv"), box = b.closest(".invx"), on = !box.classList.contains("open");
     openInv[id] = on; box.classList.toggle("open", on); b.setAttribute("aria-expanded", on);
-    b.querySelector(".invx-title").textContent = on ? "صيدليات د/ مراد صادق" : "افتح الفاتورة";
+    b.querySelector(".invx-title").textContent = on ? "صيدلية عوف" : "افتح الفاتورة";
     lastSig = "";   // الرسم الجاي يتحدّث بالحالة الجديدة
   });
   // ===== تمييز الطلب الجديد (وميض برتقالي 5 مرات) =====
