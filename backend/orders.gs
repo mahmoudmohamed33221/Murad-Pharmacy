@@ -915,11 +915,11 @@ function fcmAccessToken_() {
   return j.access_token;
 }
 
-function fcmBody_(token, title, body, tag, data, image) {
+function fcmBody_(token, title, body, tag, data, image, channel) {
   var web = PropertiesService.getScriptProperties().getProperty("RIDER_WEB_URL") || "";
   var dd = {}; for (var k in (data || {})) dd[k] = String(data[k]);
   var m = { token: token, notification: { title: title, body: body }, data: dd,
-    android: { priority: "HIGH", ttl: "300s", notification: { channelId: FCM_CHANNEL, sound: "default", tag: tag || "" } },
+    android: { priority: channel === BRAND_CH_QUIET_ ? "NORMAL" : "HIGH", ttl: "300s", notification: { channelId: channel || FCM_CHANNEL, sound: "default", tag: tag || "" } },
     webpush: { headers: { Urgency: "high", TTL: "300" }, notification: { tag: tag || "", requireInteraction: true } } };
   if (/^https:\/\//.test(image || "")) { m.notification.image = image; m.webpush.notification.image = image; }   // صورة كبيرة في الإشعار (بتظهر لما يتفرد)
   if (/^https:\/\//.test(web)) { m.webpush.fcm_options = { link: web }; m.webpush.notification.icon = web.replace(/\/?$/, "/") + "assets/icons/icon-192.png"; }
@@ -927,12 +927,12 @@ function fcmBody_(token, title, body, tag, data, image) {
 }
 
 // بيبعت لمجموعة طيارين بالتوازي. items: [{token,row}] ← بيرجّع {sent, failed, err}
-function fcmSendMany_(items, title, body, tag, data, image) {
+function fcmSendMany_(items, title, body, tag, data, image, channel) {
   var pid = String(PropertiesService.getScriptProperties().getProperty("FIREBASE_PROJECT_ID") || "").trim(), at = pid ? fcmAccessToken_() : null;
   if (!pid || !at) return { sent: 0, failed: items.length, err: !pid ? "FIREBASE_PROJECT_ID ناقص في Script properties" : (FCM_ERR_ || "Firebase مش مضبوط") };
   var url = "https://fcm.googleapis.com/v1/projects/" + pid + "/messages:send";
   var reqs = items.map(function (it) {
-    return { url: url, method: "post", contentType: "application/json", headers: { Authorization: "Bearer " + at }, muteHttpExceptions: true, payload: JSON.stringify(fcmBody_(it.token, title, body, tag, data, image)) };
+    return { url: url, method: "post", contentType: "application/json", headers: { Authorization: "Bearer " + at }, muteHttpExceptions: true, payload: JSON.stringify(fcmBody_(it.token, title, body, tag, data, image, channel)) };
   });
   var sent = 0, failed = 0, err = "", dead = [], rs = reqs.length ? UrlFetchApp.fetchAll(reqs) : [];
   for (var i = 0; i < rs.length; i++) {
@@ -1168,7 +1168,7 @@ function offImgPick_(cands) {
   }
   return { url: "", note: "❌ " + probs.join(" | ") };
 }
-function sendToAllCustomers_(title, body, tag, data, imgs) {
+function sendToAllCustomers_(title, body, tag, data, imgs, channel) {
   var pick = imgs === undefined ? null : offImgPick_([].concat(imgs || [])), image = pick ? pick.url : undefined;
   var sh = ctkSheet_(ssOpen_()), n = sh.getLastRow();
   if (n < 2) { nlog_("كل العملاء", tag, title, "❌ مفيش أي جهاز عميل متسجّل لسه"); return pick ? pick.note : ""; }
@@ -1176,7 +1176,7 @@ function sendToAllCustomers_(title, body, tag, data, imgs) {
   vals.forEach(function (r) { var t = String(r[0] || "").trim(); if (t && !seen[t]) { seen[t] = 1; items.push({ token: t }); } });
   var sent = 0, failed = 0, err = "", dead = [];
   for (var i = 0; i < items.length; i += 100) {
-    var r = fcmSendMany_(items.slice(i, i + 100), title, body, tag, data, image);
+    var r = fcmSendMany_(items.slice(i, i + 100), title, body, tag, data, image, channel);
     sent += r.sent; failed += r.failed; if (r.err) err = r.err; if (r.dead) dead = dead.concat(r.dead);
   }
   if (dead.length) ctkDropTokens_(dead);
@@ -1207,6 +1207,7 @@ function checkNewOffers() {
   toSend.forEach(function (p) { sendToAllCustomers_(OFFER_TITLE_, offerBody_(p), "offer_" + (p.id || p.name), { type: "offer", id: p.id || "" }, p.imgs); });
   if (toSend.length) rotMark_(toSend.map(offKeyOf_));      // العرض الجديد اتعرض دلوقتي، فمش هيتكرر في الدوران على طول
   try { rotateOffers_(allOffers); } catch (e) { nlog_("دوران العروض", "-", "-", "❌ خطأ: " + String(e).slice(0, 120)); }
+  try { brandTick_(); } catch (e2) { nlog_("رسائل الصيدلية", "-", "-", "❌ خطأ: " + String(e2).slice(0, 120)); }
 }
 
 // =====================================================================
@@ -1216,7 +1217,7 @@ function checkNewOffers() {
 // بيشتغل من نفس مشغّل installOfferTrigger (كل 5 دقايق) ومحتاج الشرط الزمني بس.
 var OFFER_ROTATE_ON = true;               // false = يقفل الدوران (إشعار العرض الجديد بيفضل شغال)
 var OFFER_ROTATE_EVERY_MIN = 30;          // كل كام دقيقة (نص ساعة = 30)
-var OFFER_ROTATE_COUNT = 2;               // كام عرض في كل مرة (1 أو 2)
+var OFFER_ROTATE_COUNT = 1;               // كام عرض في كل مرة (1 أو 2)
 var OFFER_ROTATE_FROM_HOUR = 9;           // بتوقيت القاهرة: مفيش إشعارات قبل الساعة دي ولا بعد اللي بعدها
 var OFFER_ROTATE_TO_HOUR = 23;            // (خليها 0 و 24 لو عايزها طول اليوم)
 var ROT_TAB = "دوران العروض";            // ورقة تلقائية: العروض اللي اتعرضت في الدورة الحالية (متلمسهاش)
@@ -1265,6 +1266,38 @@ function rotateOffers_(offersArg, force) {
   } finally { try { lock.releaseLock(); } catch (x) {} }
   picks.forEach(function (p) { sendToAllCustomers_(OFFER_TITLE_, offerBody_(p), "offer_" + offKeyOf_(p), { type: "offer", id: p.id || "" }, p.imgs); });
 }
+// =====================================================================
+// ===== رسائل الصيدلية: كل 3 ساعات على مدار اليوم (5 رسائل بتدور) =======
+// =====================================================================
+var BRAND_ON = true;                       // false = يقفل رسائل الصيدلية
+var BRAND_EVERY_HOURS = 3;                 // الساعات 12 ص، 3، 6، 9، 12، 3، 6، 9 (8 مرات في اليوم) بتوقيت القاهرة
+var BRAND_QUIET_FROM_HOUR = 23;            // من 11 بالليل لحد 9 الصبح بتتبعت على قناة هادية (من غير صوت) علشان متصحّيش حد
+var BRAND_QUIET_TO_HOUR = 9;
+var BRAND_CH_ = "murad_brand_v1", BRAND_CH_QUIET_ = "murad_brand_quiet_v1";   // لازم يطابقوا القنوات اللي التطبيق بيعملها
+var BRAND_MSGS_ = [
+  { t: "صيدليات د/ مراد صادق", b: "صحتك أولويتنا. اطلب دواءك من التطبيق ويوصلك لحد بيتك." },
+  { t: "اختيارك الأفضل لدوائك", b: "في صيدليات د/ مراد صادق بنهتم بكل طلب، وبنختار لك الأفضل بجودة تثق فيها." },
+  { t: "ثقتك تهمّنا", b: "نلتزم في صيدليات د/ مراد صادق بالأمانة والجودة في كل طلب، ونسعد بخدمتك." },
+  { t: "صحتك في أيدٍ أمينة", b: "فريق صيدليات د/ مراد صادق جاهز لخدمتك. اطلب دواءك ومنتجات العناية بسهولة من التطبيق." },
+  { t: "نهتم بصحتك وصحة أسرتك", b: "دواؤك ومنتجات عنايتك لحد باب بيتك من صيدليات د/ مراد صادق، وإحنا معاك في كل خطوة." }
+];
+function brandSend_(force) {
+  var props = PropertiesService.getScriptProperties(), idx = Number(props.getProperty("BRAND_IDX") || 0) % BRAND_MSGS_.length;
+  props.setProperty("BRAND_IDX", String((idx + 1) % BRAND_MSGS_.length));
+  var h = Number(Utilities.formatDate(new Date(), TZ, "H")), quiet = (h >= BRAND_QUIET_FROM_HOUR || h < BRAND_QUIET_TO_HOUR), m = BRAND_MSGS_[idx];
+  sendToAllCustomers_(m.t, m.b, "brand", { type: "brand" }, undefined, quiet ? BRAND_CH_QUIET_ : BRAND_CH_);
+}
+function brandTick_() {
+  if (!BRAND_ON) return;
+  var d = new Date(), h = Number(Utilities.formatDate(d, TZ, "H")), mi = Number(Utilities.formatDate(d, TZ, "m"));
+  if (h % BRAND_EVERY_HOURS !== 0 || mi < 10 || mi > 45) return;                   // أول فحص بعد الدقيقة 10 من الساعة المحددة
+  var props = PropertiesService.getScriptProperties(), slot = Utilities.formatDate(d, TZ, "yyyyMMddHH");
+  if (props.getProperty("BRAND_SLOT") === slot) return;                              // اتبعتت في الساعة دي
+  props.setProperty("BRAND_SLOT", slot);
+  brandSend_();
+}
+function testBrandPush() { brandSend_(true); Logger.log("اتبعتت رسالة الصيدلية (شوف سجل الإشعارات)"); }
+
 // اختبار: يبعت دورة دلوقتي بغض النظر عن الميعاد والساعة
 function testRotateOffers() { rotateOffers_(null, true); Logger.log("اتبعتت دورة عروض (شوف سجل الإشعارات)"); }
 function installOfferTrigger() {
