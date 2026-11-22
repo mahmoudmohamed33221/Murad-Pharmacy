@@ -39,6 +39,8 @@ const fillIcons = () => document.querySelectorAll("[data-ic]").forEach(e=>{ e.in
 // ====== المنتجات: بتتحمل من data/products.json أو من Google Sheet ======
 let PRODUCTS = [], BY = {}, CATIMG = {}, CATCOUNT = {};
 const P = id => BY[id];
+// سعر العرض: السعر الجديد أخضر بنفس خط السعر، والسعر الأصلي أصغر ورصاصي ومشطوب
+const priceNow = p => p.op ? `<span class="pnow">${fmt(p.op)}</span><s class="pold">${fmt(p.price)}</s>` : fmt(p.price);
 const stripPrice = p => p.stripPrice || Math.round(p.price/p.strips*100)/100;
 // أي خلية فيها لينك: ناخد أول لينك فعلي منها (حتى لو فيه مسافات/سطر جديد/نص حواليه/صيغة =IMAGE) ونحوّل روابط الصفحات لروابط صور مباشرة
 function cleanUrl(u){
@@ -99,9 +101,13 @@ function normProduct(r,i){
   const sh = /^\s*\d+([.,]\d+)?\s*$/.test(toAscii(r.sh)) ? num(r.sh) : 0;     // رقم أكبر من صفر فقط = في شرايط
   const k = sh>0 ? Math.max(1,Math.floor(sh)) : 1;
   const stock = Math.max(0,Math.floor(/^\s*\d+([.,]\d+)?\s*$/.test(toAscii(r.stock)) ? num(r.stock) : 0));   // فاضي/كلام = غير متوفر
-  return { id:String(r.id||("p"+(i+1))).trim(), name, cat:String(r.cat||"").replace(/\s+/g," ").trim(), offer:offerOf(r.offer)||(bx!=null?(()=>{ const m=Math.max(1,Math.floor(num(r.min))||1), mm=m.toLocaleString("ar-EG"), nn=bxn.toLocaleString("ar-EG"); return bx===0?mm+"+"+nn+" هدية":bx===50?mm+"+"+nn+" بنص السعر":mm+"+"+nn+" بخصم "+(100-bx)+"٪"; })():(dv>0?"عرض خاص":"")), bx, bxn, disc:dv, discPct:dpct, min:Math.max(1,Math.floor(num(r.min))||1), inc:Math.max(0,Math.floor(num(r.inc))||0), price:num(r.price), strips:k, stripPrice:num(r.strip_price),
+  const out = { id:String(r.id||("p"+(i+1))).trim(), name, cat:String(r.cat||"").replace(/\s+/g," ").trim(), offer:offerOf(r.offer)||(bx!=null?(()=>{ const m=Math.max(1,Math.floor(num(r.min))||1), mm=m.toLocaleString("ar-EG"), nn=bxn.toLocaleString("ar-EG"); return bx===0?mm+"+"+nn+" هدية":bx===50?mm+"+"+nn+" بنص السعر":mm+"+"+nn+" بخصم "+(100-bx)+"٪"; })():(dv>0?"عرض خاص":"")), bx, bxn, disc:dv, discPct:dpct, min:Math.max(1,Math.floor(num(r.min))||1), inc:Math.max(0,Math.floor(num(r.inc))||0), price:num(r.price), strips:k, stripPrice:num(r.strip_price),
     img:driveImg(r.image), alts:driveAlts(r.image), catImg:driveImg(r.catimg), catAlts:driveAlts(r.catimg),
     offerImg:driveImg(r.offerimg).replace("sz=w500","sz=w1200"), offerAlts:driveAlts(r.offerimg).map(u=>u.replace("=w500","=w1200")), alias:String(r.alias||"").trim(), type:String(r.type||"").replace(/\s+/g," ").trim(), company:String(r.company||"").replace(/\s+/g," ").trim(), stock, out:stock<=0 };
+  // "سعر عرض": سعر ثابت للعلبة (أقل من السعر الأصلي) لفترة محدودة. بيتحوّل لخصم ثابت على كل علبة فالسلة والإجمالي بيحسبوه لوحدهم
+  const op = num(r.offerprice);
+  if(op>0 && out.price>0 && op<out.price){ out.op = Math.round(op*100)/100; out.bx = null; out.disc = Math.round((out.price-op)*100)/100; out.discPct = false; out.min = 1; out.inc = 0; out.offer = offerOf(r.offer) || "عرض خاص"; }
+  return out;
 }
 function parseCSV(t){
   const rows=[]; let r=[], c="", q=false;
@@ -114,7 +120,7 @@ function parseCSV(t){
   return rows;
 }
 // الأعمدة: عمود القسم ("لينك القسم" أو "القسم") بعد "رابط الصوره": اللي بيتكتب جنب كل منتج هو اسم القسم، والأقسام بتتكوّن منه تلقائي.
-const HK = {"الرقم":"id","اسم المنتج":"name","علبه":"stock","شرايط":"sh","سعر العلبه":"price","سعر الشريط":"strip_price","رابط الصوره":"image","لينك القسم":"catimg","لينك المجموعه":"catimg","رابط المجموعه":"catimg","صوره المجموعه":"catimg","لينك صوره المجموعه":"catimg","المجموعه":"cat","المجموعات":"cat","لينك العرض":"offerimg","رابط العرض":"offerimg","صوره العرض":"offerimg","بوستر العرض":"offerimg","لينك البوستر":"offerimg","رابط القسم":"catimg","صوره القسم":"catimg","لينك صوره القسم":"catimg","القسم":"cat","لينك الصوره":"image","الصوره":"image","صوره":"image","عرض خاص":"offer","عرض":"offer","قيمه الخصم":"disc","الخصم":"disc","الحد الادني":"min","الحد الادنى":"min","العدد المشمول":"inc","العدد المشمول بالخصم":"inc","عدد العلب المشمول":"inc","عدد القطع في العرض":"bxn","عدد القطع الاضافيه":"bxn","عدد القطع الاضافية":"bxn","عرض القطعه الاضافيه":"bonus","عرض القطعة الاضافية":"bonus","القطعه الاضافيه":"bonus","العرض الاضافي":"bonus","عرض اضافي":"bonus","الاسم بالانجليزي":"alias","الاسم الانجليزي":"alias","اسم انجليزي":"alias","الاسم العلمي":"alias","الاسم التجاري":"alias","نوع المنتج":"type","النوع":"type","نوع":"type","الشكل الدوائي":"type","الشركه":"company","شركه":"company","اسم الشركه":"company","الشركه المصنعه":"company","الشركه المنتجه":"company","english":"alias","name_en":"alias"};
+const HK = {"الرقم":"id","اسم المنتج":"name","علبه":"stock","شرايط":"sh","سعر العلبه":"price","سعر الشريط":"strip_price","رابط الصوره":"image","لينك القسم":"catimg","لينك المجموعه":"catimg","رابط المجموعه":"catimg","صوره المجموعه":"catimg","لينك صوره المجموعه":"catimg","المجموعه":"cat","المجموعات":"cat","لينك العرض":"offerimg","رابط العرض":"offerimg","صوره العرض":"offerimg","بوستر العرض":"offerimg","لينك البوستر":"offerimg","رابط القسم":"catimg","صوره القسم":"catimg","لينك صوره القسم":"catimg","القسم":"cat","لينك الصوره":"image","الصوره":"image","صوره":"image","عرض خاص":"offer","عرض":"offer","سعر عرض":"offerprice","سعر العرض":"offerprice","سعر الاوفر":"offerprice","قيمه الخصم":"disc","الخصم":"disc","الحد الادني":"min","الحد الادنى":"min","العدد المشمول":"inc","العدد المشمول بالخصم":"inc","عدد العلب المشمول":"inc","عدد القطع في العرض":"bxn","عدد القطع الاضافيه":"bxn","عدد القطع الاضافية":"bxn","عرض القطعه الاضافيه":"bonus","عرض القطعة الاضافية":"bonus","القطعه الاضافيه":"bonus","العرض الاضافي":"bonus","عرض اضافي":"bonus","الاسم بالانجليزي":"alias","الاسم الانجليزي":"alias","اسم انجليزي":"alias","الاسم العلمي":"alias","الاسم التجاري":"alias","نوع المنتج":"type","النوع":"type","نوع":"type","الشكل الدوائي":"type","الشركه":"company","شركه":"company","اسم الشركه":"company","الشركه المصنعه":"company","الشركه المنتجه":"company","english":"alias","name_en":"alias"};
 // عمود "عرض خاص": أي قيمة معناها نعم => العرض شغال. لو اتكتب نص مخصص (مثلا "خصم ٢٠٪") بيظهر هو بدل "عرض خاص"
 const offerOf = v => { v=String(v==null?"":v).trim(); if(!v || /^(0|لا|no|false|-|x)$/i.test(norm(v))) return ""; return /^(1|نعم|yes|true|✓|✔|عرض|عرض خاص|اوفر|offer)$/i.test(norm(v)) ? "عرض خاص" : v; };
 // مطابقة عنوان العمود: الأول بالاسم بالظبط (بعد توحيد الهمزات)، وبعدين بالكلمة المفتاحية (أي عنوان فيه "قسم" أو "تصنيف" = القسم)
@@ -123,6 +129,7 @@ function headerKey(x){
   if(!HKN) HKN = Object.fromEntries(Object.entries(HK).map(([k,v])=>[norm(k).replace(/\s+/g," "),v]));
   const n = norm(String(x==null?"":x)).replace(/\s+/g," "); if(!n) return "";
   if(HKN[n]) return HKN[n];
+  if(/سعر/.test(n) && /عرض|اوفر|offer/.test(n) && !/شريط|شرايط|شرائط|strip/.test(n)) return "offerprice";
   if(/^عدد.*قطع/.test(n)) return "bxn";
   if(/قطعه.*اضاف|اضاف.*قطعه/.test(n)) return "bonus";
   if(/عرض|offer|poster|بوستر/.test(n) && /لينك|رابط|صور|link|image|url|بوستر|poster/.test(n)) return "offerimg";
@@ -254,7 +261,7 @@ function cardHTML(p){
     const q = cart[p.id]||0;
     return `<div class="card ${q?"sel":""}" data-id="${p.id}">
       <div class="ico">${thumb(p)}${offerTag(p)}</div><div class="cat">${esc(p.cat)}</div>
-      <div class="nm">${escN(p.name)}</div>${metaHTML(p)}<div class="pr"><small class="pl">سعر العبوة الواحدة</small> ${fmt(p.price)}</div>
+      <div class="nm">${escN(p.name)}</div>${metaHTML(p)}<div class="pr"><small class="pl">سعر العبوة الواحدة</small> ${priceNow(p)}</div>
       ${q? `<div class="qty"><button data-a="plus" data-i="${p.id}" aria-label="زيادة">+</button><span>${q.toLocaleString("ar-EG")}</span><button data-a="minus" data-i="${p.id}" aria-label="نقص">−</button></div>`
          : `<button class="add" ${p.out?"disabled":""} data-a="plus" data-i="${p.id}">${p.out?"غير متوفر":"أضف للفاتورة"}</button>`}
     </div>`;}
@@ -337,7 +344,7 @@ function addResults(){
   if(list.length<11) for(const p of PRODUCTS){ if(!p.out && !seen.has(p) && words.every(w=>p._h.includes(w)||phon(p,w))){ list.push(p); if(list.length>=11) break; } }
   const more = list.length>10; list = list.slice(0,10);
   if(!list.length) return `<div class="cv-none">مفيش منتج بالاسم ده</div>`;
-  return list.map(p=>`<div class="cv-pick"><div class="cv-pi"><b class="cv-pn">${esc(p.name)}</b><small>${fmt(p.price)}${cart[p.id]||cart[p.id+":s"]?` · في الفاتورة ✓`:""}</small></div><button type="button" class="cv-show" data-a="pvshow" data-i="${p.id}">عرض</button></div>`).join("") + (more?`<div class="cv-none">اكتب أكتر عشان تحدد المنتج</div>`:"");
+  return list.map(p=>`<div class="cv-pick"><div class="cv-pi"><b class="cv-pn">${esc(p.name)}</b><small>${p.op?fmt(p.op):fmt(p.price)}${cart[p.id]||cart[p.id+":s"]?` · في الفاتورة ✓`:""}</small></div><button type="button" class="cv-show" data-a="pvshow" data-i="${p.id}">عرض</button></div>`).join("") + (more?`<div class="cv-none">اكتب أكتر عشان تحدد المنتج</div>`:"");
 }
 // صف الفاتورة: سعر الواحدة، والإجمالي، وتلميح العرض (بيتحدّثوا فوراً لما العدد يتغيّر)
 function cvLine(id){
@@ -691,6 +698,7 @@ let offersSig = null;
 function offerDetail(p){
   const lines = [];
   if(p.offer && p.offer!=="عرض خاص") lines.push(`<b class="otag">${esc(p.offer)}</b>`);
+  if(p.op){ lines.push(`<b>عرض خاص ولفترة محدودة ⭐</b>`); lines.push(`عرض خصم: السعر بـ <b class="onow">${fmt(p.op)}</b> بدلاً من <s>${fmt(p.price)}</s> لفترة محدودة`); return lines.map(l=>`<p>${l}</p>`).join(""); }
   if(isBonus(p)){ lines.push(`<b>${bonusTitle(p)}</b>`); lines.push(bonusN(p)===1?"وده على كل علبة بتشتريها":"وده بيتكرر على كل "+(bonusN(p)===2?"علبتين":ar(bonusN(p))+" علب")+" بتشتريها"); if(p.price>0) lines.push(`<span class="oprice">${fmt(p.price)} للعلبة${p.bx===0?"":" والتانية بـ"+fmt(r2(p.price*p.bx/100))}</span>`); return lines.map(l=>`<p>${l}</p>`).join(""); }
   if(p.min<=1 && !(p.inc>0)) lines.push(`خصم <b>${discTxt(p)}</b> على كل علبة`);
   else if(p.min<=1) lines.push(`خصم <b>${discTxt(p)}</b> على أول <b>${cnt(p.inc)}</b>`);
@@ -712,7 +720,7 @@ function offerCard(p){
 }
 function buildOffers(){
   const list = PRODUCTS.filter(hasOff);
-  const sig = list.map(p=>[p.id,p.name,p.disc,p.bx,p.min,p.bxn,p.offerImg].join("~")).join("|");
+  const sig = list.map(p=>[p.id,p.name,p.disc,p.bx,p.min,p.bxn,p.op,p.offerImg].join("~")).join("|");
   if(sig === offersSig) return; offersSig = sig;
   stop(); track.scrollLeft = 0; near = 0;
   track.innerHTML = list.length ? list.map(offerCard).join("") : `<div class="slide offer-empty"><span>لا توجد أي عروض حاليًا</span></div>`;
@@ -801,7 +809,7 @@ function rowHTML(p){
   return `<div class="pcard ${p.out?"out":""}" data-id="${esc(p.id)}"><div class="pimg">${thumb(p)}${offerTag(p)}${p.out?'<span class="pout">غير متوفر</span>':""}</div>
     <b class="pn">${escN(p.name)}</b>
     ${metaHTML(p)}
-    <div class="pp"><small class="pl">سعر العبوة الواحدة</small><span class="pv">${fmt(p.price)}</span></div>
+    <div class="pp"><small class="pl">سعر العبوة الواحدة</small><span class="pv">${priceNow(p)}</span></div>
     ${hasOff(p)?`<div class="pd">${isBonus(p)?bonusTitle(p):offerLine(p)}</div>`:""}</div>`;
 }
 const toNum = s => parseInt(String(s).replace(/[٠-٩]/g,x=>"٠١٢٣٤٥٦٧٨٩".indexOf(x)).replace(/\D/g,""),10)||1;
@@ -843,7 +851,7 @@ function productView(id){
   $("sheet").innerHTML = `<h2><span class="ttl">${escN(p.name)}</span> <button class="x" data-a="close" aria-label="إغلاق">✕</button></h2>
     <div class="pimg big${showPoster?" poster":""}">${thumb(showPoster ? {...p, img:p.offerImg, alts:p.offerAlts} : p)}${offerTag(p)}</div>
     ${metaHTML(p,true)}
-    <div class="pp big"><small class="pl">${isS?"سعر الشريط الواحد":"سعر العبوة الواحدة"}</small><span class="pv">${fmt(isS?stripPrice(p):p.price)}</span></div>
+    <div class="pp big"><small class="pl">${isS?"سعر الشريط الواحد":"سعر العبوة الواحدة"}</small><span class="pv">${isS?fmt(stripPrice(p)):priceNow(p)}</span></div>
     ${inCart?`<div class="inc">في فاتورتك: ${ar(inCart)} ${boxWord(inCart)}</div>`:""}
     ${ofr}
     <div class="prow"><div class="qty"><button data-pv="inc" ${dis}>+</button><input class="qin" data-pv="inp" inputmode="numeric" value="${pk.n}" ${dis}><button data-pv="dec" ${dis}>−</button></div>
@@ -1105,13 +1113,25 @@ if("serviceWorker" in navigator && location.protocol.startsWith("http")){
     const all = (window.Orders && window.Orders.cids) ? window.Orders.cids() : [];
     let done = {}; try{ done = JSON.parse(localStorage.getItem("mrad_pt_done") || "{}"); }catch(e){}
     let ph = ""; try{ ph = localStorage.getItem("mrad_pt_phone") || ""; }catch(e){}
-    const needC = all.filter(c => done[c] !== tok).slice(0, 30), needP = ph && done["tel:"+ph] !== tok;
-    if(!needC.length && !needP) return;
+    let dev = ""; try{ dev = localStorage.getItem("mrad_dev") || ""; if(!dev){ dev = "d" + Date.now().toString(36) + Math.random().toString(36).slice(2,10); localStorage.setItem("mrad_dev", dev); } }catch(e){}
+    const needC = all.filter(c => done[c] !== tok).slice(0, 30), needP = ph && done["tel:"+ph] !== tok, needD = dev && done["dev:"+dev] !== tok;
+    if(!needC.length && !needP && !needD) return;
     try{
-      const r = await fetch(url, {method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"}, body: JSON.stringify({action:"custToken", token: tok, cids: needC, phone: needP ? ph : ""}), redirect:"follow"});
+      const r = await fetch(url, {method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"}, body: JSON.stringify({action:"custToken", token: tok, cids: needC, phone: needP ? ph : "", device: needD ? dev : ""}), redirect:"follow"});
       const j = await r.json();
-      if(j && j.ok){ needC.forEach(c => done[c] = tok); if(needP) done["tel:"+ph] = tok; try{ localStorage.setItem("mrad_pt_done", JSON.stringify(done)); }catch(e){} }
+      if(j && j.ok){ needC.forEach(c => done[c] = tok); if(needP) done["tel:"+ph] = tok; if(needD) done["dev:"+dev] = tok; try{ localStorage.setItem("mrad_pt_done", JSON.stringify(done)); }catch(e){} }
     }catch(e){}
+  }
+  // الضغط على إشعار عرض: يفتح المنتج مباشرة زي ما العميل داس على الكارت المتحرك (يستنى المنتجات تتحمّل لو التطبيق لسه بيفتح)
+  function openOfferFromPush(id){
+    const t0 = Date.now();
+    const iv = setInterval(() => {
+      const b = document.body, locked = b && (b.classList.contains("intro-lock") || document.getElementById("mgate"));
+      if(locked && Date.now()-t0 < 25000) return;
+      if(!id){ clearInterval(iv); try{ show("home"); }catch(e){} return; }
+      if(typeof P === "function" && P(id)){ clearInterval(iv); try{ show("home"); pvFromOffer = true; productView(id); }catch(e){} return; }
+      if(Date.now()-t0 > 20000){ clearInterval(iv); try{ show("home"); }catch(e){} }
+    }, 300);
   }
   async function init(ask){
     const p = PN(); if(!p) return;
@@ -1119,10 +1139,19 @@ if("serviceWorker" in navigator && location.protocol.startsWith("http")){
       let s = await p.checkPermissions();
       if(s.receive !== "granted"){ if(!ask || s.receive === "denied") return; s = await p.requestPermissions(); if(s.receive !== "granted") return; }
       try{ await p.createChannel({id:"murad_orders_v1", name:"حالة الطلب", description:"إشعارات حالة طلبك", importance:5, visibility:1, sound:"default", vibration:true, lights:true}); }catch(e){}
+      try{ await p.createChannel({id:"murad_brand_v1", name:"رسائل الصيدلية", description:"رسائل وعروض من صيدليات د/ مراد صادق", importance:3, visibility:1, sound:"default", vibration:true}); }catch(e){}
+      try{ await p.createChannel({id:"murad_brand_quiet_v1", name:"رسائل الصيدلية (ليلاً - بدون صوت)", description:"رسائل هادية بالليل", importance:2, visibility:1, vibration:false}); }catch(e){}
       await p.removeAllListeners();
       p.addListener("registration", t => { tok = t.value; try{ localStorage.setItem("mrad_pt", tok); }catch(e){} sync(); });
       p.addListener("pushNotificationReceived", () => { try{ if(window.Orders) window.Orders.sync(); }catch(e){} });
-      p.addListener("pushNotificationActionPerformed", () => { try{ show("orders"); if(window.Orders) window.Orders.sync(); }catch(e){} });
+      p.addListener("pushNotificationActionPerformed", a => {
+        const d = (a && a.notification && a.notification.data) || {};
+        try{
+          if(d.type === "offer"){ openOfferFromPush(d.id); return; }
+          if(d.type === "brand"){ show("home"); return; }
+          show("orders"); if(window.Orders) window.Orders.sync();
+        }catch(e){}
+      });
       await p.register();
     }catch(e){}
   }
@@ -1220,4 +1249,3 @@ if("serviceWorker" in navigator && location.protocol.startsWith("http")){
   }
   if(document.readyState === "complete") go(); else window.addEventListener("load", go);
 })();
-
