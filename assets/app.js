@@ -86,7 +86,32 @@ function parseNum(v){
   }
   const n = parseFloat(t); return isFinite(n) ? n : 0;
 }
+// ===== عرض مكتوب بنص حر في عمود "عرض" (مثلاً: خد واحدة والتانية مجانا / اشتري علبتين وخد علبة هدية / التانية بنص السعر / 1+1 / خصم 20%) =====
+// لو عمود "القطعة الإضافية" أو "سعر عرض" فاضيين بنحوّل النص لنفس أنواع العروض اللي التطبيق بيحسبها (والسلة والإجمالي بيحسبوها لوحدهم)
+const NUMW = {"وحده":1,"واحده":1,"واحد":1,"علبه":1,"اتنين":2,"اثنين":2,"علبتين":2,"تلاته":3,"ثلاثه":3,"اربعه":4};
+const numWord = s => { s = toAscii(s||""); return /^\d+$/.test(s) ? parseInt(s,10) : (NUMW[s]||0); };
+function withTextOffer(r){
+  const raw = String(r.offer==null?"":r.offer).trim(); if(!raw) return r;
+  if(String(r.bonus==null?"":r.bonus).trim() || parseNum(r.offerprice)>0) return r;
+  const tx = toAscii(norm(raw)).replace(/\s+/g," ");
+  const pl = tx.match(/(\d+)\s*\+\s*(\d+)/);
+  const half = /(نص|نصف)\s*(ال)?(سعر|تمن|ثمن)|half/.test(tx);
+  const free = /مجان|هدي|free|gift/.test(tx);
+  if(pl || half || free){
+    let a = pl ? parseInt(pl[1],10) : 0, b = pl ? parseInt(pl[2],10) : 0;
+    if(!a){ const m = tx.match(/(?:اشتري|اشتر|خد|خذ|buy)\s+(\d+|وحده|واحده|واحد|علبه|اتنين|اثنين|علبتين|تلاته|ثلاثه|اربعه)/); a = m ? numWord(m[1]) : 1; }
+    if(!b){ const m = tx.match(/(?:وخد|و خد|واحصل على|واخد)\s+(\d+|وحده|واحده|واحد|علبه|اتنين|اثنين|علبتين|تلاته|ثلاثه|اربعه)/); b = m ? numWord(m[1]) : 1; }
+    const has = k => String(r[k]==null?"":r[k]).trim();
+    return Object.assign({}, r, {bonus: half ? "نص" : "هدية", min: has("min") || String(a||1), bxn: has("bxn") || String(b||1)});
+  }
+  const pc = tx.match(/(\d+(?:\.\d+)?)\s*(?:%|٪|بالمايه|في المايه)/);
+  if(pc && !String(r.disc==null?"":r.disc).trim()) return Object.assign({}, r, {disc: pc[1]+"%"});
+  return r;
+}
+let OST = false;   // true = في عمود "حالة العرض" في الشيت (لو مش موجود: كل العروض شغالة زي الأول)
+const offerIsOn = v => { const s = norm(String(v==null?"":v)).replace(/\s+/g,""); if(!s || /ايقاف|وقف|اغلاق|مقفل|^off$|^0$|^لا$|false/.test(s)) return false; return /تشغيل|شغال|فعال|مفعل|^on$|^1$|^نعم$|true|✓|✔/.test(s); };
 function normProduct(r,i){
+  r = withTextOffer(r);
   const num = parseNum;
   const name = String(r.name||"").trim(); if(!name) return null;
   const drw = String(r.disc==null?"":r.disc);
@@ -107,6 +132,9 @@ function normProduct(r,i){
   // "سعر عرض": سعر ثابت للعلبة (أقل من السعر الأصلي) لفترة محدودة. بيتحوّل لخصم ثابت على كل علبة فالسلة والإجمالي بيحسبوه لوحدهم
   const op = num(r.offerprice);
   if(op>0 && out.price>0 && op<out.price){ out.op = Math.round(op*100)/100; out.bx = null; out.disc = Math.round((out.price-op)*100)/100; out.discPct = false; out.min = 1; out.inc = 0; out.offer = offerOf(r.offer) || "عرض خاص"; }
+  // عمود "حالة العرض": تشغيل = العرض ظاهر في العروض المتحركة وبيتبعت للعملاء. فاضي أو ايقاف = مخفي (ده الافتراضي)
+  out.offerOn = !OST || offerIsOn(r.ostate);
+  if(OST && !out.offerOn && CFG.OFFER_OFF_CANCELS_DISCOUNT){ out.disc = 0; out.bx = null; out.op = 0; out.offer = ""; out.min = 1; out.inc = 0; }
   return out;
 }
 function parseCSV(t){
@@ -120,7 +148,7 @@ function parseCSV(t){
   return rows;
 }
 // الأعمدة: عمود القسم ("لينك القسم" أو "القسم") بعد "رابط الصوره": اللي بيتكتب جنب كل منتج هو اسم القسم، والأقسام بتتكوّن منه تلقائي.
-const HK = {"الرقم":"id","اسم المنتج":"name","علبه":"stock","شرايط":"sh","سعر العلبه":"price","سعر الشريط":"strip_price","رابط الصوره":"image","لينك القسم":"catimg","لينك المجموعه":"catimg","رابط المجموعه":"catimg","صوره المجموعه":"catimg","لينك صوره المجموعه":"catimg","المجموعه":"cat","المجموعات":"cat","لينك العرض":"offerimg","رابط العرض":"offerimg","صوره العرض":"offerimg","بوستر العرض":"offerimg","لينك البوستر":"offerimg","رابط القسم":"catimg","صوره القسم":"catimg","لينك صوره القسم":"catimg","القسم":"cat","لينك الصوره":"image","الصوره":"image","صوره":"image","عرض خاص":"offer","عرض":"offer","سعر عرض":"offerprice","سعر العرض":"offerprice","سعر الاوفر":"offerprice","قيمه الخصم":"disc","الخصم":"disc","الحد الادني":"min","الحد الادنى":"min","العدد المشمول":"inc","العدد المشمول بالخصم":"inc","عدد العلب المشمول":"inc","عدد القطع في العرض":"bxn","عدد القطع الاضافيه":"bxn","عدد القطع الاضافية":"bxn","عرض القطعه الاضافيه":"bonus","عرض القطعة الاضافية":"bonus","القطعه الاضافيه":"bonus","العرض الاضافي":"bonus","عرض اضافي":"bonus","الاسم بالانجليزي":"alias","الاسم الانجليزي":"alias","اسم انجليزي":"alias","الاسم العلمي":"alias","الاسم التجاري":"alias","نوع المنتج":"type","النوع":"type","نوع":"type","الشكل الدوائي":"type","الشركه":"company","شركه":"company","اسم الشركه":"company","الشركه المصنعه":"company","الشركه المنتجه":"company","english":"alias","name_en":"alias"};
+const HK = {"حاله العرض":"ostate","تشغيل العرض":"ostate","حالة العرض":"ostate","الرقم":"id","اسم المنتج":"name","علبه":"stock","شرايط":"sh","سعر العلبه":"price","سعر الشريط":"strip_price","رابط الصوره":"image","لينك القسم":"catimg","لينك المجموعه":"catimg","رابط المجموعه":"catimg","صوره المجموعه":"catimg","لينك صوره المجموعه":"catimg","المجموعه":"cat","المجموعات":"cat","لينك العرض":"offerimg","رابط العرض":"offerimg","صوره العرض":"offerimg","بوستر العرض":"offerimg","لينك البوستر":"offerimg","رابط القسم":"catimg","صوره القسم":"catimg","لينك صوره القسم":"catimg","القسم":"cat","لينك الصوره":"image","الصوره":"image","صوره":"image","عرض خاص":"offer","عرض":"offer","سعر عرض":"offerprice","سعر العرض":"offerprice","سعر الاوفر":"offerprice","قيمه الخصم":"disc","الخصم":"disc","الحد الادني":"min","الحد الادنى":"min","العدد المشمول":"inc","العدد المشمول بالخصم":"inc","عدد العلب المشمول":"inc","عدد القطع في العرض":"bxn","عدد القطع الاضافيه":"bxn","عدد القطع الاضافية":"bxn","عرض القطعه الاضافيه":"bonus","عرض القطعة الاضافية":"bonus","القطعه الاضافيه":"bonus","العرض الاضافي":"bonus","عرض اضافي":"bonus","الاسم بالانجليزي":"alias","الاسم الانجليزي":"alias","اسم انجليزي":"alias","الاسم العلمي":"alias","الاسم التجاري":"alias","نوع المنتج":"type","النوع":"type","نوع":"type","الشكل الدوائي":"type","الشركه":"company","شركه":"company","اسم الشركه":"company","الشركه المصنعه":"company","الشركه المنتجه":"company","english":"alias","name_en":"alias"};
 // عمود "عرض خاص": أي قيمة معناها نعم => العرض شغال. لو اتكتب نص مخصص (مثلا "خصم ٢٠٪") بيظهر هو بدل "عرض خاص"
 const offerOf = v => { v=String(v==null?"":v).trim(); if(!v || /^(0|لا|no|false|-|x)$/i.test(norm(v))) return ""; return /^(1|نعم|yes|true|✓|✔|عرض|عرض خاص|اوفر|offer)$/i.test(norm(v)) ? "عرض خاص" : v; };
 // مطابقة عنوان العمود: الأول بالاسم بالظبط (بعد توحيد الهمزات)، وبعدين بالكلمة المفتاحية (أي عنوان فيه "قسم" أو "تصنيف" = القسم)
@@ -129,6 +157,8 @@ function headerKey(x){
   if(!HKN) HKN = Object.fromEntries(Object.entries(HK).map(([k,v])=>[norm(k).replace(/\s+/g," "),v]));
   const n = norm(String(x==null?"":x)).replace(/\s+/g," "); if(!n) return "";
   if(HKN[n]) return HKN[n];
+  if(/(حاله|تشغيل|ايقاف|شغال)/.test(n) && /عرض/.test(n) && !/لينك|رابط|صور|سعر|بوستر/.test(n)) return "ostate";
+  if(/اسم/.test(n) && /(منتج|دواء|دوا|صنف)/.test(n)) return "name";
   if(/سعر/.test(n) && /عرض|اوفر|offer/.test(n) && !/شريط|شرايط|شرائط|strip/.test(n)) return "offerprice";
   if(/^عدد.*قطع/.test(n)) return "bxn";
   if(/قطعه.*اضاف|اضاف.*قطعه/.test(n)) return "bonus";
@@ -140,6 +170,7 @@ function headerKey(x){
   return "";
 }
 async function loadProducts(cacheOnly){
+  OST = false;
   const KEY = "mrad_products_cache3", S = CFG.SHEET || {}, useSheet = CFG.PRODUCTS_SOURCE==="sheet" && S.ID;
   const TABS = (S.TABS && S.TABS.length) ? S.TABS : [S.TAB||"Products"], SEP = "\n\u0001TAB\u0001\n";
   const rowsFromOneCSV = text => {
@@ -147,6 +178,7 @@ async function loadProducts(cacheOnly){
     // صف العناوين: أول صف (من أول ٦) فيه عمودين معروفين على الأقل (جوجل أحيانًا بيحط العناوين كأنها بيانات)
     let hi = vals.findIndex((row,i)=> i<6 && row.filter(x=>headerKey(x)).length>=2); if(hi<0) hi = 0;
     const keys = (vals[hi]||[]).map(headerKey);
+    if(keys.includes("ostate")) OST = true;
     const rows = [];
     for(let n=hi+1;n<vals.length;n++){
       const v = vals[n]; if(!v.some(c=>String(c||"").trim())) continue;
@@ -177,13 +209,7 @@ async function loadProducts(cacheOnly){
     try{ rows = useSheet ? rowsFromCSV(c) : rowsFromJson(c); text = c; }catch(_){ return null; }
   } else try{
     if(useSheet){
-      const texts = await Promise.all(TABS.map(async tab=>{
-        const r = await fetch(`https://docs.google.com/spreadsheets/d/${S.ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tab)}&_=${Date.now()}`,{cache:"no-store"});
-        if(!r.ok) throw new Error("sheet");
-        return r.text();
-      }));
-      // لو اسم ورقة غلط جوجل بيرجّع أول ورقة: نتجاهل أي ورقة نسخة مكررة من اللي قبلها
-      const uniq = texts.filter((t,i)=>texts.indexOf(t)===i);
+      const uniq = await fetchTabTexts(S.ID, TABS);
       text = uniq.join(SEP); if(text===lastSig) return null;          // نفس الشيت بالظبط: مفيش شغل
       rows = rowsFromCSV(text);
     } else {
@@ -205,6 +231,31 @@ async function loadProducts(cacheOnly){
   }
   out.sig = text;
   return out;
+}
+// ===== قراءة أوراق الشيت (الأدوية + العناية) =====
+// جوجل لو اسم الورقة مش مطابق بالحرف (أدوية/ادويه، العناية/العنايه) بيرجّع أول ورقة في الشيت بدل ما يقول غلط، وكانت النتيجة إن ورقة واحدة بس هي اللي بتظهر.
+// علشان كده بنجرّب التهجئات المحتملة لكل اسم، وأي نتيجة مكررة بنتجاهلها، وبنفتكر الأسماء اللي اشتغلت (ونعيد الاكتشاف كل ٦ ساعات).
+function tabVariants(n){
+  n = String(n||"").trim(); const out = [n], add = x => { if(x && !out.includes(x)) out.push(x); };
+  [...out].forEach(s=>{ if(/ه$/.test(s)) add(s.slice(0,-1)+"ة"); else if(/ة$/.test(s)) add(s.slice(0,-1)+"ه"); });
+  [...out].forEach(s=>{ const m = s.match(/^(ال)?([اأإ])(.+)$/); if(m) ["ا","أ","إ"].forEach(h=>add((m[1]||"")+h+m[3])); });
+  [...out].forEach(s=>{ if(/ي$/.test(s)) add(s.slice(0,-1)+"ى"); });
+  return out.slice(0,8);
+}
+async function fetchTabTexts(id, tabs){
+  const one = async tab => {
+    const r = await fetch(`https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tab)}&_=${Date.now()}`,{cache:"no-store"});
+    if(!r.ok) throw new Error("sheet"); return r.text();
+  };
+  let ok = null; try{ const c = JSON.parse(localStorage.getItem("ouf_tabs_ok")||"null"); if(c && c.names && c.names.length && Date.now()-c.ts < 6*3600*1000) ok = c.names; }catch(_){}
+  const names = ok || [...new Set(tabs.flatMap(tabVariants))];
+  const res = await Promise.all(names.map(n=>one(n).then(t=>({n,t}),()=>null)));
+  const got = res.filter(Boolean); if(!got.length) throw new Error("sheet");
+  const seen = new Set(), keep = [];
+  got.forEach(x=>{ if(!seen.has(x.t)){ seen.add(x.t); keep.push(x); } });
+  if(!ok){ try{ localStorage.setItem("ouf_tabs_ok", JSON.stringify({ts:Date.now(), names:keep.map(x=>x.n)})); }catch(_){} }
+  try{ console.info("[Ouf] أوراق الشيت اللي اتقرت:", keep.map(x=>x.n).join(" | ")); }catch(_){}
+  return keep.map(x=>x.t);
 }
 // تحديث تلقائي: بنسحب الشيت كل دقيقة وكل ما التطبيق يرجع للشاشة، ولو في تغيير بنحدّث الأقسام والمنتجات من غير ما تقفل التطبيق
 let lastSig = "", syncing = false, lastRun = 0;
@@ -275,6 +326,7 @@ const covered = (p,boxes) => p.inc>0 ? Math.min(p.inc,boxes) : boxes;
 // عرض القطعة الإضافية: لكل علبة بيشتريها العميل بياخد علبة إضافية (هدية أو بنسبة من سعرها) — على قد المتاح في المخزون
 const isBonus = p => p.bx!=null;
 const hasOff = p => p.disc>0 || isBonus(p);
+const hasOffer = p => hasOff(p) || !!p.offer;      // أي نوع عرض: خصم نسبة / سعر عرض / قطعة إضافية (مجانية أو بنص السعر) / عرض مكتوب بنص
 const wantEx = (p,q) => Math.floor(q/Math.max(1,p.min)) * (p.bxn||1);
 const extraOf = (p,q) => isBonus(p) ? Math.max(0,Math.min(wantEx(p,q),p.stock-q)) : 0;   // لكل (الحد الأدنى) علب = (عدد القطع في العرض) علب إضافية
 const bonusWord = p => p.bx===0 ? "هدية" : p.bx===50 ? "بنص السعر" : "بخصم "+(100-p.bx)+"%";
@@ -371,7 +423,7 @@ function cartView(){
       <td><button class="cv-rm" data-a="rm" data-i="${id}" aria-label="حذف">${TRASH}</button></td></tr>`;}).join("");
   const {s} = totals();
   $("sheet").innerHTML = `<h2><span class="cv-ttl"><svg viewBox="0 0 24 24">${IC.receipt}</svg>فاتورة الطلب</span> <button class="x" data-a="close" aria-label="إغلاق">✕</button></h2>` +
-  `<div class="inv"><div class="inv-h"><b>صيدليات د/ مراد صادق</b><img src="assets/logo.png" alt=""></div>` +
+  `<div class="inv"><div class="inv-h"><b>صيدلية عوف</b><img src="assets/logo.png" alt=""></div>` +
   (ids.length ? `<table class="inv-t cv-t"><thead><tr><th class="inv-n">اسم الصنف</th><th>العدد</th><th>الإجمالي</th><th>حذف</th></tr></thead><tbody>${rows}</tbody>
      <tfoot><tr><td colspan="4"><div class="inv-f"><span>الإجمالي النهائي</span><b id="cvTot">${nf(s)} ${CURRENCY}</b></div><div class="inv-sv" id="cvSv" hidden><span>تم توفير مبلغ</span><b id="cvSvA"></b></div></td></tr></tfoot></table>`
    : `<div class="empty cv-empty"><b>${svg("receipt")}</b>الفاتورة فاضية، ضيف منتج من تحت</div>`) + `</div>` +
@@ -502,7 +554,7 @@ function locGo(){
 function finishSend(loc){
   const S = SD; if(!S) return; SD = null;
   const R = window.MuradReg, {d,n,p,a,o,s,sav,lines} = S;
-  let msg = `*طلب جديد - صيدليات د/ مراد صادق*\n\n` + lines.map(l=>"• "+l).join("\n") + "\n";
+  let msg = `*طلب جديد - صيدلية عوف*\n\n` + lines.map(l=>"• "+l).join("\n") + "\n";
   if(sav>0) msg += `\nوفّر العميل: ${sav} ${CURRENCY}\n`;
   msg += `\n*الإجمالي: ${s} ${CURRENCY}*\n\nاسم العميل: ${n}\nالموبايل: ${p}` + (d.gov?`\nالمحافظة: ${d.gov}`:"") + `\nالعنوان: ${a}` + (d.landmark?`\nعلامة مميزة: ${d.landmark}`:"") + (loc?`\nالموقع: ${loc}`:"") + (o?`\nملاحظات: ${o}`:"");
   const enc = encodeURIComponent(msg);
@@ -700,6 +752,7 @@ function offerDetail(p){
   if(p.offer && p.offer!=="عرض خاص") lines.push(`<b class="otag">${esc(p.offer)}</b>`);
   if(p.op){ lines.push(`<b>عرض خاص ولفترة محدودة ⭐</b>`); lines.push(`عرض خصم: السعر بـ <b class="onow">${fmt(p.op)}</b> بدلاً من <s>${fmt(p.price)}</s> لفترة محدودة`); return lines.map(l=>`<p>${l}</p>`).join(""); }
   if(isBonus(p)){ lines.push(`<b>${bonusTitle(p)}</b>`); lines.push(bonusN(p)===1?"وده على كل علبة بتشتريها":"وده بيتكرر على كل "+(bonusN(p)===2?"علبتين":ar(bonusN(p))+" علب")+" بتشتريها"); if(p.price>0) lines.push(`<span class="oprice">${fmt(p.price)} للعلبة${p.bx===0?"":" والتانية بـ"+fmt(r2(p.price*p.bx/100))}</span>`); return lines.map(l=>`<p>${l}</p>`).join(""); }
+  if(!(p.disc>0)){ if(!lines.length) lines.push(`<b>عرض خاص ⭐</b>`); if(p.price>0) lines.push(`<span class="oprice">${fmt(p.price)} للعلبة</span>`); return lines.map(l=>`<p>${l}</p>`).join(""); }   // عرض مكتوب بنص بس
   if(p.min<=1 && !(p.inc>0)) lines.push(`خصم <b>${discTxt(p)}</b> على كل علبة`);
   else if(p.min<=1) lines.push(`خصم <b>${discTxt(p)}</b> على أول <b>${cnt(p.inc)}</b>`);
   else if(p.inc>0) lines.push(`اشتري <b>${cnt(p.min)}</b> واحصل على خصم <b>${discTxt(p)}</b> على <b>${cnt(p.inc)}</b>`);
@@ -719,8 +772,8 @@ function offerCard(p){
   return `<button class="slide s1 offer-card" data-id="${esc(p.id)}" aria-label="${esc(p.name)}" style="background:${bg}"><div class="ofb"><h3>${escN(p.name)}</h3>${offerDetail(p)}<em>شاهد المنتج</em></div>${img}</button>`;
 }
 function buildOffers(){
-  const list = PRODUCTS.filter(hasOff);
-  const sig = list.map(p=>[p.id,p.name,p.disc,p.bx,p.min,p.bxn,p.op,p.offerImg].join("~")).join("|");
+  const list = PRODUCTS.filter(p=>hasOffer(p) && p.offerOn);     // العروض المتحركة: المنتجات اللي عليها عرض وحالة العرض بتاعها "تشغيل" بس
+  const sig = list.map(p=>[p.id,p.name,p.disc,p.bx,p.min,p.bxn,p.op,p.offer,p.offerImg].join("~")).join("|");
   if(sig === offersSig) return; offersSig = sig;
   stop(); track.scrollLeft = 0; near = 0;
   track.innerHTML = list.length ? list.map(offerCard).join("") : `<div class="slide offer-empty"><span>لا توجد أي عروض حاليًا</span></div>`;
@@ -792,7 +845,7 @@ function setTheme(t){
 $("thm").addEventListener("click", e=>{ const b=e.target.closest("[data-t]"); if(b) setTheme(b.dataset.t); });
 setTheme((()=>{ try{ return localStorage.getItem("mrad_theme2") || "dark"; }catch(e){ return "dark"; } })());
 $("waLink").href = "https://wa.me/"+PHARMACY_PHONE;
-$("telLink").href = "tel:+"+PHARMACY_PHONE;
+$("telLink").href = "tel:+"+(CFG.PHARMACY_LANDLINE||PHARMACY_PHONE);
 $("wipe").onclick = ()=>{
   if(!confirm("هتتمسح بياناتك وطلباتك والفاتورة. متأكد؟")) return;
   try{ ["mrad_profile","mrad_orders","mrad_orders2","mrad_cart","mrad_fs"].forEach(k=>localStorage.removeItem(k)); }catch(e){}
@@ -846,7 +899,7 @@ function productView(id){
               : `<em class="okk">العرض شغال ✓ وفرت ${fmt(d)} على ${cnt(covered(p,boxes))}${over>0?" — و"+cnt(over)+" الزيادة بالسعر العادي":""}</em>`)+`</div>`;
   }
   // صورة العرض تظهر لو: فتحنا من العروض المتحركة، أو العميل حقق شرط العرض (الحد الأدنى من العلب)
-  const showPoster = !!(p.offerImg && hasOff(p) && (pvFromOffer || boxes>=p.min));
+  const showPoster = !!(p.offerImg && hasOff(p) && p.offerOn && (pvFromOffer || boxes>=p.min));
   const dis = p.out?"disabled":"";
   $("sheet").innerHTML = `<h2><span class="ttl">${escN(p.name)}</span> <button class="x" data-a="close" aria-label="إغلاق">✕</button></h2>
     <div class="pimg big${showPoster?" poster":""}">${thumb(showPoster ? {...p, img:p.offerImg, alts:p.offerAlts} : p)}${offerTag(p)}</div>
@@ -1139,7 +1192,7 @@ if("serviceWorker" in navigator && location.protocol.startsWith("http")){
       let s = await p.checkPermissions();
       if(s.receive !== "granted"){ if(!ask || s.receive === "denied") return; s = await p.requestPermissions(); if(s.receive !== "granted") return; }
       try{ await p.createChannel({id:"murad_orders_v1", name:"حالة الطلب", description:"إشعارات حالة طلبك", importance:5, visibility:1, sound:"default", vibration:true, lights:true}); }catch(e){}
-      try{ await p.createChannel({id:"murad_brand_v1", name:"رسائل الصيدلية", description:"رسائل وعروض من صيدليات د/ مراد صادق", importance:3, visibility:1, sound:"default", vibration:true}); }catch(e){}
+      try{ await p.createChannel({id:"murad_brand_v1", name:"رسائل الصيدلية", description:"رسائل وعروض من صيدلية عوف", importance:3, visibility:1, sound:"default", vibration:true}); }catch(e){}
       try{ await p.createChannel({id:"murad_brand_quiet_v1", name:"رسائل الصيدلية (ليلاً - بدون صوت)", description:"رسائل هادية بالليل", importance:2, visibility:1, vibration:false}); }catch(e){}
       await p.removeAllListeners();
       p.addListener("registration", t => { tok = t.value; try{ localStorage.setItem("mrad_pt", tok); }catch(e){} sync(); });
