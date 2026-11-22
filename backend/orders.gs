@@ -864,21 +864,26 @@ function riderToken_(d) {
 // ===== إشعارات Firebase (FCM HTTP v1) ================================
 // =====================================================================
 
+var FCM_ERR_ = "";   // سبب آخر فشل في Firebase (بيظهر في نتيجة الإشعار بالشيت)
 function fcmAccessToken_() {
+  FCM_ERR_ = "";
   var cache = CacheService.getScriptCache(), c = cache.get("fcm_access_token");
   if (c) return c;
   var props = PropertiesService.getScriptProperties(), email = props.getProperty("FIREBASE_CLIENT_EMAIL"), key = props.getProperty("FIREBASE_PRIVATE_KEY");
-  if (!email || !key) return null;
-  key = key.replace(/\\n/g, "\n");
+  if (!email) { FCM_ERR_ = "FIREBASE_CLIENT_EMAIL ناقص في Script properties"; return null; }
+  if (!key) { FCM_ERR_ = "FIREBASE_PRIVATE_KEY ناقص في Script properties"; return null; }
+  email = String(email).trim();
+  key = String(key).trim().replace(/^["']+|["',]+$/g, "").replace(/\\n/g, "\n");   // بيشيل علامات التنصيص/الفاصلة لو اتنسخت مع القيمة
+  if (key.indexOf("BEGIN PRIVATE KEY") < 0) { FCM_ERR_ = "FIREBASE_PRIVATE_KEY مش صحيح (لازم يبدأ بـ -----BEGIN PRIVATE KEY-----)"; return null; }
   var b64 = function (bytes) { return Utilities.base64EncodeWebSafe(bytes).replace(/=+$/, ""); };
   var now = Math.floor(Date.now() / 1000);
   var head = b64(Utilities.newBlob(JSON.stringify({ alg: "RS256", typ: "JWT" })).getBytes());
   var claim = b64(Utilities.newBlob(JSON.stringify({ iss: email, scope: "https://www.googleapis.com/auth/firebase.messaging", aud: "https://oauth2.googleapis.com/token", exp: now + 3600, iat: now })).getBytes());
-  var sig = b64(Utilities.computeRsaSha256Signature(head + "." + claim, key));
+  var sig; try { sig = b64(Utilities.computeRsaSha256Signature(head + "." + claim, key)); } catch (e) { FCM_ERR_ = "FIREBASE_PRIVATE_KEY غير صالح (انسخه كامل من BEGIN لحد END)"; return null; }
   var resp = UrlFetchApp.fetch("https://oauth2.googleapis.com/token", { method: "post", contentType: "application/x-www-form-urlencoded", muteHttpExceptions: true,
     payload: { grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion: head + "." + claim + "." + sig } });
   var j = {}; try { j = JSON.parse(resp.getContentText()); } catch (e) {}
-  if (!j.access_token) { Logger.log("FCM auth error: " + resp.getContentText()); return null; }
+  if (!j.access_token) { Logger.log("FCM auth error: " + resp.getContentText()); FCM_ERR_ = "فشل المصادقة مع Google: " + String(j.error_description || j.error || resp.getResponseCode()).slice(0, 120); return null; }
   cache.put("fcm_access_token", j.access_token, 3300);
   return j.access_token;
 }
@@ -895,8 +900,8 @@ function fcmBody_(token, title, body, tag, data) {
 
 // بيبعت لمجموعة طيارين بالتوازي. items: [{token,row}] ← بيرجّع {sent, failed, err}
 function fcmSendMany_(items, title, body, tag, data) {
-  var pid = PropertiesService.getScriptProperties().getProperty("FIREBASE_PROJECT_ID"), at = fcmAccessToken_();
-  if (!pid || !at) return { sent: 0, failed: items.length, err: "Firebase مش مضبوط" };
+  var pid = String(PropertiesService.getScriptProperties().getProperty("FIREBASE_PROJECT_ID") || "").trim(), at = pid ? fcmAccessToken_() : null;
+  if (!pid || !at) return { sent: 0, failed: items.length, err: !pid ? "FIREBASE_PROJECT_ID ناقص في Script properties" : (FCM_ERR_ || "Firebase مش مضبوط") };
   var url = "https://fcm.googleapis.com/v1/projects/" + pid + "/messages:send";
   var reqs = items.map(function (it) {
     return { url: url, method: "post", contentType: "application/json", headers: { Authorization: "Bearer " + at }, muteHttpExceptions: true, payload: JSON.stringify(fcmBody_(it.token, title, body, tag, data)) };
