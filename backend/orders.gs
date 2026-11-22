@@ -1186,10 +1186,11 @@ function sendToAllCustomers_(title, body, tag, data, imgs) {
 var OFFER_MAX_PER_RUN = 10;   // أقصى عدد إشعارات عروض في المرة الواحدة (الباقي بيتبعت في الفحص اللي بعده بـ 5 دقايق) علشان السكربت ميعديش وقته
 function checkNewOffers() {
   var lock = LockService.getScriptLock(); if (!lock.tryLock(15000)) return;
-  var toSend = [];
+  var toSend = [], allOffers = null;
   try {
     var ss = ssOpen_(), offers = readOffers_(), sh = noffSheet_(ss), n = sh.getLastRow(), old = {}, props = PropertiesService.getScriptProperties();
     (n >= 2 ? sh.getRange(2, 1, n - 1, 2).getDisplayValues() : []).forEach(function (r) { old[r[0]] = r[1]; });
+    allOffers = offers;
     var first = !props.getProperty("OFFERS_INIT"), rows = [];
     offers.forEach(function (p) {
       var key = p.id || ("n:" + arNorm_(p.name)), sig = [p.disc, p.bx, p.bxn, p.min, p.inc, p.op].join("~");
@@ -1204,7 +1205,68 @@ function checkNewOffers() {
   } finally { try { lock.releaseLock(); } catch (x) {} }
   // كل عرض في إشعار منفصل بتفاصيله وصورته
   toSend.forEach(function (p) { sendToAllCustomers_(OFFER_TITLE_, offerBody_(p), "offer_" + (p.id || p.name), { type: "offer", id: p.id || "" }, p.imgs); });
+  if (toSend.length) rotMark_(toSend.map(offKeyOf_));      // العرض الجديد اتعرض دلوقتي، فمش هيتكرر في الدوران على طول
+  try { rotateOffers_(allOffers); } catch (e) { nlog_("دوران العروض", "-", "-", "❌ خطأ: " + String(e).slice(0, 120)); }
 }
+
+// =====================================================================
+// ===== دوران العروض: كل فترة يظهر للعملاء 1-2 عرض من العروض الموجودة =====
+// =====================================================================
+// كل OFFER_ROTATE_EVERY_MIN دقيقة بيتبعت OFFER_ROTATE_COUNT عروض مختلفة لكل العملاء، ومن غير تكرار لحد ما كل العروض تتعرض، وبعدها بيبدأ دورة جديدة.
+// بيشتغل من نفس مشغّل installOfferTrigger (كل 5 دقايق) ومحتاج الشرط الزمني بس.
+var OFFER_ROTATE_ON = true;               // false = يقفل الدوران (إشعار العرض الجديد بيفضل شغال)
+var OFFER_ROTATE_EVERY_MIN = 30;          // كل كام دقيقة (نص ساعة = 30)
+var OFFER_ROTATE_COUNT = 2;               // كام عرض في كل مرة (1 أو 2)
+var OFFER_ROTATE_FROM_HOUR = 9;           // بتوقيت القاهرة: مفيش إشعارات قبل الساعة دي ولا بعد اللي بعدها
+var OFFER_ROTATE_TO_HOUR = 23;            // (خليها 0 و 24 لو عايزها طول اليوم)
+var ROT_TAB = "دوران العروض";            // ورقة تلقائية: العروض اللي اتعرضت في الدورة الحالية (متلمسهاش)
+function offKeyOf_(p) { return p.id || ("n:" + arNorm_(p.name)); }
+function rotSheet_(ss) {
+  var sh = ss.getSheetByName(ROT_TAB);
+  if (!sh) { sh = ss.insertSheet(ROT_TAB); sh.getRange(1, 1).setValue("عروض اتعرضت في الدورة الحالية"); sh.setFrozenRows(1); try { sh.hideSheet(); } catch (e) {} }
+  return sh;
+}
+function rotMark_(keys) {
+  try {
+    var sh = rotSheet_(ssOpen_()), n = sh.getLastRow(), have = {};
+    (n >= 2 ? sh.getRange(2, 1, n - 1, 1).getDisplayValues() : []).forEach(function (r) { have[r[0]] = 1; });
+    var add = keys.filter(function (k) { return k && !have[k]; }).map(function (k) { return [k]; });
+    if (add.length) sh.getRange(Math.max(n, 1) + 1, 1, add.length, 1).setNumberFormat("@").setValues(add);
+  } catch (e) {}
+}
+function shuffle_(a) { for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)), t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
+function rotateOffers_(offersArg, force) {
+  if (!OFFER_ROTATE_ON && !force) return;
+  var props = PropertiesService.getScriptProperties(), now = Date.now();
+  if (!force) {
+    var h = Number(Utilities.formatDate(new Date(), TZ, "H"));
+    if (h < OFFER_ROTATE_FROM_HOUR || h >= OFFER_ROTATE_TO_HOUR) return;
+    if (now - Number(props.getProperty("OFFER_ROT_LAST") || 0) < OFFER_ROTATE_EVERY_MIN * 60000 - 45000) return;   // لسه مجاش الميعاد
+  }
+  var lock = LockService.getScriptLock(); if (!lock.tryLock(10000)) return;
+  var picks = [];
+  try {
+    var offers = offersArg || readOffers_(); if (!offers.length) return;
+    var ss = ssOpen_(), sh = rotSheet_(ss), n = sh.getLastRow(), shown = {};
+    (n >= 2 ? sh.getRange(2, 1, n - 1, 1).getDisplayValues() : []).forEach(function (r) { shown[r[0]] = 1; });
+    var want = Math.max(1, Math.min(OFFER_ROTATE_COUNT, offers.length));
+    var pool = shuffle_(offers.filter(function (p) { return !shown[offKeyOf_(p)]; }));
+    picks = pool.slice(0, want);
+    if (picks.length < want) {                       // الدورة خلصت: دورة جديدة من غير تكرار اللي لسه متعرض دلوقتي
+      var cur = {}; picks.forEach(function (p) { cur[offKeyOf_(p)] = 1; });
+      var rest = shuffle_(offers.filter(function (p) { return !cur[offKeyOf_(p)]; }));
+      picks = picks.concat(rest.slice(0, want - picks.length));
+      sh.getRange(2, 1, Math.max(n, 2), 1).clearContent();
+      sh.getRange(2, 1, picks.length, 1).setNumberFormat("@").setValues(picks.map(function (p) { return [offKeyOf_(p)]; }));
+    } else {
+      rotMark_(picks.map(offKeyOf_));
+    }
+    props.setProperty("OFFER_ROT_LAST", String(now));
+  } finally { try { lock.releaseLock(); } catch (x) {} }
+  picks.forEach(function (p) { sendToAllCustomers_(OFFER_TITLE_, offerBody_(p), "offer_" + offKeyOf_(p), { type: "offer", id: p.id || "" }, p.imgs); });
+}
+// اختبار: يبعت دورة دلوقتي بغض النظر عن الميعاد والساعة
+function testRotateOffers() { rotateOffers_(null, true); Logger.log("اتبعتت دورة عروض (شوف سجل الإشعارات)"); }
 function installOfferTrigger() {
   ScriptApp.getProjectTriggers().forEach(function (t) { if (t.getHandlerFunction() === "checkNewOffers") ScriptApp.deleteTrigger(t); });
   ScriptApp.newTrigger("checkNewOffers").timeBased().everyMinutes(5).create();
@@ -1269,4 +1331,3 @@ function refreshPilotList() {
   var rule = SpreadsheetApp.newDataValidation().requireValueInRange(pil.getRange(2, PIL_LIST_AVAIL, Math.max(pil.getMaxRows() - 1, 1), 1), true).setAllowInvalid(false).build();
   sh.getRange(2, O.PNAME, rows, 1).setDataValidation(rule);
 }
-
