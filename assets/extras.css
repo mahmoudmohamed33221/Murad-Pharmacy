@@ -214,3 +214,11 @@ img,a,svg{-webkit-user-drag:none}
 .pnow{color:#22C55E;font-weight:inherit}
 .pold{display:inline-block;font-size:.7em;font-weight:600;color:#9AA1AD;text-decoration:line-through;margin-inline-start:7px;vertical-align:baseline}
 .onow{color:#22C55E}
+
+
+/* ===== لوجو صيدلية عوف: المود الفاتح = التعبان الأسود (logo.png)، المود المظلم = التعبان الأبيض (logo-dark.png) ===== */
+html[data-theme="dark"] img[src$="assets/logo.png"]{content:url("logo-dark.png")}
+html[data-theme="dark"] .wm{background-image:url("logo-dark.png")}
+/* اللوجو الجديد دايرة كاملة: في الانترو بنخليه خفيف ورا الكتابة علشان الكلام يفضل مقروء */
+#intro.s1 .ilogo{opacity:.16}
+html[data-theme="dark"] #intro.s1 .ilogo{opacity:.28}
