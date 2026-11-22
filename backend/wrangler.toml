@@ -1,6 +1,6 @@
-name = "murad-pharmacy-ai"
+name = "ouf-pharmacy-ai"
 main = "worker.js"
-compatibility_date = "2025-01-01"
+compatibility_date = "2027-01-01"
 
 [vars]
 # غيّر USERNAME لاسم حسابك على GitHub. https://localhost ده لتطبيق الأندرويد (APK).
