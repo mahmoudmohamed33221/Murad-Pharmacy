@@ -19,7 +19,7 @@ window.APP_CONFIG = {
 
   // رابط سكربت تسجيل العملاء (Google Apps Script Web App) - شوف backend/customers.gs وقسم "تسجيل العملاء" في README
   // لو سيبته فاضي: التسجيل بيشتغل عادي وبيتحفظ في الجهاز، بس مش هيوصل لورقة "العملاء".
-  CUSTOMERS_URL: "https://script.google.com/macros/s/AKfycbylNxiKp409Ox8t8IqOStHSgyiNAireDF65lBU82PjU3_K2PhQVFFHTOXJftKKFH2Y/exec",
+  CUSTOMERS_URL: "https://script.google.com/macros/s/AKfycbzKUo02n5ZGecAj6YQJ1FLGi9FmP-vuM-96zEFIgiR_xYXYrMBvuuf9GFKrXEdl8Mo/exec",
 
   // رابط سكربت الطلبات ومشترياتي (مشروع Apps Script اسمه اوردارس) - شوف backend/orders.gs
   ORDERS_URL: "https://script.google.com/macros/s/AKfycbzyf782naOPvsHGLKSpY9Kj6rvgCIlpVJ1g_tt7N9DCQapNkgHHO_fYaAruL462jUo/exec",
