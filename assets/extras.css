@@ -210,3 +210,7 @@ html,body,*{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none
 input,textarea,[contenteditable="true"]{-webkit-user-select:text;user-select:text;-webkit-touch-callout:default}
 img,a,svg{-webkit-user-drag:none}
 
+/* سعر العرض: الجديد أخضر بنفس خط السعر، والأصلي أصغر رصاصي ومشطوب */
+.pnow{color:#22C55E;font-weight:inherit}
+.pold{display:inline-block;font-size:.7em;font-weight:600;color:#9AA1AD;text-decoration:line-through;margin-inline-start:7px;vertical-align:baseline}
+.onow{color:#22C55E}
