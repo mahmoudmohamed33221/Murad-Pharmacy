@@ -208,28 +208,40 @@ function doGet(e) {
 }
 // الإجراءات اللي بتقرا بس (من غير قفل) علشان تطبيق الطيار بيسأل كل كام ثانية ومينفعش يتزاحم على القفل
 var RIDER_READ = { pilotLogin: 1, riderOrders: 1 };
-var RIDER_WRITE = { pilotRegister: 1, riderAccept: 1, riderStage: 1, riderRelease: 1, riderEta: 1, riderShift: 1, riderToken: 1, riderNear: 1 };
+var RIDER_WRITE = { pilotRegister: 1, riderAccept: 1, riderStage: 1, riderRelease: 1, riderEta: 1, riderShift: 1, riderToken: 1, riderNear: 1, riderNotify: 1 };
+var LATER_ = [], INPOST_ = false;
+function later_(fn) { if (INPOST_) LATER_.push(fn); else { try { fn(); } catch (x) {} } }      // شغل بيتنفّذ بعد ما القفل يتفك (زي إرسال الإشعارات) علشان ميأخرش باقي الطلبات
+function withLock_(fn) { var lock = LockService.getScriptLock(); lock.waitLock(20000); try { return fn(); } finally { try { lock.releaseLock(); } catch (x) {} } }
 function doPost(e) {
-  var lock = null, locked = false;
+  LATER_ = []; INPOST_ = true;
+  var res = doPost_(e);
+  INPOST_ = false; var q = LATER_; LATER_ = [];
+  q.forEach(function (fn) { try { fn(); } catch (x) {} });
+  return res;
+}
+function doPost_(e) {
   try {
     var d = JSON.parse(e.postData.contents), a = d.action;
     if (a === "pilotLogin") return out_(pilotLogin_(d));
     if (a === "riderOrders") return out_(riderOrders_(d));
     if (a !== "newOrder" && a !== "custToken" && !RIDER_WRITE[a]) return out_({ ok: false, error: "action" });
-    lock = LockService.getScriptLock(); lock.waitLock(20000); locked = true;
-    if (a === "newOrder") return out_(newOrder_(d));
-    if (a === "custToken") return out_({ ok: saveCustToken_(ssOpen_(), d.cids, d.token, d.phone) });
-    if (a === "pilotRegister") return out_(pilotRegister_(d));
-    if (a === "riderAccept") return out_(riderAccept_(d));
-    if (a === "riderStage") return out_(riderStage_(d));
-    if (a === "riderRelease") return out_(riderRelease_(d));
-    if (a === "riderEta") return out_(riderEta_(d));
+    // اللي مش محتاج قفل (كتابة خلية واحدة / إشعار / حساب مسافة): بيتنفّذ فوراً من غير ما يستنّى حد
     if (a === "riderShift") return out_(riderShift_(d));
     if (a === "riderToken") return out_(riderToken_(d));
     if (a === "riderNear") return out_(riderNear_(d));
-    return out_({ ok: false, error: "action" });
+    if (a === "riderEta") return out_(riderEta_(d));
+    if (a === "riderNotify") return out_(riderNotify_(d));
+    if (a === "custToken") return out_({ ok: withLock_(function () { return saveCustToken_(ssOpen_(), d.cids, d.token, d.phone, d.device); }) });
+    // قبول/مراحل/تنازل/طلب جديد/تسجيل: لازم يتنفّذوا واحد ورا التاني
+    return withLock_(function () {
+      if (a === "newOrder") return out_(newOrder_(d));
+      if (a === "pilotRegister") return out_(pilotRegister_(d));
+      if (a === "riderAccept") return out_(riderAccept_(d));
+      if (a === "riderStage") return out_(riderStage_(d));
+      if (a === "riderRelease") return out_(riderRelease_(d));
+      return out_({ ok: false, error: "action" });
+    });
   } catch (err) { return out_({ ok: false, error: String(err) }); }
-  finally { if (locked) { try { lock.releaseLock(); } catch (x) {} } }
 }
 function ssOpen_() { var ss = SPREADSHEET_ID ? SpreadsheetApp.openById(SPREADSHEET_ID) : SpreadsheetApp.getActiveSpreadsheet(); ensureSchema_(ss); return ss; }
 function ensureCols_(sh, n) { var m = sh.getMaxColumns(); if (m < n) sh.insertColumnsAfter(m, n - m); }
@@ -286,7 +298,7 @@ function newOrder_(d) {
   sh.getRange(r, O.PHONE).setNumberFormat("@").setValue(phone);
   [O.ACCEPT, O.PREP, O.DELIV, O.DONE].forEach(function (c) { sh.getRange(r, c).insertCheckboxes().setValue(false); });
   try { styleOrderRow_(sh, r); } catch (e) {}
-  try { sh.getRange(r, O.NOTIF).setValue(broadcastToRiders_("#" + bon + " طلب جديد 📦", "في طلب جديد، افتح التطبيق واقبله قبل غيرك", "new_order_" + bon, { type: "new_order", bon: bon })); } catch (e) {}
+  later_(function () { try { sh.getRange(r, O.NOTIF).setValue(broadcastToRiders_("\u200Fطلب جديد \u200E#" + bon + "\u200E 🧾⚠️", "في طلب جديد، افتح التطبيق واقبله قبل غيرك", "new_order_" + bon, { type: "new_order", bon: bon })); } catch (e) {} });
   try { var lc = String(vals[O.CLOC - 1] || ""); if (lc) afterLocation_(ss, sh, r, phone, lc); } catch (e) {}   // فهم اللوكيشن (لينك مختصر ← إحداثيات) + حفظه في ورقة العملاء
   try { priceOrder_(sh, r); } catch (e) {}                                                                  // حساب التوصيل (مسافة الطريق × التسعيرة)
   return { ok: true, bon: bon };
@@ -384,7 +396,7 @@ function onEdit(e) {
         if (ov && ov !== nv && !(fp && pilotLabel_(fp.name, fp.veh) === ov)) pushPrev_(sh, r, ov, oldPhone);
         if (fp) {
           sh.getRange(r, O.PNAME).setValue(pilotLabel_(fp.name, fp.veh)); sh.getRange(r, O.PPHONE).setNumberFormat("@").setValue(fp.phone);
-          if (ov !== nv) notifyRiderByPhone_(fp.phone, "#" + sh.getRange(r, O.BON).getValue() + " طلب اتعيّن لك 📦", "الإدارة عيّنتلك طلب، افتح التطبيق وشوف التفاصيل", "assign_" + sh.getRange(r, O.BON).getValue(), { type: "assigned", bon: sh.getRange(r, O.BON).getValue() });
+          if (ov !== nv) notifyRiderByPhone_(fp.phone, "\u200Fطلب اتعيّن لك \u200E#" + sh.getRange(r, O.BON).getValue() + "\u200E 🧾⚠️", "الإدارة عيّنتلك طلب، افتح التطبيق وشوف التفاصيل", "assign_" + sh.getRange(r, O.BON).getValue(), { type: "assigned", bon: sh.getRange(r, O.BON).getValue() });
         }
         else sh.getRange(r, O.PPHONE).setNumberFormat("@").setValue("");
       }
@@ -766,7 +778,6 @@ function riderAccept_(d) {
   sh.getRange(r, O.PNAME).setValue(pilotLabel_(String(a.v[P.NAME - 1]), String(a.v[P.VEH - 1] || "")));
   sh.getRange(r, O.PPHONE).setNumberFormat("@").setValue(a.phone);
   try { styleOrderRow_(sh, r); } catch (e) {}
-  stageNotify_(sh, r, "accepted", String(a.v[P.NAME - 1]));
   var nv = rowVals_(sh, r);
   return { ok: true, bon: Number(d.bon), order: orderView_(nv, true, sh.getRange(r, 1, 1, O_CID).getDisplayValues()[0]) };
 }
@@ -787,12 +798,10 @@ function riderStage_(d) {
     if (!isTrue_(rv[O.PREP - 1])) sh.getRange(r, O.PREP).setValue(true);
     if (!isTrue_(rv[O.DELIV - 1])) sh.getRange(r, O.DELIV).setValue(true);
     sh.getRange(r, O.DONE).setValue(true);
-    stageNotify_(sh, r, "done");                  // قبل الأرشفة (الصف بيتمسح من هنا)
     archiveOrder_(sh, r, d.at);                 // بيتنقل لـ "الطلبات المكتملة" (التعديل من السكربت مبيشغّلش onEdit، فبنؤرشف هنا بإيدينا)
     return { ok: true, stage: "complete" };
   }
   try { styleOrderRow_(sh, r); } catch (e) {}
-  if (kind) stageNotify_(sh, r, kind);
   return { ok: true, stage: stage };
 }
 
@@ -812,7 +821,7 @@ function riderRelease_(d) {
   sh.getRange(r, O.SHOP_ETA).setValue("");
   sh.getRange(r, O.CUST_ETA).setValue("");
   try { styleOrderRow_(sh, r); } catch (e) {}
-  try { sh.getRange(r, O.NOTIF).setValue(broadcastToRiders_("#" + d.bon + " رجع للقايمة 📦", "طيار اتنازل عن الطلب، اقبله لو فاضي", "new_order_" + d.bon, { type: "new_order", bon: d.bon }, a.phone)); } catch (e) {}
+  try { sh.getRange(r, O.NOTIF).setValue(broadcastToRiders_("\u200Fطلب رجع للقايمة \u200E#" + d.bon + "\u200E 🧾⚠️", "طيار اتنازل عن الطلب، اقبله لو فاضي", "new_order_" + d.bon, { type: "new_order", bon: d.bon }, a.phone)); } catch (e) {}
   return { ok: true };
 }
 
@@ -855,6 +864,24 @@ function riderNear_(d) {
   return { ok: true, arrived: false, m: Math.round(m) };
 }
 
+
+// الإشعار للعميل بيتبعت من طلب منفصل (من التطبيق بعد نجاح الخطوة) علشان قبول الطلب والمراحل متستناش FCM
+function riderNotify_(d) {
+  var a = authPilot_(d); if (a.code !== "ok") return authFail_(a);
+  var kind = String(d.kind || ""), need = { accepted: O.ACCEPT, prep: O.PREP, deliv: O.DELIV, done: O.DONE }[kind];
+  if (!need || !(Number(d.bon) > 0)) return { ok: false, status: "invalid" };
+  var cache = CacheService.getScriptCache(), ck = "ntf_" + d.bon + "_" + kind + "_" + a.phone;
+  if (cache.get(ck)) return { ok: true, dup: true };
+  var ss = ssOpen_(), sh = ordersSheet_(ss), r = rowByBon_(sh, d.bon);
+  if (!r) { var arc = ss.getSheetByName(ARC_TAB); if (arc) { sh = arc; r = rowByBon_(sh, d.bon); } }
+  if (!r) return { ok: false, status: "gone" };
+  if (normPhone_(sh.getRange(r, O.PPHONE).getDisplayValue()) !== a.phone) return { ok: false, status: "not_yours" };
+  if (!isTrue_(sh.getRange(r, need).getValue())) return { ok: false, status: "not_set" };
+  cache.put(ck, "1", 600);
+  stageNotify_(sh, r, kind, String(a.v[P.NAME - 1]));
+  return { ok: true };
+}
+
 function riderToken_(d) {
   var a = authPilot_(d); if (a.code !== "ok") return authFail_(a);
   return { ok: saveToken_(a.sh, a.row, d.token) };
@@ -888,35 +915,36 @@ function fcmAccessToken_() {
   return j.access_token;
 }
 
-function fcmBody_(token, title, body, tag, data) {
+function fcmBody_(token, title, body, tag, data, image) {
   var web = PropertiesService.getScriptProperties().getProperty("RIDER_WEB_URL") || "";
   var dd = {}; for (var k in (data || {})) dd[k] = String(data[k]);
   var m = { token: token, notification: { title: title, body: body }, data: dd,
     android: { priority: "HIGH", ttl: "300s", notification: { channelId: FCM_CHANNEL, sound: "default", tag: tag || "" } },
     webpush: { headers: { Urgency: "high", TTL: "300" }, notification: { tag: tag || "", requireInteraction: true } } };
+  if (/^https:\/\//.test(image || "")) { m.notification.image = image; m.webpush.notification.image = image; }   // صورة كبيرة في الإشعار (بتظهر لما يتفرد)
   if (/^https:\/\//.test(web)) { m.webpush.fcm_options = { link: web }; m.webpush.notification.icon = web.replace(/\/?$/, "/") + "assets/icons/icon-192.png"; }
   return { message: m };
 }
 
 // بيبعت لمجموعة طيارين بالتوازي. items: [{token,row}] ← بيرجّع {sent, failed, err}
-function fcmSendMany_(items, title, body, tag, data) {
+function fcmSendMany_(items, title, body, tag, data, image) {
   var pid = String(PropertiesService.getScriptProperties().getProperty("FIREBASE_PROJECT_ID") || "").trim(), at = pid ? fcmAccessToken_() : null;
   if (!pid || !at) return { sent: 0, failed: items.length, err: !pid ? "FIREBASE_PROJECT_ID ناقص في Script properties" : (FCM_ERR_ || "Firebase مش مضبوط") };
   var url = "https://fcm.googleapis.com/v1/projects/" + pid + "/messages:send";
   var reqs = items.map(function (it) {
-    return { url: url, method: "post", contentType: "application/json", headers: { Authorization: "Bearer " + at }, muteHttpExceptions: true, payload: JSON.stringify(fcmBody_(it.token, title, body, tag, data)) };
+    return { url: url, method: "post", contentType: "application/json", headers: { Authorization: "Bearer " + at }, muteHttpExceptions: true, payload: JSON.stringify(fcmBody_(it.token, title, body, tag, data, image)) };
   });
-  var sent = 0, failed = 0, err = "", rs = reqs.length ? UrlFetchApp.fetchAll(reqs) : [];
+  var sent = 0, failed = 0, err = "", dead = [], rs = reqs.length ? UrlFetchApp.fetchAll(reqs) : [];
   for (var i = 0; i < rs.length; i++) {
     var c = rs[i].getResponseCode();
     if (c >= 200 && c < 300) sent++;
     else {
       failed++; err = "FCM " + c + " " + String(rs[i].getContentText() || "").replace(/\s+/g, " ").slice(0, 150);
-      if (c === 404 && items[i].sh && items[i].row) { try { items[i].sh.getRange(items[i].row, P.TOKEN).setValue(""); } catch (e) {} }   // التوكن مات (التطبيق اتمسح)
+      if (c === 404) { dead.push(items[i].token); if (items[i].sh && items[i].row) { try { items[i].sh.getRange(items[i].row, P.TOKEN).setValue(""); } catch (e) {} } }   // التوكن مات (التطبيق اتمسح)
       else Logger.log("FCM error " + c + ": " + rs[i].getContentText());
     }
   }
-  return { sent: sent, failed: failed, err: err };
+  return { sent: sent, failed: failed, err: err, dead: dead };
 }
 
 // إشعار لكل الطيارين المقبولين + غير موقوفين + حالتهم "يعمل الان" + عندهم توكن. بيرجّع نص بيتكتب في عمود "نتيجة الإشعار"
@@ -953,10 +981,11 @@ function ctkSheet_(ss) {
   }
   return sh;
 }
-function saveCustToken_(ss, cids, token, phone) {
+function saveCustToken_(ss, cids, token, phone, device) {
   token = String(token || "").trim();
   if (!/^[A-Za-z0-9_:\-\.]{20,600}$/.test(token)) return false;
   var keys = (cids || []).slice(0, 30).map(function (c) { return cleanCid_(c); }).filter(function (c) { return !!c; });
+  var dv = String(device || "").replace(/[^A-Za-z0-9_\-]/g, "").slice(0, 40); if (dv.length >= 8) keys.push("dev:" + dv);   // كل جهاز متسجّل (حتى من غير طلبات) علشان يوصله إشعار العروض
   var ph = normPhone_(phone); if (ph) keys.push("tel:" + ph);        // التوكن مربوط برقم العميل كمان: بيوصله إشعار أي طلب جديد حتى لو اتعمل قبل تسجيل التوكن
   if (!keys.length) return false;
   var sh = ctkSheet_(ss), n = sh.getLastRow(), cur = n >= 2 ? sh.getRange(2, 1, n - 1, 2).getDisplayValues() : [], idx = {};
@@ -990,7 +1019,7 @@ function notifyCust_(cid, title, body, tag, data, phone) {
     var t = custTokenOf_(cid);
     if (!t && phone) t = custTokenOf_("tel:" + normPhone_(phone));
     if (!t) res = "❌ مفيش توكن لجهاز العميل (التطبيق لسه مسجّلش، أو الإشعارات مش مسموحة، أو الـ APK من غير Firebase)";
-    else { var r = fcmSendMany_([{ token: t }], title, body, tag, data || {}); res = r.sent ? "✅ اتبعت" : "❌ فشل: " + (r.err || "?"); }
+    else { var r = fcmSendMany_([{ token: t }], title, body, tag, data || {}); res = r.sent ? "✅ اتبعت" : "❌ فشل: " + (r.err || "?"); if (r.dead && r.dead.length) ctkDropTokens_(r.dead); }
   } catch (e) { res = "❌ خطأ: " + e; }
   nlog_("عميل", tag, title, res);
 }
@@ -1004,7 +1033,7 @@ function stageNotify_(sh, r, kind, who) {
       accepted: ["تم قبول طلبك ✅", (nm ? "المندوب " + nm + " " : "المندوب ") + "قبل طلبك رقم " + bon + " وبدأ في تجهيزه"],
       prep: ["جاري تجهيز طلبك 💊", "طلبك رقم " + bon + " بيتجهّز دلوقتي"],
       deliv: ["طلبك في الطريق إليك 🛵", "المندوب خرج بطلبك رقم " + bon + "، استعد للاستلام"],
-      arrived: ["المندوب وصل لعندك 📍", "المندوب على باب العنوان بطلبك رقم " + bon],
+      arrived: ["المندوب وصل اللوكيشن عندك 📍", "يمكنك التحرك إلى مكان مقابلة المندوب لاستلام طلبك، أو يمكنك التواصل بالمندوب لمعرفة كيف يمكنك استلام طلبك"],
       done: ["تم توصيل طلبك 🎉", "شكراً لثقتك في صيدليات د/ مراد صادق"],
       released: ["جاري تعيين مندوب آخر 🔄", "المندوب مش هيقدر يكمل طلبك رقم " + bon + "، وجاري تعيين مندوب تاني حالاً"]
     }[kind];
@@ -1018,6 +1047,194 @@ function notifyRiderByPhone_(phone, title, body, tag, data) {
     if (!t) nlog_("مندوب", tag, title, "❌ مفيش توكن للمندوب");
     else { var r = fcmSendMany_([{ token: t, row: f.row, sh: sh }], title, body, tag, data || {}); nlog_("مندوب", tag, title, r.sent ? "✅ اتبعت" : "❌ فشل: " + (r.err || "?")); }
   } catch (e) {}
+}
+
+
+// =====================================================================
+// ===== إشعارات العروض الجديدة لكل العملاء =============================
+// =====================================================================
+// أي منتج يبقى عليه خصم أو عرض قطعة إضافية (زي ما التطبيق بيحدد العروض المتحركة) وكان مش عرض قبل كده → إشعار بتفاصيله لكل العملاء.
+// بيشتغل كل 5 دقايق بمشغّل (شغّل installOfferTrigger مرة واحدة). أول تشغيل بيسجّل العروض الموجودة من غير ما يبعت.
+var OFFER_TABS = ["الادويه", "العنايه"];       // نفس SHEET.TABS في config.js بتاع العميل
+var NOFF_TAB = "العروض المُرسلة";               // ورقة تلقائية: العروض اللي اتبعتت قبل كده (متلمسهاش)
+function arNorm_(s) { return String(s == null ? "" : s).toLowerCase().replace(/[\u064B-\u0652\u0640]/g, "").replace(/[أإآ]/g, "ا").replace(/ة/g, "ه").replace(/ى/g, "ي").replace(/\s+/g, " ").trim(); }
+var OFF_KEYS_ = null;
+function offKey_(h) {
+  var n = arNorm_(h); if (!n) return "";
+  if (!OFF_KEYS_) {
+    var M = { "الرقم": "id", "اسم المنتج": "name", "سعر العلبه": "price", "قيمه الخصم": "disc", "الخصم": "disc", "الحد الادني": "min", "الحد الادنى": "min", "العدد المشمول": "inc", "العدد المشمول بالخصم": "inc", "عدد العلب المشمول": "inc", "عدد القطع في العرض": "bxn", "عدد القطع الاضافيه": "bxn", "سعر عرض": "op", "سعر العرض": "op", "سعر الاوفر": "op", "لينك العرض": "offerimg", "رابط العرض": "offerimg", "صوره العرض": "offerimg", "بوستر العرض": "offerimg", "لينك البوستر": "offerimg", "عرض القطعه الاضافيه": "bonus", "القطعه الاضافيه": "bonus", "العرض الاضافي": "bonus", "عرض اضافي": "bonus" };
+    OFF_KEYS_ = {}; for (var k in M) OFF_KEYS_[arNorm_(k)] = M[k];
+  }
+  if (OFF_KEYS_[n]) return OFF_KEYS_[n];
+  if (/عرض|offer|poster|بوستر/.test(n) && /لينك|رابط|صور|link|image|url|بوستر|poster/.test(n)) return "offerimg";
+  if (/سعر/.test(n) && /عرض|اوفر|offer/.test(n) && !/شريط|شرايط|شرائط|strip/.test(n)) return "op";
+  if (/^عدد.*قطع/.test(n)) return "bxn";
+  if (/قطعه.*اضاف|اضاف.*قطعه/.test(n)) return "bonus";
+  if (/سعر/.test(n)) return /شريط|شرايط|شرائط|strip/.test(n) ? "" : "price";
+  return "";
+}
+function offAscii_(v) { return String(v == null ? "" : v).replace(/[٠-٩]/g, function (x) { return "٠١٢٣٤٥٦٧٨٩".indexOf(x); }).replace(/[۰-۹]/g, function (x) { return "۰۱۲۳۴۵۶۷۸۹".indexOf(x); }).replace(/٫/g, ".").replace(/[٬,]/g, ""); }
+function offNum_(v) { var m = offAscii_(v).match(/-?\d+(?:\.\d+)?/); return m ? parseFloat(m[0]) : 0; }
+function readOffers_() {
+  var ss = ssOpen_(), out = [], ids = {};
+  OFFER_TABS.forEach(function (tab, ti) {
+    var sh = ss.getSheetByName(tab); if (!sh) return;
+    var last = sh.getLastRow(), lc = sh.getLastColumn(); if (last < 2 || lc < 1) return;
+    var vals = sh.getRange(1, 1, last, lc).getDisplayValues(), hi = -1, keys = [];
+    for (var r = 0; r < Math.min(6, vals.length); r++) { var ks = vals[r].map(offKey_); if (ks.filter(function (k) { return k; }).length >= 2) { hi = r; keys = ks; break; } }
+    if (hi < 0) { hi = 0; keys = vals[0].map(offKey_); }
+    for (var i = hi + 1; i < vals.length; i++) {
+      var o = {}; keys.forEach(function (k, c) { if (k && (o[k] == null || String(o[k]).trim() === "")) o[k] = vals[i][c]; });
+      var name = String(o.name || "").trim(); if (!name) continue;
+      var drw = String(o.disc == null ? "" : o.disc), dv = offNum_(drw);
+      if (!/[%٪]/.test(drw) && dv > 0 && dv < 1) dv = Math.round(dv * 100);
+      dv = Math.min(100, dv);
+      var bw = offAscii_(o.bonus).replace(/\s+/g, ""), bx = null;
+      if (bw) { if (/هدي|مجان|free|gift/i.test(bw)) bx = 0; else if (/نص|نصف|half/i.test(bw)) bx = 50; else { var m = bw.match(/(\d+(?:\.\d+)?)/); if (m) { var pv = parseFloat(m[1]); if (pv > 0 && pv <= 100) bx = Math.round((100 - pv) * 100) / 100; } } }
+      var price = offNum_(o.price), op = offNum_(o.op); if (!(op > 0 && price > 0 && op < price)) op = 0;      // "سعر عرض": سعر ثابت أقل من الأصلي
+      if (op > 0) { bx = null; dv = 0; }
+      if (bx != null) dv = 0;
+      if (!(dv > 0 || bx != null || op > 0)) continue;
+      var id = String(o.id == null ? "" : o.id).trim();
+      if (id && ids[id]) id = id + "_" + (ti + 1); if (id) ids[id] = 1;
+      out.push({ id: id, name: name, price: price, op: op, disc: dv, bx: bx, bxn: Math.max(1, Math.floor(offNum_(o.bxn)) || 1), min: Math.max(1, Math.floor(offNum_(o.min)) || 1), inc: Math.max(0, Math.floor(offNum_(o.inc)) || 0), imgs: offImg_(o.offerimg) });
+    }
+  });
+  return out;
+}
+// صورة العرض (عمود "لينك العرض"): لينك درايف بيتحوّل لصورة مباشرة كبيرة. لو مش لينك https مباشر: من غير صورة
+function offImg_(u) {
+  u = String(u == null ? "" : u).replace(/\s+/g, "").replace(/^["']+|["']+$/g, ""); if (!u) return [];
+  var m = u.match(/\/d\/([\w-]{10,})/) || u.match(/[?&]id=([\w-]{10,})/);
+  if (m && /drive\.google|docs\.google/.test(u)) return ["https://lh3.googleusercontent.com/d/" + m[1] + "=w900", "https://drive.google.com/thumbnail?id=" + m[1] + "&sz=w900", "https://drive.google.com/uc?export=view&id=" + m[1]];
+  return /^https:\/\//.test(u) ? [u] : [];
+}
+function arD_(v) { return String(v).replace(/\d/g, function (d) { return "٠١٢٣٤٥٦٧٨٩".charAt(d); }); }
+function offMoney_(n) { return (Math.round(n * 100) / 100) + " ج.م"; }
+function offCntW_(n) { return n === 1 ? "علبة" : n === 2 ? "علبتين" : arD_(n) + " علب"; }
+function offCnt_(n) { return n === 1 ? "علبة واحدة" : n === 2 ? "علبتين" : arD_(n) + " " + (n > 2 && n < 11 ? "علب" : "علبة"); }
+// تفاصيل العرض كاملة (نفس منطق الكارت المتحرك في التطبيق)
+function offerText_(p) {
+  var L = [];
+  if (p.op > 0) {
+    L.push("عرض خصم: السعر بـ " + offMoney_(p.op) + " بدلاً من " + offMoney_(p.price) + " لفترة محدودة");
+  } else if (p.bx != null) {
+    var n = Math.max(1, p.min), ex = p.bx === 0 ? "هدية" : p.bx === 50 ? "بنص السعر" : "بخصم " + arD_(100 - p.bx) + "٪";
+    L.push("اشتري " + offCntW_(n) + " وخد " + offCntW_(p.bxn) + (p.bx === 0 ? "" : " إضافية") + " " + ex + " " + (n === 1 ? "وده على كل علبة بتشتريها" : "وده بيتكرر على كل " + (n === 2 ? "علبتين" : arD_(n) + " علب") + " بتشتريها"));
+    if (p.price > 0) L.push(offMoney_(p.price) + " للعلبة" + (p.bx === 0 ? "" : " والتانية بـ" + offMoney_(p.price * p.bx / 100)));
+  } else {
+    var dt = arD_(p.disc) + "٪";
+    if (p.min <= 1 && !(p.inc > 0)) L.push("خصم " + dt + " على كل علبة");
+    else if (p.min <= 1) L.push("خصم " + dt + " على أول " + offCnt_(p.inc));
+    else if (p.inc > 0) L.push("اشتري " + offCnt_(p.min) + " واحصل على خصم " + dt + " على " + offCnt_(p.inc));
+    else L.push("اشتري " + offCnt_(p.min) + " أو أكتر واحصل على خصم " + dt + " على كل العلب");
+    if (p.price > 0) L.push("السعر بعد الخصم: " + offMoney_(p.price - Math.round(p.price * p.disc) / 100) + " للعلبة بدل " + offMoney_(p.price));
+  }
+  return L.join("\n") + (p.bx === 0 ? " 🎁" : "");     // أيقونة الهدية في آخر النص خالص
+}
+// نص الإشعار الكامل: "عرض على <المنتج>" وتحته التفاصيل (والصورة بتيجي تحتهم)
+// "عرض على" مرة واحدة بس: لو اسم المنتج في الشيت "عرض كليري" بيبقى "عرض على كليري"، ولو "بنادول" بيبقى "عرض على بنادول"
+function offerBody_(p) {
+  var nm = String(p.name || "").replace(/^\s*عرض(\s+على)?\s+/, "").trim() || String(p.name || "");
+  return "عرض على " + nm + "\n" + offerText_(p);
+}
+var OFFER_TITLE_ = "عرض خاص ولفترة محدودة ⭐";
+function noffSheet_(ss) {
+  var sh = ss.getSheetByName(NOFF_TAB);
+  if (!sh) { sh = ss.insertSheet(NOFF_TAB); sh.getRange(1, 1, 1, 2).setValues([["رقم المنتج", "بصمة العرض"]]); sh.setFrozenRows(1); try { sh.hideSheet(); } catch (e) {} }
+  return sh;
+}
+function ctkDropTokens_(tokens) {
+  try {
+    var sh = ssOpen_().getSheetByName(CTK_TAB), n = sh ? sh.getLastRow() : 0; if (n < 2) return;
+    var set = {}; tokens.forEach(function (t) { set[t] = 1; });
+    var v = sh.getRange(2, 2, n - 1, 1).getDisplayValues();
+    for (var i = v.length - 1; i >= 0; i--) if (set[String(v[i][0]).trim()]) sh.deleteRow(i + 2);
+  } catch (e) {}
+}
+// بيجرّب لينكات الصورة بالترتيب ويختار أول واحد شغّال (صورة فعلاً + أقل من 1MB + سريع). بيرجّع {url, note}
+function offImgPick_(cands) {
+  if (!cands || !cands.length) return { url: "", note: "❌ مفيش صورة (عمود لينك العرض فاضي أو مش لينك https مباشر)" };
+  var probs = [];
+  for (var i = 0; i < cands.length; i++) {
+    try {
+      var t0 = Date.now(), r = UrlFetchApp.fetch(cands[i], { muteHttpExceptions: true, followRedirects: true }), ms = Date.now() - t0;
+      var c = r.getResponseCode(), h = r.getHeaders(), ct = String(h["Content-Type"] || h["content-type"] || ""), len = r.getBlob().getBytes().length;
+      if (c !== 200) { probs.push("رجّع " + c); continue; }
+      if (ct.indexOf("image") !== 0) { probs.push("مش صورة (" + ct.split(";")[0] + ") — الملف غالباً مش مشارَك للكل"); continue; }
+      if (len > 1000000) { probs.push("كبيرة " + Math.round(len / 1024) + "KB (الحد 1MB)"); continue; }
+      return { url: cands[i], note: "✅ الصورة سليمة (" + Math.round(len / 1024) + "KB، " + (ms / 1000).toFixed(1) + " ث)" + (ms > 3000 ? " ⚠️ بطيئة: الموبايل بيستنى 5 ثواني بس" : "") };
+    } catch (e) { probs.push("تعذّر الفتح: " + String(e).slice(0, 60)); }
+  }
+  return { url: "", note: "❌ " + probs.join(" | ") };
+}
+function sendToAllCustomers_(title, body, tag, data, imgs) {
+  var pick = imgs === undefined ? null : offImgPick_([].concat(imgs || [])), image = pick ? pick.url : undefined;
+  var sh = ctkSheet_(ssOpen_()), n = sh.getLastRow();
+  if (n < 2) { nlog_("كل العملاء", tag, title, "❌ مفيش أي جهاز عميل متسجّل لسه"); return pick ? pick.note : ""; }
+  var vals = sh.getRange(2, 2, n - 1, 1).getDisplayValues(), seen = {}, items = [];
+  vals.forEach(function (r) { var t = String(r[0] || "").trim(); if (t && !seen[t]) { seen[t] = 1; items.push({ token: t }); } });
+  var sent = 0, failed = 0, err = "", dead = [];
+  for (var i = 0; i < items.length; i += 100) {
+    var r = fcmSendMany_(items.slice(i, i + 100), title, body, tag, data, image);
+    sent += r.sent; failed += r.failed; if (r.err) err = r.err; if (r.dead) dead = dead.concat(r.dead);
+  }
+  if (dead.length) ctkDropTokens_(dead);
+  nlog_("كل العملاء (" + items.length + " جهاز)", tag, title, (sent ? "✅ " + sent + " وصل" : "❌ ولا واحد") + (failed ? " / " + failed + " فشل" + (err ? " (" + err + ")" : "") : "") + (pick ? " | 🖼 " + pick.note : ""));
+  return pick ? pick.note : "";
+}
+var OFFER_MAX_PER_RUN = 10;   // أقصى عدد إشعارات عروض في المرة الواحدة (الباقي بيتبعت في الفحص اللي بعده بـ 5 دقايق) علشان السكربت ميعديش وقته
+function checkNewOffers() {
+  var lock = LockService.getScriptLock(); if (!lock.tryLock(15000)) return;
+  var toSend = [];
+  try {
+    var ss = ssOpen_(), offers = readOffers_(), sh = noffSheet_(ss), n = sh.getLastRow(), old = {}, props = PropertiesService.getScriptProperties();
+    (n >= 2 ? sh.getRange(2, 1, n - 1, 2).getDisplayValues() : []).forEach(function (r) { old[r[0]] = r[1]; });
+    var first = !props.getProperty("OFFERS_INIT"), rows = [];
+    offers.forEach(function (p) {
+      var key = p.id || ("n:" + arNorm_(p.name)), sig = [p.disc, p.bx, p.bxn, p.min, p.inc, p.op].join("~");
+      if (first || old[key] === sig) { rows.push([key, sig]); return; }          // مش جديد
+      if (toSend.length < OFFER_MAX_PER_RUN) { toSend.push(p); rows.push([key, sig]); }      // هيتبعت دلوقتي
+      else if (old[key] != null) rows.push([key, old[key]]);                      // زيادة عن الحد: يستنى الفحص الجاي (يفضل "جديد")
+    });
+    sh.getRange(2, 1, Math.max(n, 2), 2).clearContent();
+    if (rows.length) sh.getRange(2, 1, rows.length, 2).setNumberFormat("@").setValues(rows);
+    props.setProperty("OFFERS_INIT", "1");
+    if (first) Logger.log("✅ اتسجّل " + offers.length + " عرض موجود (من غير إرسال). أي عرض جديد من دلوقتي هيتبعت.");
+  } finally { try { lock.releaseLock(); } catch (x) {} }
+  // كل عرض في إشعار منفصل بتفاصيله وصورته
+  toSend.forEach(function (p) { sendToAllCustomers_(OFFER_TITLE_, offerBody_(p), "offer_" + (p.id || p.name), { type: "offer", id: p.id || "" }, p.imgs); });
+}
+function installOfferTrigger() {
+  ScriptApp.getProjectTriggers().forEach(function (t) { if (t.getHandlerFunction() === "checkNewOffers") ScriptApp.deleteTrigger(t); });
+  ScriptApp.newTrigger("checkNewOffers").timeBased().everyMinutes(5).create();
+  checkNewOffers();
+  Logger.log("✅ مشغّل العروض اشتغل (كل 5 دقايق)");
+}
+// اختبار: يبعت أول عرض موجود لكل العملاء الآن (للتأكد من شكل الإشعار وفتح العرض عند الضغط)
+function testOfferPush() {
+  var o = readOffers_(); if (!o.length) { Logger.log("مفيش أي عرض في الشيت"); return; }
+  var p = o[0], note = sendToAllCustomers_(OFFER_TITLE_, offerBody_(p), "offer_test", { type: "offer", id: p.id || "" }, p.imgs);
+  Logger.log("اتبعت:\n" + offerBody_p_(p) + "\n🖼 الصورة: " + note + (p.imgs && p.imgs.length ? "\nاللينك: " + p.imgs[0] : ""));
+}
+function offerBody_p_(p) { return offerBody_(p); }
+
+// شغّلها مرة واحدة: بتضيف عمود "سعر عرض" بعد "سعر الشريط" في ورقتي الأدوية والعناية (لو مش موجود). بتقرا الأعمدة بالاسم فمفيش حاجة تانية بتتأثر.
+function addOfferPriceColumn() {
+  var ss = ssOpen_();
+  OFFER_TABS.forEach(function (tab) {
+    var sh = ss.getSheetByName(tab); if (!sh) { Logger.log("⚠️ مفيش ورقة اسمها " + tab); return; }
+    var lc = sh.getLastColumn(), hr = 0, hdr = [];
+    for (var r = 1; r <= Math.min(6, sh.getLastRow()); r++) { var v = sh.getRange(r, 1, 1, lc).getDisplayValues()[0]; if (v.some(function (x) { return arNorm_(x) === "سعر العلبه"; })) { hr = r; hdr = v; break; } }
+    if (!hr) { Logger.log("⚠️ " + tab + ": ملقيتش صف العناوين"); return; }
+    var norm = hdr.map(arNorm_);
+    if (norm.indexOf("سعر عرض") >= 0 || norm.indexOf("سعر العرض") >= 0) { Logger.log("✔ " + tab + ": عمود سعر عرض موجود"); return; }
+    var at = norm.indexOf("سعر الشريط"); if (at < 0) at = norm.indexOf("سعر العلبه");
+    sh.insertColumnAfter(at + 1);
+    sh.getRange(hr, at + 2).setValue("سعر عرض");
+    try { sh.getRange(hr, at + 1).copyTo(sh.getRange(hr, at + 2), SpreadsheetApp.CopyPasteType.PASTE_FORMAT, false); } catch (e) {}
+    Logger.log("✅ " + tab + ": اتضاف عمود سعر عرض في العمود " + (at + 2));
+  });
 }
 
 // ===== اختبارات من المحرر =====
