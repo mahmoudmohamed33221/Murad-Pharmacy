@@ -22,8 +22,8 @@ for d, k in dens.items():
     canvas.paste(t, ((fg - inner) // 2, (fg - inner) // 2), t)
     canvas.save(os.path.join(folder, "ic_launcher_foreground.png"))
 
-# خلفية الأيقونة المتكيّفة = أسود (زي خلفية اللوجو) بدل الأبيض الافتراضي
+# خلفية الأيقونة المتكيّفة = أبيض (زي خلفية لوجو صيدلية عوف اللي بره التطبيق)
 vals = os.path.join(res, "values"); os.makedirs(vals, exist_ok=True)
 with open(os.path.join(vals, "ic_launcher_background.xml"), "w", encoding="utf-8") as f:
-    f.write('<?xml version="1.0" encoding="utf-8"?>\n<resources>\n    <color name="ic_launcher_background">#000000</color>\n</resources>\n')
+    f.write('<?xml version="1.0" encoding="utf-8"?>\n<resources>\n    <color name="ic_launcher_background">#FFFFFF</color>\n</resources>\n')
 print("icons done")
