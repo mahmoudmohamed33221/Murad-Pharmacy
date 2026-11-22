@@ -291,7 +291,7 @@
     root.innerHTML =
       '<div class="rg-wrap">' +
         '<div class="rg-head"><img class="rg-logo" src="assets/logo.png" alt="">' +
-          '<h1 id="rgT">أهلاً بيك في صيدليات د/ مراد صادق</h1>' +
+          '<h1 id="rgT">أهلاً بيك في صيدلية عوف</h1>' +
           '<p>سجّل بياناتك مرة واحدة بس، وهنحفظها علشان طلباتك توصلك أسرع وأسهل.</p><div class="rg-gold"></div></div>' +
         '<div class="rg-card"><div id="rg-form"></div>' +
           '<button class="rg-go" id="rg-go" type="button" disabled>حفظ والدخول للتطبيق</button>' +
