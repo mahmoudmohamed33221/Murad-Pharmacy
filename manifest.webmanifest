@@ -1,7 +1,7 @@
 {
-  "name": "Murad Pharmacy - صيدليات د/ مراد صادق",
-  "short_name": "Murad Pharmacy",
-  "description": "اطلب أدويتك ومنتجات العناية من صيدليات د/ مراد صادق",
+  "name": "Ouf Pharmacy - صيدلية عوف",
+  "short_name": "Ouf Pharmacy",
+  "description": "اطلب أدويتك ومنتجات العناية من صيدلية عوف",
   "id": "./",
   "start_url": "./",
   "scope": "./",
