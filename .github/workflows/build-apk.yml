@@ -71,7 +71,7 @@ jobs:
           keytool -genkeypair -v -keystore ~/murad-release.jks -storetype JKS \
             -keyalg RSA -keysize 2048 -validity 10000 -alias murad \
             -storepass murad123456 -keypass murad123456 \
-            -dname "CN=Murad Pharmacy, O=Murad, C=EG"
+            -dname "CN=Ouf Pharmacy, O=Murad, C=EG"
 
       - name: Signing and version
         run: |
@@ -117,6 +117,6 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Murad-Pharmacy-apk
+          name: Ouf-Farmacy-apk
           path: android-app/android/app/build/outputs/apk/release/*.apk
 
