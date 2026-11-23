@@ -8,10 +8,10 @@ html.need-reg body{overflow:hidden}
 .rg-wrap{max-width:440px;margin:0 auto}
 .rg-head{text-align:center;padding:6px 0 18px}
 .rg-logo{width:84px;height:84px;object-fit:contain;border-radius:50%;background:#000;padding:0;display:block;margin:0 auto;
-  box-shadow:0 6px 20px rgba(0,0,0,.35),0 0 0 2px var(--gold,#C8A24A)}
+  box-shadow:0 6px 20px rgba(0,0,0,.35),0 0 0 2px var(--gold,#EF3B3B)}
 .rg-head h1{font-size:1.35rem;font-weight:800;line-height:1.5;margin-top:12px;color:var(--bk)}
 .rg-head p{color:var(--gr);font-size:.92rem;line-height:1.7;margin-top:4px}
-.rg-gold{width:60px;height:3px;border-radius:3px;margin:12px auto 0;background:var(--gold-g,linear-gradient(135deg,#EBD695,#C8A24A 55%,#A8842E))}
+.rg-gold{width:60px;height:3px;border-radius:3px;margin:12px auto 0;background:var(--gold-g,linear-gradient(135deg,#FFB3B6,#EF3B3B 55%,#B80010))}
 
 .rg-card{background:#fff;border-radius:22px;padding:20px 16px 18px;box-shadow:0 6px 26px rgba(20,20,20,.08)}
 html[data-theme="dark"] .rg-card{background:#1c1c1f;box-shadow:none;border:1px solid #2b2b30}
@@ -24,7 +24,7 @@ html[data-theme="dark"] .rg-card{background:#1c1c1f;box-shadow:none;border:1px s
   background:var(--wh);color:var(--bk);font:inherit;font-size:1rem;font-weight:600;transition:border-color .2s,box-shadow .2s}
 html[data-theme="dark"] .rg-box input,html[data-theme="dark"] .rg-box textarea,html[data-theme="dark"] .rg-box select{background:#131316;color:#f2f2f2}
 .rg-box textarea{resize:none;line-height:1.7;min-height:92px}
-.rg-box input:focus,.rg-box textarea:focus,.rg-box select:focus{border-color:var(--or);box-shadow:0 0 0 3px rgba(245,124,0,.14)}
+.rg-box input:focus,.rg-box textarea:focus,.rg-box select:focus{border-color:var(--or);box-shadow:0 0 0 3px rgba(227,6,19,.14)}
 .rg-box .rg-ic{position:absolute;left:12px;top:13px;width:22px;height:22px;display:none;fill:none;stroke-width:2.4;
   stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
 .rg-field.ok .rg-box input,.rg-field.ok .rg-box textarea,.rg-field.ok .rg-box select{border-color:#2e7d32}
@@ -48,10 +48,10 @@ html[data-theme="dark"] .rg-box input,html[data-theme="dark"] .rg-box textarea,h
 .rg-pick{width:100%;display:flex;align-items:center;gap:10px;padding:12px 14px;border:1.5px solid var(--ln);border-radius:12px;background:var(--wh);color:var(--gr);
   font:inherit;font-size:1rem;font-weight:500;cursor:pointer;text-align:right;transition:border-color .2s,box-shadow .2s}
 html[data-theme="dark"] .rg-pick{background:#131316}
-.rg-pick:focus-visible,.rg-pick:active{border-color:var(--or);box-shadow:0 0 0 3px rgba(245,124,0,.14)}
+.rg-pick:focus-visible,.rg-pick:active{border-color:var(--or);box-shadow:0 0 0 3px rgba(227,6,19,.14)}
 .rg-pick.has{color:var(--bk);font-weight:700}
 .rg-pick .gv-t{flex:1}
-.rg-pick svg{width:20px;height:20px;fill:none;stroke:var(--gold,#C8A24A);stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;display:block}
+.rg-pick svg{width:20px;height:20px;fill:none;stroke:var(--gold,#EF3B3B);stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;display:block}
 .rg-pick .gv-chev{margin-left:30px}
 .rg-field.ok .rg-pick{border-color:#2e7d32}
 .rg-field.bad .rg-pick{border-color:#c62828}
@@ -66,18 +66,18 @@ html[data-theme="dark"] .gv-card{background:#1c1c1f;border-top:1px solid #2b2b30
 .gv-card::before{content:"";width:42px;height:4px;border-radius:4px;background:var(--ln);margin:2px auto 10px}
 .gv-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
 .gv-h b{font-size:1.1rem;font-weight:800;color:var(--bk)}
-.gv-h b::after{content:"";display:block;width:34px;height:3px;margin-top:5px;border-radius:3px;background:var(--gold-g,linear-gradient(135deg,#EBD695,#C8A24A 55%,#A8842E))}
+.gv-h b::after{content:"";display:block;width:34px;height:3px;margin-top:5px;border-radius:3px;background:var(--gold-g,linear-gradient(135deg,#FFB3B6,#EF3B3B 55%,#B80010))}
 .gv-x{width:34px;height:34px;border:0;border-radius:50%;background:var(--ln);color:var(--bk);cursor:pointer;font-size:.95rem}
 .gv-s input{width:100%;padding:12px 44px 12px 14px;border:1.5px solid var(--ln);border-radius:14px;outline:0;font:inherit;font-size:.95rem;font-weight:600;background-color:var(--bg);color:var(--bk);
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23F57C00' stroke-width='2.2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M20 20l-3.5-3.5'/%3E%3C/svg%3E");
   background-repeat:no-repeat;background-position:right 14px center;background-size:20px}
 html[data-theme="dark"] .gv-s input{background-color:#131316;color:#f2f2f2;border-color:#35353b}
-.gv-s input:focus{border-color:var(--or);box-shadow:0 0 0 3px rgba(245,124,0,.14)}
+.gv-s input:focus{border-color:var(--or);box-shadow:0 0 0 3px rgba(227,6,19,.14)}
 .gv-body{overflow-y:auto;-webkit-overflow-scrolling:touch;margin-top:12px;padding-bottom:6px}
 .gv-g{margin-bottom:14px}
-.gv-g h4{font-size:.82rem;font-weight:800;color:var(--gold-d,#9C7A2B);margin:0 2px 8px;display:flex;align-items:center;gap:8px}
-.gv-g h4::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,var(--gold,#C8A24A),transparent);opacity:.6}
-html[data-theme="dark"] .gv-g h4{color:var(--gold,#C8A24A)}
+.gv-g h4{font-size:.82rem;font-weight:800;color:var(--gold-d,#B80010);margin:0 2px 8px;display:flex;align-items:center;gap:8px}
+.gv-g h4::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,var(--gold,#EF3B3B),transparent);opacity:.6}
+html[data-theme="dark"] .gv-g h4{color:var(--gold,#EF3B3B)}
 .gv-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .gv-i{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:12px 12px;border:1.5px solid var(--ln);border-radius:14px;background:var(--wh);color:var(--bk);
   font:inherit;font-size:.95rem;font-weight:700;cursor:pointer;text-align:right;transition:transform .15s,border-color .2s,background .2s}
@@ -85,7 +85,7 @@ html[data-theme="dark"] .gv-i{background:#232327;border-color:#35353b}
 .gv-i:active{transform:scale(.96)}
 .gv-i svg{width:18px;height:18px;fill:none;stroke:#fff;stroke-width:2.8;stroke-linecap:round;stroke-linejoin:round;opacity:0}
 .gv-i.on{border-color:var(--or);background:var(--or-l);color:var(--or-d)}
-html[data-theme="dark"] .gv-i.on{background:#3a2610;color:#FF9A2E}
+html[data-theme="dark"] .gv-i.on{background:#3a1414;color:#FF5A5F}
 .gv-i.on svg{opacity:1;stroke:var(--or)}
 .gv-none{text-align:center;color:var(--gr);padding:26px 0;font-weight:600}
 
