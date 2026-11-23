@@ -243,19 +243,34 @@ function tabVariants(n){
   return out.slice(0,8);
 }
 async function fetchTabTexts(id, tabs){
-  const one = async tab => {
-    const r = await fetch(`https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tab)}&_=${Date.now()}`,{cache:"no-store"});
-    if(!r.ok) throw new Error("sheet"); return r.text();
+  const base = `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv&sheet=`, enc = encodeURIComponent;
+  const sleep = ms => new Promise(r=>setTimeout(r,ms));
+  const get = async (url, tries) => { let e = null; for(let i=0;i<(tries||2);i++){ try{ const r = await fetch(url,{cache:"no-store"}); if(r.ok) return await r.text(); e = new Error("HTTP "+r.status); }catch(x){ e = x; } await sleep(500); } throw e; };
+  // الورقة سليمة = فيها صف عناوين فيه "اسم المنتج" وعمود معروف تاني على الأقل (غير كده يبقى جوجل رجّع صفحة خطأ أو ورقة تانية)
+  const valid = txt => { try{ return parseCSV(txt.length>30000 ? txt.slice(0,30000) : txt).slice(0,6).some(row=>{ const ks = row.map(headerKey); return ks.includes("name") && ks.filter(Boolean).length>=2; }); }catch(_){ return false; } };
+  // ورقة كبيرة (آلاف الأدوية): لو الطلب العادي فشل أو رجّع حاجة ناقصة بنسحبها على دفعات
+  const paged = async tab => {
+    const PAGE = 3000; let out = "", off = 0;
+    for(let k=0;k<40;k++){
+      const txt = await get(base+enc(tab)+"&tq="+enc(`select * limit ${PAGE} offset ${off}`)+"&_="+Date.now(), 2);
+      out += (out && !out.endsWith("\n") ? "\n" : "") + (off ? txt.slice(txt.indexOf("\n")+1) : txt);
+      if(((txt.match(/\n/g)||[]).length) < PAGE) break; off += PAGE;
+    }
+    return out;
   };
-  let ok = null; try{ const c = JSON.parse(localStorage.getItem("ouf_tabs_ok")||"null"); if(c && c.names && c.names.length && Date.now()-c.ts < 6*3600*1000) ok = c.names; }catch(_){}
-  const names = ok || [...new Set(tabs.flatMap(tabVariants))];
-  const res = await Promise.all(names.map(n=>one(n).then(t=>({n,t}),()=>null)));
-  const got = res.filter(Boolean); if(!got.length) throw new Error("sheet");
+  const res = await Promise.all(tabs.map(async tab=>{
+    let text = null, err = "", used = tab;
+    try{ text = await get(base+enc(tab)+"&_="+Date.now(), 2); }catch(e){ err = String((e&&e.message)||e); }
+    if(!(text && valid(text))){ try{ const p = await paged(tab); if(valid(p)){ text = p; err = ""; } else text = null; }catch(e){ text = null; err = err || String((e&&e.message)||e); } }
+    if(!text){ for(const v of tabVariants(tab).slice(1)){ try{ const x = await get(base+enc(v)+"&_="+Date.now(), 1); if(valid(x)){ text = x; used = v; err = ""; break; } }catch(_){} } }
+    return {tab, used, text, err: text ? "" : (err || "الورقة مش بترجّع بيانات منتجات")};
+  }));
+  const diag = res.map(r=>({tab:r.tab, ok:!!r.text, rows: r.text ? Math.max(0,(r.text.match(/\n/g)||[]).length) : 0, err:r.err}));
+  try{ window.OUF_DIAG = diag; console.info("[Ouf] أوراق الشيت:", JSON.stringify(diag)); const el = document.getElementById("prodDiag"); if(el) el.innerHTML = diag.map(d=>`<span style="${d.ok?"":"color:#E30613;font-weight:700"}">${d.tab}: ${d.ok ? d.rows.toLocaleString("ar-EG")+" صف" : "فشل"}</span>`).join(" · "); }catch(_){}
   const seen = new Set(), keep = [];
-  got.forEach(x=>{ if(!seen.has(x.t)){ seen.add(x.t); keep.push(x); } });
-  if(!ok){ try{ localStorage.setItem("ouf_tabs_ok", JSON.stringify({ts:Date.now(), names:keep.map(x=>x.n)})); }catch(_){} }
-  try{ console.info("[Ouf] أوراق الشيت اللي اتقرت:", keep.map(x=>x.n).join(" | ")); }catch(_){}
-  return keep.map(x=>x.t);
+  res.forEach(r=>{ if(r.text && !seen.has(r.text)){ seen.add(r.text); keep.push(r.text); } });
+  if(!keep.length) throw new Error("sheet");
+  return keep;
 }
 // تحديث تلقائي: بنسحب الشيت كل دقيقة وكل ما التطبيق يرجع للشاشة، ولو في تغيير بنحدّث الأقسام والمنتجات من غير ما تقفل التطبيق
 let lastSig = "", syncing = false, lastRun = 0;
@@ -573,7 +588,7 @@ function finishSend(loc){
 function waLock(reopen){
   let el = $("waLock"); if(el) el.remove();
   el = document.createElement("div"); el.id = "waLock";
-  el.innerHTML = `<div class="wl-b"><h3>جاري فتح الواتساب…</h3><p>ابعت الرسالة للصيدلية من الواتساب وارجع للتطبيق.</p><button type="button" class="wl-go">فتح الواتساب</button><button type="button" class="wl-skip">رجوع للتطبيق</button></div>`;
+  el.innerHTML = `<div class="wl-b"><h3>جاري فتح الواتساب…</h3><p>ابعت الرسالة للصيدلية من الواتساب وارجع للتطبيق.</p><button type="button" class="wl-skip">رجوع للتطبيق</button></div>`;
   document.body.appendChild(el);
   let left = false, done = false;
   const end = ()=>{ if(done) return; done = true; clearTimeout(tm); document.removeEventListener("visibilitychange", vc); window.removeEventListener("focus", fc); el.remove(); setTimeout(()=>{ if(window.Orders && window.Orders.flashNow) window.Orders.flashNow(); }, 250); };
@@ -581,7 +596,6 @@ function waLock(reopen){
   const fc = ()=>{ if(left) end(); };
   document.addEventListener("visibilitychange", vc); window.addEventListener("focus", fc);
   const A = capP("App"); if(A && A.addListener){ try{ A.addListener("appStateChange", st=>{ if(!st.isActive) left = true; else if(left) end(); }); }catch(e){} }
-  el.querySelector(".wl-go").onclick = ()=>{ reopen(); };
   const sk = el.querySelector(".wl-skip"); sk.onclick = end;
   const tm = setTimeout(()=>{ sk.style.display = "block"; }, 8000);   // لو الواتساب مش متسطّب أو معلّق: زرار رجوع بعد 8 ثواني
 }
@@ -764,7 +778,7 @@ function offerDetail(p){
   return lines.map(l=>`<p>${l}</p>`).join("");
 }
 // تدريج ألوان متنوع (من ألوان التطبيق) للكارت اللي ملوش صورة: ثابت لكل منتج حسب رقمه
-const OGRAD = ["linear-gradient(135deg,#F57C00,#FFB347)","linear-gradient(135deg,#B8862B,#E6C36A)","linear-gradient(135deg,#1F2933,#F57C00)","linear-gradient(135deg,#0F766E,#34B3A0)","linear-gradient(135deg,#C2410C,#F59E0B)","linear-gradient(135deg,#7C2D12,#EA580C)","linear-gradient(135deg,#334155,#C8A24A)","linear-gradient(135deg,#9A3412,#FDBA74)"];
+const OGRAD = ["linear-gradient(135deg,#E30613,#FF6B70)","linear-gradient(135deg,#B80010,#FF5A5F)","linear-gradient(135deg,#1A1A1A,#E30613)","linear-gradient(135deg,#2B2B2B,#B80010)","linear-gradient(135deg,#8E0F17,#E30613)","linear-gradient(135deg,#B80010,#1A1A1A)","linear-gradient(135deg,#1A1A1A,#EF3B3B)","linear-gradient(135deg,#C62828,#FF8A8F)"];
 const hashS = t => { let h=0; t=String(t); for(let i=0;i<t.length;i++) h=(h*31+t.charCodeAt(i))|0; return Math.abs(h); };
 function offerCard(p){
   const img = p.offerImg ? `<img class="oimg" loading="lazy" decoding="async" src="${esc(p.offerImg)}" data-alts="${esc((p.offerAlts||[]).join("|"))}" alt="" referrerpolicy="no-referrer" onerror="imgFail(this)">` : "";
@@ -1191,9 +1205,9 @@ if("serviceWorker" in navigator && location.protocol.startsWith("http")){
     try{
       let s = await p.checkPermissions();
       if(s.receive !== "granted"){ if(!ask || s.receive === "denied") return; s = await p.requestPermissions(); if(s.receive !== "granted") return; }
-      try{ await p.createChannel({id:"murad_orders_v1", name:"حالة الطلب", description:"إشعارات حالة طلبك", importance:5, visibility:1, sound:"default", vibration:true, lights:true}); }catch(e){}
-      try{ await p.createChannel({id:"murad_brand_v1", name:"رسائل الصيدلية", description:"رسائل وعروض من صيدلية عوف", importance:3, visibility:1, sound:"default", vibration:true}); }catch(e){}
-      try{ await p.createChannel({id:"murad_brand_quiet_v1", name:"رسائل الصيدلية (ليلاً - بدون صوت)", description:"رسائل هادية بالليل", importance:2, visibility:1, vibration:false}); }catch(e){}
+      try{ await p.createChannel({id:"ouf_orders_v2", name:"حالة الطلب", description:"إشعارات حالة طلبك", importance:5, visibility:1, vibration:true, lights:true}); }catch(e){}
+      try{ await p.createChannel({id:"ouf_brand_v2", name:"رسائل الصيدلية", description:"رسائل وعروض من صيدلية عوف", importance:5, visibility:1, vibration:true, lights:true}); }catch(e){}
+      try{ await p.createChannel({id:"ouf_brand_quiet_v2", name:"رسائل الصيدلية (ليلاً)", description:"رسائل الصيدلية بالليل", importance:4, visibility:1, vibration:true}); }catch(e){}
       await p.removeAllListeners();
       p.addListener("registration", t => { tok = t.value; try{ localStorage.setItem("mrad_pt", tok); }catch(e){} sync(); });
       p.addListener("pushNotificationReceived", () => { try{ if(window.Orders) window.Orders.sync(); }catch(e){} });
@@ -1210,6 +1224,7 @@ if("serviceWorker" in navigator && location.protocol.startsWith("http")){
   }
   window.MuradPush = { init, sync };
   setTimeout(() => init(false), 2500);
+  document.addEventListener("visibilitychange", () => { if(!document.hidden){ try{ init(false); }catch(e){} } });
 })();
 
 // ===== الصلاحيات الإجبارية (بعد الانترو مباشرة) =====
