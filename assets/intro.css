@@ -19,25 +19,25 @@ body.intro-lock{overflow:hidden;height:100vh}
 
 /* الاسم بيتكتب حرف حرف: النسخة الشفافة (ghost) بتحجز المكان والعرض، والنسخة المكتوبة فوقها */
 #intro .ititle{position:relative;display:block;width:fit-content;max-width:100%;font-weight:800;
-  font-size:clamp(1.6rem,7.4vw,2.5rem);line-height:1.5;color:#2b2118;white-space:nowrap;
-  text-shadow:0 0 14px rgba(255,255,255,.95),0 2px 10px rgba(217,104,0,.25),0 8px 22px rgba(20,20,20,.14)}
+  font-size:clamp(1.6rem,7.4vw,2.5rem);line-height:1.5;color:#1a1a1a;white-space:nowrap;
+  text-shadow:0 0 14px rgba(255,255,255,.95),0 2px 10px rgba(184,0,16,.25),0 8px 22px rgba(20,20,20,.14)}
 #intro .ititle .gh{visibility:hidden}
 #intro .ititle .tw{position:absolute;right:0;top:0;white-space:nowrap}
 
 /* الشريط البرتقالي: بيتملي بنفس سرعة الكتابة من اليمين لليسار (الـ JS هو اللي بيتحكم في scaleX) */
 #intro .iline{height:3px;margin:6px 0 0;border-radius:3px;transform:scaleX(0);transform-origin:right center;
-  background:linear-gradient(270deg,#F57C00,rgba(245,124,0,.15));will-change:transform;
-  box-shadow:0 2px 8px rgba(245,124,0,.25)}
+  background:linear-gradient(270deg,#E30613,rgba(227,6,19,.15));will-change:transform;
+  box-shadow:0 2px 8px rgba(227,6,19,.25)}
 
 /* الجملة المكتوبة: سطرين، التاني تحت الأول بشوية. بتتكتب سطر ورا سطر */
 #intro .itag{position:relative;width:100%;margin-top:clamp(20px,4.5vh,38px);transform:translate3d(0,0,0);z-index:2;
   text-align:center;direction:rtl;padding:0 16px;
-  text-shadow:0 0 14px rgba(255,255,255,.95),0 2px 10px rgba(217,104,0,.22)}
+  text-shadow:0 0 14px rgba(255,255,255,.95),0 2px 10px rgba(184,0,16,.22)}
 #intro .itag .l{display:block;min-height:1.5em;line-height:1.5}
-#intro .itag .l1{font-weight:800;font-size:clamp(2.05rem,10.6vw,3.2rem);color:#D96800}
-#intro .itag .l2{margin-top:.5em;font-weight:700;font-size:clamp(1.65rem,8.4vw,2.55rem);color:#2b2118}
+#intro .itag .l1{font-weight:800;font-size:clamp(2.05rem,10.6vw,3.2rem);color:#B80010}
+#intro .itag .l2{margin-top:.5em;font-weight:700;font-size:clamp(1.65rem,8.4vw,2.55rem);color:#1a1a1a}
 #intro .cur::after{content:"";display:inline-block;width:3px;height:.95em;margin-inline-start:4px;
-  vertical-align:-.12em;background:#D96800;animation:icaret .7s steps(1) infinite}
+  vertical-align:-.12em;background:#B80010;animation:icaret .7s steps(1) infinite}
 @keyframes icaret{50%{opacity:0}}
 
 /* الانتقال للتطبيق: اللوجو يكبّر كأننا داخلين منه، النصوص تطلع وتختفي، والخلفية تفتح على الرئيسية */
@@ -70,6 +70,6 @@ body.intro-done main:not(#v-home):not([hidden]){animation:iFade 1s ease-out .9s 
 html[data-theme="dark"] #intro{background:#0f0f11}
 html[data-theme="dark"] #intro .ilogo{content:url("intro-logo-dark.png")}
 html[data-theme="dark"] #intro.s1 .ilogo{opacity:.6}
-html[data-theme="dark"] #intro .ititle{color:#f2f2f2;text-shadow:0 0 14px rgba(15,15,17,.95),0 2px 10px rgba(245,124,0,.25),0 8px 22px rgba(0,0,0,.5)}
-html[data-theme="dark"] #intro .itag{text-shadow:0 0 14px rgba(15,15,17,.95),0 2px 10px rgba(245,124,0,.22)}
+html[data-theme="dark"] #intro .ititle{color:#f2f2f2;text-shadow:0 0 14px rgba(15,15,17,.95),0 2px 10px rgba(227,6,19,.25),0 8px 22px rgba(0,0,0,.5)}
+html[data-theme="dark"] #intro .itag{text-shadow:0 0 14px rgba(15,15,17,.95),0 2px 10px rgba(227,6,19,.22)}
 html[data-theme="dark"] #intro .itag .l2{color:#f2f2f2}
