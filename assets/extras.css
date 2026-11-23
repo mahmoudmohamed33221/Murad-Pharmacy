@@ -21,7 +21,7 @@ header{border-radius:0 0 28px 28px}
 /* --- الفوتر --- */
 body{padding-bottom:0!important}
 footer.ft{padding:0;margin-top:30px;color:inherit;font-size:1rem;text-align:center}
-.ft-gold{height:3px;width:100%;background:linear-gradient(90deg,#A8842E,#EBD695,#C8A24A,#EBD695,#A8842E)}
+.ft-gold{height:3px;width:100%;background:linear-gradient(90deg,#B80010,#FFB3B6,#EF3B3B,#FFB3B6,#B80010)}
 
 .ft-contact{background:#141414;padding:38px 20px 34px}
 .ft-t{color:#fff;font-size:1.45rem;font-weight:800;line-height:1.5;margin-bottom:18px}
@@ -30,7 +30,7 @@ footer.ft{padding:0;margin-top:30px;color:inherit;font-size:1rem;text-align:cent
 .ft-btn{flex:1;display:flex;align-items:center;justify-content:center;gap:10px;min-height:60px;border-radius:18px;
   font-weight:800;font-size:1.15rem;text-decoration:none;font-family:inherit}
 .ft-btn svg{width:28px;height:28px;flex:none}
-.ft-btn.wa{background:var(--or);color:#fff;box-shadow:0 6px 18px rgba(245,124,0,.32)}
+.ft-btn.wa{background:var(--or);color:#fff;box-shadow:0 6px 18px rgba(227,6,19,.32)}
 .ft-btn.wa svg{fill:#fff}
 .ft-call{flex:0 0 64px;display:grid;place-items:center;border-radius:18px;border:2px solid var(--or);color:var(--or);text-decoration:none}
 .ft-call svg{width:28px;height:28px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
@@ -62,7 +62,7 @@ body:not([data-view="home"]) .ft-contact{display:none}
 
 /* ===== نوع المنتج + الشركة على كروت المنتجات ===== */
 .pm{display:flex;flex-direction:column;align-items:center;gap:5px;margin:2px 0 4px}
-.pm .ptype{display:inline-flex;align-items:center;gap:5px;max-width:100%;background:linear-gradient(135deg,#FFF1DE,#FFE2B8);
+.pm .ptype{display:inline-flex;align-items:center;gap:5px;max-width:100%;background:linear-gradient(135deg,#FDEEEE,#FBDADA);
   color:var(--or-d);border-radius:999px;padding:3px 11px;font-size:.8rem;font-weight:800;line-height:1.4}
 .pm .pco{display:inline-flex;align-items:center;justify-content:center;gap:5px;max-width:100%;color:#6a6a6a;
   font-size:.8rem;font-weight:600;line-height:1.35}
@@ -78,16 +78,16 @@ body:not([data-view="home"]) .ft-contact{display:none}
 .xd[hidden]{display:none}
 .xd.on{opacity:1}
 .xd-card{width:100%;max-width:340px;background:#fff;border-radius:26px;padding:28px 22px 22px;text-align:center;
-  border-top:4px solid #C8A24A;box-shadow:0 20px 50px rgba(0,0,0,.35);transform:translateY(14px) scale(.96);transition:transform .25s cubic-bezier(.22,.8,.24,1)}
+  border-top:4px solid #EF3B3B;box-shadow:0 20px 50px rgba(0,0,0,.35);transform:translateY(14px) scale(.96);transition:transform .25s cubic-bezier(.22,.8,.24,1)}
 .xd.on .xd-card{transform:none}
-.xd-ic{width:62px;height:62px;margin:0 auto 14px;border-radius:50%;display:grid;place-items:center;background:#FFF1DE;color:var(--or)}
+.xd-ic{width:62px;height:62px;margin:0 auto 14px;border-radius:50%;display:grid;place-items:center;background:#FDEEEE;color:var(--or)}
 .xd-ic svg{width:30px;height:30px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .xd-card h3{font-size:1.3rem;font-weight:800;color:#141414;line-height:1.5}
 .xd-card p{margin-top:6px;color:#6a6a6a;font-size:.98rem;line-height:1.7}
 .xd-btns{display:flex;gap:10px;margin-top:22px}
 .xd-btns button{flex:1;min-height:52px;border-radius:16px;font:inherit;font-weight:800;font-size:1.05rem;cursor:pointer;border:2px solid transparent}
 .xd-yes{background:#fff;color:#C0392B;border-color:#E8C4BF!important}
-.xd-no{background:var(--or);color:#fff;box-shadow:0 6px 16px rgba(245,124,0,.3)}
+.xd-no{background:var(--or);color:#fff;box-shadow:0 6px 16px rgba(227,6,19,.3)}
 /* محاذاة السعر في أسفل الكارت عشان الكروت تبقى متساوية */
 .pcard .pn{min-height:2.7em;display:flex;align-items:center;justify-content:center}
 .pcard .pp{margin-top:auto}
@@ -108,7 +108,7 @@ html,body{overflow-x:hidden}
 
 /* ===== العروض المتحركة: من الشيت ===== */
 .track:empty{min-height:236px;background:#f1f1f1}
-.offer-card{padding:0;background:linear-gradient(135deg,#F57C00,#FF9F3D);display:block}
+.offer-card{padding:0;background:linear-gradient(135deg,#E30613,#FF6B70);display:block}
 .offer-card .ofb{position:relative;padding:30px 24px;text-align:right;min-height:236px;display:flex;flex-direction:column;justify-content:center;align-items:flex-start}
 .offer-card .oimg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#fff;display:block;pointer-events:none}
 .offer-empty{flex:0 0 calc(100% - 32px);width:calc(100% - 32px);margin-inline:16px;min-height:236px;border:3px solid #9a9a9a;border-radius:22px;background:#f4f4f4;color:#6b6f73;display:flex;align-items:center;justify-content:center;text-align:center;cursor:default;font-size:1.25rem;font-weight:800;box-shadow:none;transform:none!important;opacity:1!important}
@@ -169,7 +169,7 @@ html[data-theme="dark"] .search input::placeholder,html[data-theme="dark"] input
 html[data-theme="dark"] input,html[data-theme="dark"] textarea,html[data-theme="dark"] select{background-color:#1c1c1f;color:#f2f2f2;border-color:#35353b}
 html[data-theme="dark"] .seg button{color:#f2f2f2}
 html[data-theme="dark"] .seg button.on{background:var(--or);border-color:var(--or);color:#fff}
-html[data-theme="dark"] .cback{color:#FF9A2E}
+html[data-theme="dark"] .cback{color:#FF5A5F}
 html[data-theme="dark"] .nav{border-top-color:#2a2a2f;box-shadow:0 -2px 12px rgba(0,0,0,.5)}
 html[data-theme="dark"] .panel,html[data-theme="dark"] .card,html[data-theme="dark"] .c{box-shadow:0 2px 12px rgba(0,0,0,.45)}
 /* العناصر اللي كانت سودا بلون النص: تفضل سودا */
@@ -183,23 +183,23 @@ html[data-theme="dark"] .s3 em{background:var(--or);color:#fff}
 /* بلاطات الأيقونات والخلفيات الفاتحة الدافية */
 html[data-theme="dark"] .c .pic{background:linear-gradient(145deg,#2d2616,#1f1a0f)}
 html[data-theme="dark"] .ico,html[data-theme="dark"] .ico2,html[data-theme="dark"] .row .e{background:linear-gradient(145deg,#2d2616,#1f1a0f)}
-html[data-theme="dark"] .xd-ic{background:#3a2610}
+html[data-theme="dark"] .xd-ic{background:#3a1414}
 html[data-theme="dark"] .pm.big .pco{background:#2a2a2e;color:#f2f2f2}
-html[data-theme="dark"] .pm .ptype{background:linear-gradient(135deg,#3a2610,#2c1c0b)}
-html[data-theme="dark"] .pd{background:linear-gradient(135deg,#3a2e10,#2b220c);color:#f3d98a}
+html[data-theme="dark"] .pm .ptype{background:linear-gradient(135deg,#3a1414,#2c1c0b)}
+html[data-theme="dark"] .pd{background:linear-gradient(135deg,#3a1418,#2b1012);color:#FF9DA1}
 html[data-theme="dark"] .ofr{background:linear-gradient(135deg,#2b2411,#201a0b);border-color:var(--gold)}
 html[data-theme="dark"] .ofr .ex,html[data-theme="dark"] .ofr.on .ex{background:rgba(255,255,255,.07)}
-html[data-theme="dark"] .hintx{color:#f3d98a}
+html[data-theme="dark"] .hintx{color:#FF9DA1}
 html[data-theme="dark"] .okk{color:#5ddc84}
 html[data-theme="dark"] .save{background:#12301c;color:#5ddc84;border-color:#1f6b38}
 html[data-theme="dark"] .track:empty{background:#1c1c1f}
 html[data-theme="dark"] .offer-empty{background:#1c1c1f;border-color:#4a4a50;color:#9b9ba1}
 html[data-theme="dark"] .danger{color:#ff6b6b;border-color:#ff6b6b}
-html[data-theme="dark"] .btn2{color:#FF9A2E}
+html[data-theme="dark"] .btn2{color:#FF5A5F}
 html[data-theme="dark"] .xd-yes{color:#ff6b6b;border-color:#5a2a26!important}
 /* الأسعار والبرتقالي: أفتح شوية عشان تبان على الأسود (الذهبي والبرتقالي الأساسيين زي ما هم) */
 html[data-theme="dark"] .pr,html[data-theme="dark"] .pp .pv,html[data-theme="dark"] .pc .rp .pv,
-html[data-theme="dark"] .ord b,html[data-theme="dark"] .total span:last-child{color:#FF9A2E}
+html[data-theme="dark"] .ord b,html[data-theme="dark"] .total span:last-child{color:#FF5A5F}
 html[data-theme="dark"] .all{color:var(--gold)}
 /* صور المنتجات تفضل على خلفية بيضا زي الصور الأصلية */
 
