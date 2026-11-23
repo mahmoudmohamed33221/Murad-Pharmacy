@@ -28,7 +28,7 @@ var ARRIVE_M = 25;                  // المندوب "وصل" لما يفضل �
 
 var SCRIPT_VERSION = "murad-rider-2026-11-13";
 var MAX_ACTIVE = 3;                 // أقصى عدد طلبات ممكن الطيار الواحد يكون شايلها في نفس الوقت (غيّره لو عايز)
-var FCM_CHANNEL = "murad_orders_v1"; // لازم يطابق قناة الإشعارات في تطبيق الطيار
+var FCM_CHANNEL = "ouf_orders_v2"; // لازم يطابق قناة الإشعارات في تطبيق الطيار
 var LOGIN_MAX_FAILS = 8;            // محاولات دخول غلط قبل القفل المؤقت (10 دقايق)
 var VEHICLES = ["موتوسيكل", "عجلة كهربائية", "عجلة عادية", "سكوتر"];
 
@@ -406,6 +406,7 @@ function onEdit(e) {
         if (isTrue_(rg.getValue())) stageNotify_(sh, r, c === O.ACCEPT ? "accepted" : (c === O.PREP ? "prep" : "deliv"));   // تعليم يدوي من الشيت برضه بيوصّل للعميل
       }
     } else if (OFFER_TABS.indexOf(nm) >= 0) {
+      priceEdit_(sh, r, c);
       offerEdit_(e, sh, r, c);
     } else if (nm === PIL_TAB) {
       if (c === P.REQ && String(rg.getValue()).trim() === "مقبول" && !sh.getRange(r, P.REQ_AT).getValue()) {
@@ -416,16 +417,88 @@ function onEdit(e) {
   } catch (err) {}
 }
 
-// تعديل في ورقة منتجات: لو عمود "حالة العرض" اتغيّر لـ "تشغيل" => الصف يطلع لأول الشيت (اختياري) والعرض يتبعت لكل العملاء فورًا بتفاصيله
+// ===== أسعار العلبة والشريط: الفاصلة العشرية تبقى نقطة بالشكل 00.00 (بتتحوّل لوحدها لما تكتب/تعدّل في الخلية، ودالة fixPriceDots بتصلّح اللي موجود) =====
+function priceText_(v) {
+  if (v === "" || v == null) return null;
+  if (typeof v === "number") return isFinite(v) ? v.toFixed(2) : null;
+  var s = String(v).replace(/[٠-٩]/g, function (x) { return "٠١٢٣٤٥٦٧٨٩".indexOf(x); }).replace(/[۰-۹]/g, function (x) { return "۰۱۲۳۴۵۶۷۸۹".indexOf(x); }).replace(/٫/g, ".").replace(/٬/g, ",").replace(/\s+/g, "").replace(/[^\d.,]/g, "");
+  if (!/\d/.test(s)) return null;
+  var d = s.lastIndexOf("."), c = s.lastIndexOf(",");
+  if (d > -1 && c > -1) { var dec = d > c ? "." : ","; s = s.split(dec === "." ? "," : ".").join("").replace(dec, "."); }
+  else if (c > -1) { var p = s.split(","); s = (p.length === 2 && p[1].length <= 2) ? p[0] + "." + p[1] : p.join(""); }
+  else if (d > -1) { var q = s.split("."); if (q.length > 2) s = q.slice(0, -1).join("") + "." + q[q.length - 1]; }
+  var n = parseFloat(s); return isFinite(n) ? n.toFixed(2) : null;
+}
+function isPriceHeader_(h) { var n = arNorm_(h); return /سعر/.test(n) && !/عرض|اوفر|offer|لينك|رابط|صور/.test(n); }
+function priceHeaderRow_(sh) {
+  var lc = sh.getLastColumn(), ln = Math.min(6, sh.getLastRow());
+  for (var r = 1; r <= ln; r++) { var v = sh.getRange(r, 1, 1, lc).getDisplayValues()[0]; if (v.filter(function (x) { return offKey_(x); }).length >= 2) return { hr: r, hdr: v }; }
+  return null;
+}
+function fixPriceDots() {
+  var ss = ssOpen_();
+  OFFER_TABS.forEach(function (tab) {
+    var sh = ss.getSheetByName(tab); if (!sh) { Logger.log("⚠️ مفيش ورقة اسمها " + tab); return; }
+    var f = priceHeaderRow_(sh); if (!f) { Logger.log("⚠️ " + tab + ": ملقيتش صف العناوين"); return; }
+    var n = sh.getLastRow() - f.hr; if (n < 1) return;
+    f.hdr.forEach(function (h, i) {
+      if (!isPriceHeader_(h)) return;
+      var rg = sh.getRange(f.hr + 1, i + 1, n, 1), vals = rg.getValues(), out = [], ch = 0;
+      for (var k = 0; k < n; k++) { var t = priceText_(vals[k][0]); if (t == null) out.push([vals[k][0]]); else { out.push([t]); if (String(vals[k][0]) !== t) ch++; } }
+      rg.setNumberFormat("@").setValues(out);
+      Logger.log("✅ " + tab + " / " + h + ": اتصلّح " + ch + " سعر");
+    });
+  });
+}
+function priceEdit_(sh, r, c) {
+  try {
+    var f = priceHeaderRow_(sh); if (!f || r <= f.hr || !isPriceHeader_(f.hdr[c - 1])) return;
+    var cell = sh.getRange(r, c), t = priceText_(cell.getValue());
+    if (t != null && String(cell.getDisplayValue()) !== t) cell.setNumberFormat("@").setValue(t);
+  } catch (e) {}
+}
+
+// بصمة العرض + تسجيله في ورقة "العروض المُرسلة" (علشان فحص الـ 5 دقايق ماكررش نفس الإشعار)
+function offSig_(p) { return [p.disc, p.bx, p.bxn, p.min, p.inc, p.op, p.text].join("~"); }
+function noffUpsert_(key, sig) {
+  var sh = noffSheet_(ssOpen_()), n = sh.getLastRow(), v = n >= 2 ? sh.getRange(2, 1, n - 1, 1).getDisplayValues() : [], at = 0;
+  for (var i = 0; i < v.length; i++) if (String(v[i][0]) === key) { at = i + 2; break; }
+  sh.getRange(at || (Math.max(n, 1) + 1), 1, 1, 2).setNumberFormat("@").setValues([[key, sig]]);
+}
+function noffRemove_(key) {
+  try {
+    var sh = noffSheet_(ssOpen_()), n = sh.getLastRow(); if (n < 2) return;
+    var v = sh.getRange(2, 1, n - 1, 1).getDisplayValues();
+    for (var i = v.length - 1; i >= 0; i--) if (String(v[i][0]) === key) sh.deleteRow(i + 2);
+  } catch (e) {}
+}
+// بيبعت العرض ده لكل العملاء دلوقتي (حتى لو اتبعت قبل كده)
+function sendOfferNow_(key) {
+  var lock = LockService.getScriptLock(); if (!lock.tryLock(20000)) return;
+  var p = null;
+  try {
+    var offers = readOffers_();
+    for (var i = 0; i < offers.length; i++) if (offKeyOf_(offers[i]) === key) { p = offers[i]; break; }
+    if (p) noffUpsert_(key, offSig_(p));
+  } finally { try { lock.releaseLock(); } catch (x) {} }
+  if (!p) { nlog_("كل العملاء", "offer_" + key, "عرض", "⚠️ اتحوّل لتشغيل بس مفيش عليه عرض (خصم / سعر عرض / قطعة إضافية / نص عرض) فمفيش إشعار"); return; }
+  sendToAllCustomers_(OFFER_TITLE_, offerBody_(p), "offer_" + key, { type: "offer", id: p.id || "" }, p.imgs);
+  rotMark_([key]);
+}
+// تعديل في ورقة منتجات: عمود "حالة العرض" اتغيّر لـ "تشغيل" => الصف يطلع لأول الشيت (اختياري) والعرض يتبعت لكل العملاء فورًا بتفاصيله، وفي كل مرة تحوّله من إيقاف لتشغيل بيتبعت تاني. تحويله لإيقاف بيشيله من الدوران
 function offerEdit_(e, sh, r, c) {
-  var lc = sh.getLastColumn(), hr = 0, key = "";
-  for (var i = 1; i <= Math.min(6, sh.getLastRow()); i++) { var h = sh.getRange(i, c).getDisplayValue(); if (offKey_(h) === "ostate") { hr = i; key = "ostate"; break; } }
+  var lc = sh.getLastColumn(), hr = 0;
+  for (var i = 1; i <= Math.min(6, sh.getLastRow()); i++) { if (offKey_(sh.getRange(i, c).getDisplayValue()) === "ostate") { hr = i; break; } }
   if (!hr || r <= hr) return;
-  var nv = sh.getRange(r, c).getValue(), ov = e && e.oldValue != null ? e.oldValue : "";
-  if (!offerIsOn_(nv) || offerIsOn_(ov)) return;                          // مش تحويل من إيقاف لتشغيل
+  var keys = sh.getRange(hr, 1, 1, lc).getDisplayValues()[0].map(offKey_), rv = sh.getRange(r, 1, 1, lc).getDisplayValues()[0];
+  var id = keys.indexOf("id") >= 0 ? String(rv[keys.indexOf("id")] || "").trim() : "", nm = keys.indexOf("name") >= 0 ? String(rv[keys.indexOf("name")] || "").trim() : "";
+  var key = id || ("n:" + arNorm_(nm)); if (key === "n:") return;
+  var wasOn = offerIsOn_(e && e.oldValue != null ? e.oldValue : ""), isOn = offerIsOn_(sh.getRange(r, c).getValue());
+  if (wasOn && !isOn) { noffRemove_(key); return; }
+  if (!isOn || wasOn) return;                                              // مش تحويل من إيقاف لتشغيل
   if (OFFER_MOVE_TO_TOP && r > hr + 1) { try { sh.moveRows(sh.getRange(r, 1, 1, 1), hr + 1); } catch (x) {} }
   SpreadsheetApp.flush();
-  checkNewOffers();                                                       // بيبعت العرض الجديد فورًا (من غير ما نستنى فحص الـ 5 دقايق)
+  sendOfferNow_(key);                                                      // إشعار فوري لكل العملاء
 }
 
 // شغّلها مرة واحدة من المحرر: بتضيف عمود "حالة العرض" بعد "لينك العرض" في ورقتي الأدوية والعناية، وتخلّي كل المنتجات "ايقاف" (مع قائمة اختيار تشغيل/ايقاف)
@@ -959,7 +1032,7 @@ function fcmBody_(token, title, body, tag, data, image, channel) {
   var web = PropertiesService.getScriptProperties().getProperty("RIDER_WEB_URL") || "";
   var dd = {}; for (var k in (data || {})) dd[k] = String(data[k]);
   var m = { token: token, notification: { title: title, body: body }, data: dd,
-    android: { priority: channel === BRAND_CH_QUIET_ ? "NORMAL" : "HIGH", ttl: "300s", notification: { channelId: channel || FCM_CHANNEL, sound: "default", tag: tag || "" } },
+    android: { priority: "HIGH", ttl: "300s", notification: { channelId: channel || FCM_CHANNEL, sound: "default", defaultSound: true, defaultVibrateTimings: true, notificationPriority: "PRIORITY_MAX", visibility: "PUBLIC", tag: tag || "" } },
     webpush: { headers: { Urgency: "high", TTL: "300" }, notification: { tag: tag || "", requireInteraction: true } } };
   if (/^https:\/\//.test(image || "")) { m.notification.image = image; m.webpush.notification.image = image; }   // صورة كبيرة في الإشعار (بتظهر لما يتفرد)
   if (/^https:\/\//.test(web)) { m.webpush.fcm_options = { link: web }; m.webpush.notification.icon = web.replace(/\/?$/, "/") + "assets/icons/icon-192.png"; }
@@ -1360,7 +1433,7 @@ var BRAND_ON = true;                       // false = يقفل رسائل الص
 var BRAND_EVERY_HOURS = 3;                 // الساعات 12 ص، 3، 6، 9، 12، 3، 6، 9 (8 مرات في اليوم) بتوقيت القاهرة
 var BRAND_QUIET_FROM_HOUR = 23;            // من 11 بالليل لحد 9 الصبح بتتبعت على قناة هادية (من غير صوت) علشان متصحّيش حد
 var BRAND_QUIET_TO_HOUR = 9;
-var BRAND_CH_ = "murad_brand_v1", BRAND_CH_QUIET_ = "murad_brand_quiet_v1";   // لازم يطابقوا القنوات اللي التطبيق بيعملها
+var BRAND_CH_ = "ouf_brand_v2", BRAND_CH_QUIET_ = "ouf_brand_quiet_v2";   // لازم يطابقوا القنوات اللي التطبيق بيعملها
 var BRAND_MSGS_ = [
   { t: "صيدلية عوف", b: "صحتك أولويتنا. اطلب دواءك من التطبيق ويوصلك لحد بيتك." },
   { t: "اختيارك الأفضل لدوائك", b: "في صيدلية عوف بنهتم بكل طلب، وبنختار لك الأفضل بجودة تثق فيها." },
