@@ -208,7 +208,7 @@ function doGet(e) {
 }
 // الإجراءات اللي بتقرا بس (من غير قفل) علشان تطبيق الطيار بيسأل كل كام ثانية ومينفعش يتزاحم على القفل
 var RIDER_READ = { pilotLogin: 1, riderOrders: 1 };
-var RIDER_WRITE = { pilotRegister: 1, riderAccept: 1, riderStage: 1, riderRelease: 1, riderEta: 1, riderShift: 1, riderToken: 1, riderNear: 1, riderNotify: 1 };
+var RIDER_WRITE = { pilotRegister: 1, riderAccept: 1, riderStage: 1, riderRelease: 1, riderEta: 1, riderShift: 1, riderToken: 1, riderNear: 1, riderNotify: 1, riderRoute: 1 };
 var LATER_ = [], INPOST_ = false;
 function later_(fn) { if (INPOST_) LATER_.push(fn); else { try { fn(); } catch (x) {} } }      // شغل بيتنفّذ بعد ما القفل يتفك (زي إرسال الإشعارات) علشان ميأخرش باقي الطلبات
 function withLock_(fn) { var lock = LockService.getScriptLock(); lock.waitLock(20000); try { return fn(); } finally { try { lock.releaseLock(); } catch (x) {} } }
@@ -229,6 +229,7 @@ function doPost_(e) {
     if (a === "riderShift") return out_(riderShift_(d));
     if (a === "riderToken") return out_(riderToken_(d));
     if (a === "riderNear") return out_(riderNear_(d));
+    if (a === "riderRoute") return out_(riderRoute_(d));
     if (a === "riderEta") return out_(riderEta_(d));
     if (a === "riderNotify") return out_(riderNotify_(d));
     if (a === "custToken") return out_({ ok: withLock_(function () { return saveCustToken_(ssOpen_(), d.cids, d.token, d.phone, d.device); }) });
@@ -400,7 +401,7 @@ function onEdit(e) {
         }
         else sh.getRange(r, O.PPHONE).setNumberFormat("@").setValue("");
       }
-      if (c === O.CLOC || c === O.SLOC || c === O.RATE) sh.getRange(r, O_SIG).clearContent();   // اللوكيشن/الصيدلية/التسعيرة اتغيروا: التوصيل يتحسب تاني لوحده
+      if (c === O.CLOC || c === O.SLOC || c === O.RATE) locEdit_(sh, r, c);   // اللوكيشن/الصيدلية/التسعيرة اتغيروا: التوصيل والمسافة يتحسبوا فورًا
       if (c === O.ACCEPT || c === O.PREP || c === O.DELIV) {
         styleOrderRow_(sh, r);
         if (isTrue_(rg.getValue())) stageNotify_(sh, r, c === O.ACCEPT ? "accepted" : (c === O.PREP ? "prep" : "deliv"));   // تعليم يدوي من الشيت برضه بيوصّل للعميل
@@ -552,22 +553,70 @@ var PRICE_BUDGET_ = 2;   // أقصى عدد طلبات بنعيد تسعيرها
 function inEgypt_(la, lo) { return isFinite(la) && isFinite(lo) && la >= 21 && la <= 33 && lo >= 24 && lo <= 37.5; }
 function hash_(t) { var h = 5381; t = String(t); for (var i = 0; i < t.length; i++) h = ((h << 5) + h + t.charCodeAt(i)) | 0; return (h >>> 0).toString(36) + "_" + t.length; }
 // بيفهم كل صيغ لينكات جوجل مابس: !3d..!4d.. (دبوس المكان) ← q= / ll= / destination= ← /place/lat,lng ← @lat,lng (مركز الشاشة) ← geo: ← "lat,lng" لوحدها
+// ===== صيغ اللوكيشن اللي بنفهمها: لينكات جوجل (طويلة/مختصرة/من المتصفح/تطبيق)، Apple Maps، Waze، geo:، إحداثيات بالأرقام العربي أو الإنجليزي، درجات/دقايق/ثواني (DMS)، Plus Code (كامل أو مختصر) =====
+var OLC_ = "23456789CFGHJMPQRVWX";
+function olcEncode_(lat, lng) {
+  lat = Math.min(Math.max(lat, -90), 90) + 90; lng = ((lng + 180) % 360 + 360) % 360;
+  var res = [20, 1, 0.05, 0.0025, 0.000125], out = "";
+  for (var i = 0; i < 5; i++) { var a = Math.floor(lat / res[i]), b = Math.floor(lng / res[i]); lat -= a * res[i]; lng -= b * res[i]; out += OLC_.charAt(a) + OLC_.charAt(b); }
+  return out.slice(0, 8) + "+" + out.slice(8);
+}
+function olcDecode_(code, ref) {
+  code = String(code).toUpperCase().replace(/\s+/g, ""); var p = code.indexOf("+"); if (p < 0) return null;
+  var full = code;
+  if (p < 8) { if (!ref) return null; full = olcEncode_(ref.lat, ref.lng).slice(0, 8 - p) + code; }
+  var d = full.replace("+", ""), res = [20, 1, 0.05, 0.0025, 0.000125], lat = -90, lng = -180, last = 0;
+  for (var i = 0; i < Math.min(d.length, 10) / 2; i++) {
+    var a = OLC_.indexOf(d.charAt(2 * i)), b = OLC_.indexOf(d.charAt(2 * i + 1)); if (a < 0 || b < 0) return null;
+    lat += a * res[i]; lng += b * res[i]; last = res[i];
+  }
+  return { lat: lat + last / 2, lng: lng + last / 2 };
+}
 function parseCoords_(t) {
-  t = String(t || "");
+  t = String(t || "").replace(/[٠-٩]/g, function (x) { return "٠١٢٣٤٥٦٧٨٩".indexOf(x); }).replace(/[۰-۹]/g, function (x) { return "۰۱۲۳۴۵۶۷۸۹".indexOf(x); }).replace(/٫/g, ".").replace(/،/g, ",");
   var vs = [t]; try { var d = decodeURIComponent(t); if (d !== t) vs.push(d); } catch (e) {}
+  var ok = function (la, ln) { la = +la; ln = +ln; return inEgypt_(la, ln) ? { lat: la, lng: ln } : null; };
   var pats = [
     /!3d(-?\d{1,3}\.\d+)!4d(-?\d{1,3}\.\d+)/,
-    /[?&](?:q|ll|query|destination|daddr|saddr|sll|center)=(?:loc:|geo:)?\s*(-?\d{1,3}\.\d+)\s*[,،]\s*(-?\d{1,3}\.\d+)/,
+    /[?&#](?:q|ll|query|destination|daddr|saddr|sll|center|coordinate|coord|latlng|dest|to)=(?:loc:|geo:)?\s*(-?\d{1,3}\.\d+)\s*[,;]\s*(-?\d{1,3}\.\d+)/i,
+    /[?&](?:lat|latitude)=(-?\d{1,3}\.\d+)&(?:lng|lon|long|longitude)=(-?\d{1,3}\.\d+)/i,
     /geo:(-?\d{1,3}\.\d+),\s*(-?\d{1,3}\.\d+)/,
-    /\/(?:place|search|dir)\/(?:[^\/@?]*\/)?(-?\d{1,3}\.\d{3,}),\s*(-?\d{1,3}\.\d{3,})/,
+    /\/(?:place|search|dir|maps|ll)\/(?:[^\/@?]*\/)?(-?\d{1,3}\.\d{3,}),\s*(-?\d{1,3}\.\d{3,})/,
     /@(-?\d{1,3}\.\d+),\s*(-?\d{1,3}\.\d+)/,
-    /^\s*(-?\d{1,3}\.\d{3,})\s*[,،;\s]\s*(-?\d{1,3}\.\d{3,})\s*$/
+    /^\s*(-?\d{1,3}\.\d{3,})\s*[,;\s]\s*(-?\d{1,3}\.\d{3,})\s*$/,
+    /(?:^|[^\d.])(-?\d{1,3}\.\d{4,})\s*°?\s*N?\s*[,;\s]\s*(-?\d{1,3}\.\d{4,})\s*°?\s*E?(?![\d.])/i
   ];
-  for (var v = 0; v < vs.length; v++) for (var i = 0; i < pats.length; i++) {
-    var m = vs[v].match(pats[i]);
-    if (m && inEgypt_(+m[1], +m[2])) return { lat: +m[1], lng: +m[2] };
+  for (var v = 0; v < vs.length; v++) {
+    for (var i = 0; i < pats.length; i++) { var m = vs[v].match(pats[i]); var r = m && ok(m[1], m[2]); if (r) return r; }
+    var m2 = vs[v].match(/!1d(-?\d{1,3}\.\d+)!2d(-?\d{1,3}\.\d+)/); var r2 = m2 && ok(m2[2], m2[1]); if (r2) return r2;          // ترتيب (طول،عرض) في روابط الاتجاهات
+    var dm = vs[v].match(/(\d{1,2})\s*°\s*(\d{1,2})\s*['′]\s*(\d{1,2}(?:\.\d+)?)\s*(?:"|″|'')?\s*([NS])?[\s,;]*(\d{1,3})\s*°\s*(\d{1,2})\s*['′]\s*(\d{1,2}(?:\.\d+)?)\s*(?:"|″|'')?\s*([EW])?/i);
+    if (dm) {
+      var la = +dm[1] + dm[2] / 60 + dm[3] / 3600, ln = +dm[5] + dm[6] / 60 + dm[7] / 3600;
+      if (/s/i.test(dm[4] || "")) la = -la; if (/w/i.test(dm[8] || "")) ln = -ln;
+      var r3 = ok(la, ln); if (r3) return r3;
+    }
+    var pc = vs[v].match(/(?:^|[\s(,:])((?:[23456789CFGHJMPQRVWX]{2,8})\+[23456789CFGHJMPQRVWX]{2,3})(?=$|[\s,)])/i);
+    if (pc) { var o = olcDecode_(pc[1], STORE_COORDS); var r4 = o && ok(o.lat, o.lng); if (r4) return r4; }
   }
   return null;
+}
+// تعديل يدوي في الشيت على اللوكيشن (عميل/صيدلية) أو التسعيرة: بنفهم أي صيغة لوكيشن، ونحسب المسافة والتوصيل والإجمالي فورًا، ونصفّر الوصول والمواعيد
+function locEdit_(sh, r, c) {
+  var ss = sh.getParent(), bon = Number(sh.getRange(r, O.BON).getValue()) || 0;
+  sh.getRange(r, O_SIG).clearContent();
+  try {
+    if (c === O.CLOC) {
+      var raw = String(sh.getRange(r, O.CLOC).getValue() || "").trim();
+      if (raw) {
+        var link = normLoc_(raw); if (link !== raw) sh.getRange(r, O.CLOC).setValue(link);
+        afterLocation_(ss, sh, r, normPhone_(sh.getRange(r, O.PHONE).getDisplayValue()), link);      // بيحوّل اللينك لإحداثيات دقيقة ويحدّث ورقة العملاء
+      }
+    }
+    sh.getRange(r, O_ARR).clearContent(); sh.getRange(r, O.SHOP_ETA).setValue(""); sh.getRange(r, O.CUST_ETA).setValue("");
+    var cache = CacheService.getScriptCache(); cache.remove("pf_" + bon); cache.remove("near_" + bon);
+    SpreadsheetApp.flush();
+    priceOrder_(sh, r);
+  } catch (e) {}
 }
 function bodyCoords_(b) {          // إحداثيات من صفحة جوجل نفسها (لو اللينك مرجعش تحويل)
   var m = String(b).match(/!3d(-?\d{1,3}\.\d+)!4d(-?\d{1,3}\.\d+)/) || String(b).match(/"latitude"\s*:\s*(-?\d{1,3}\.\d+)\s*,\s*"longitude"\s*:\s*(-?\d{1,3}\.\d+)/) ||
@@ -882,7 +931,7 @@ function notifyStageOnce_(bon, kind, phone, who) {
   try {
     var cache = CacheService.getScriptCache(), ck = "ntf_" + bon + "_" + kind + "_" + phone;
     if (cache.get(ck)) return;
-    cache.put(ck, "1", 600);
+    cache.put(ck, "1", 20);
     var ss = ssOpen_(), sh = ordersSheet_(ss), r = rowByBon_(sh, bon);
     if (!r) { var arc = ss.getSheetByName(ARC_TAB); if (arc) { sh = arc; r = rowByBon_(sh, bon); } }
     if (r) stageNotify_(sh, r, kind, who);
@@ -974,6 +1023,37 @@ function riderShift_(d) {
   return { ok: true, working: want };
 }
 
+// مسافة + وقت الطريق من مكان الطيار لهدفه (الصيدلية/العميل): التطبيق بيسأل كل ~15 ثانية وبين كل مرة بيحدّث الوقت كل 5 ثواني بالتناسب
+function routeInfo_(a, b) {
+  var cache = CacheService.getScriptCache(), key = "ri_" + [a.lat.toFixed(4), a.lng.toFixed(4), b.lat.toFixed(5), b.lng.toFixed(5)].join("_"), c = cache.get(key);
+  if (c) { var p = c.split(","); return { m: +p[0], s: +p[1] }; }
+  var m = -1, s = 0;
+  try {
+    var res = Maps.newDirectionFinder().setOrigin(a.lat, a.lng).setDestination(b.lat, b.lng).setMode(Maps.DirectionFinder.Mode.DRIVING).setRegion("eg").setLanguage("ar").getDirections();
+    if (res && res.status === "OK" && res.routes && res.routes.length) { m = 0; (res.routes[0].legs || []).forEach(function (l) { m += (l.distance && l.distance.value) || 0; s += (l.duration && l.duration.value) || 0; }); }
+  } catch (e) {}
+  if (m < 0) {
+    try {
+      var rr = UrlFetchApp.fetch("https://router.project-osrm.org/route/v1/driving/" + a.lng + "," + a.lat + ";" + b.lng + "," + b.lat + "?overview=false&steps=false", { muteHttpExceptions: true });
+      if (rr.getResponseCode() === 200) { var j = JSON.parse(rr.getContentText()); if (j && j.routes && j.routes.length) { m = Number(j.routes[0].distance) || 0; s = Number(j.routes[0].duration) || 0; } }
+    } catch (e2) {}
+  }
+  if (m >= 0) cache.put(key, m + "," + s, 10);
+  return { m: m, s: s };
+}
+function riderRoute_(d) {
+  var a = authPilot_(d); if (a.code !== "ok") return authFail_(a);
+  var sh = ordersSheet_(ssOpen_()), r = rowByBon_(sh, d.bon);
+  if (!r) return { ok: false, status: "gone" };
+  var rv = rowVals_(sh, r);
+  if (!isMine_(rv, a.phone)) return { ok: false, status: "not_yours" };
+  var lat = Number(d.lat), lng = Number(d.lng); if (!inEgypt_(lat, lng)) return { ok: false, status: "invalid" };
+  var target = d.stage === "shop" ? storeCoords_(rv[O.SLOC - 1]) : coordsOfLink_(rv[O.CLOC - 1]);
+  if (!target) return { ok: true, status: "noloc" };
+  var ri = routeInfo_({ lat: lat, lng: lng }, target); if (ri.m < 0) return { ok: true, status: "noroute" };
+  return { ok: true, m: Math.round(ri.m), s: Math.round(ri.s) };
+}
+
 // المندوب قرّب من العميل؟ بنحسب مسافة الطريق (مش خط مستقيم) من مكانه لموقع العميل. لو ≤ 25 متر نسجّل "وصل" والعميل يشوفها
 function riderNear_(d) {
   var a = authPilot_(d); if (a.code !== "ok") return authFail_(a);
@@ -984,7 +1064,7 @@ function riderNear_(d) {
   var lat = Number(d.lat), lng = Number(d.lng);
   if (!inEgypt_(lat, lng)) return { ok: false, status: "invalid" };
   var cache = CacheService.getScriptCache(); if (cache.get("near_" + d.bon)) return { ok: true, throttled: true, arrived: !!rv[O_ARR - 1] };
-  cache.put("near_" + d.bon, "1", 8);
+  cache.put("near_" + d.bon, "1", 4);
   var cust = coordsOfLink_(rv[O.CLOC - 1]); if (!cust) return { ok: true, status: "noloc" };
   var m = routeMeters_({ lat: lat, lng: lng }, cust, false); if (m < 0) return { ok: true, status: "noroute" };
   var was = !!rv[O_ARR - 1];
@@ -1006,7 +1086,7 @@ function riderNotify_(d) {
   if (!r) return { ok: false, status: "gone" };
   if (normPhone_(sh.getRange(r, O.PPHONE).getDisplayValue()) !== a.phone) return { ok: false, status: "not_yours" };
   if (!isTrue_(sh.getRange(r, need).getValue())) return { ok: false, status: "not_set" };
-  cache.put(ck, "1", 600);
+  cache.put(ck, "1", 20);
   stageNotify_(sh, r, kind, String(a.v[P.NAME - 1]));
   return { ok: true };
 }
