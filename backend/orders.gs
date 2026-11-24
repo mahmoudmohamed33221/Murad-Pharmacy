@@ -695,6 +695,29 @@ function rateOf_(rv) { var r = Number(rv[O.RATE - 1]); return rv[O.RATE - 1] ===
 function sigOf_(rv) { return String(rv[O.CLOC - 1] || "").trim() + "|" + String(rv[O.SLOC - 1] || "").trim() + "|" + rateOf_(rv); }
 function needsPrice_(rv) { return String(rv[O_SIG - 1]) !== sigOf_(rv); }
 function bareName_(v) { var t = String(v == null ? "" : v).trim(), i = t.lastIndexOf(" - "); return i > 0 ? t.slice(0, i).trim() : t; }
+// ===== تسعيرة التوصيل بالمتر =====
+// أول كيلو: 5 جنيه لحد 333 متر، وبعدها بيعلى بالتناسب لحد 15 جنيه عند 1000 متر (يعني 15 جنيه لكل كيلو في أول كيلو، وبحد أدنى 5).
+// بعد 1000 متر: 10 جنيه لكل كيلو (2 كيلو = 20 جنيه). FEE_NO_DROP_ = true بيمنع إن السعر ينزل عن 15 بعد الكيلو الأول (من غيره 1.001 كم هتبقى 10 جنيه بس).
+// لو كتبت في عمود "تسعيرة الكيلو" رقم غير 10 للأوردر ده: بيتحسب الكيلو بالرقم ده بس (زي الأول). 10 = الافتراضي = التسعيرة الجديدة.
+var FEE_MIN_ = 5, FEE_FIRST_KM_ = 15, FEE_PER_KM_ = 10, FEE_NO_DROP_ = true;
+function feeForMeters_(meters, rate) {
+  var km = meters / 1000;
+  if (Number(rate) !== KM_RATE) return Math.round(km * Number(rate));
+  if (meters <= 1000) return Math.max(FEE_MIN_, Math.round(km * FEE_FIRST_KM_));
+  var f = km * FEE_PER_KM_;
+  return Math.round(FEE_NO_DROP_ ? Math.max(FEE_FIRST_KM_, f) : f);
+}
+// false = نفس الطريق اللي خرائط جوجل بتعرضه بالظبط (الموصى بيه). true = أطول طريق من البدائل (كان الوضع القديم، وبيطلع كيلومترات أكتر)
+var ROUTE_LONGEST_ = false;
+// شغّلها مرة واحدة من المحرر: بتخلّي كل الطلبات المفتوحة تتحسب مسافتها وتوصيلها تاني بالطريق الصح
+function repriceOpenOrders() {
+  var sh = ordersSheet_(ssOpen_()), n = sh.getLastRow(); if (n < 2) return;
+  var done = sh.getRange(2, O.DONE, n - 1, 1).getValues(), cleared = 0;
+  for (var i = 0; i < done.length; i++) if (!isTrue_(done[i][0])) { sh.getRange(i + 2, O_SIG).clearContent(); cleared++; }
+  var cache = CacheService.getScriptCache();
+  for (var r = 2; r <= n; r++) { try { priceOrder_(sh, r); } catch (e) {} }
+  Logger.log("✅ اتحسبت تاني " + cleared + " طلب مفتوح");
+}
 // بيحسب التوصيل = مسافة الطريق (كم) × تسعيرة الكيلو، ويكتبهم في الشيت. بيتنفذ لوحده لما اللوكيشن أو الصيدلية أو التسعيرة تتغير
 function priceOrder_(sh, r) {
   var rv = sh.getRange(r, 1, 1, O_ARR).getValues()[0], bon = Number(rv[O.BON - 1]) || 0;
@@ -703,10 +726,11 @@ function priceOrder_(sh, r) {
   var cloc = String(rv[O.CLOC - 1] || "").trim(), rate = rateOf_(rv), goods = goodsOf_(rv), km = 0, fee = 0, ok = true;
   if (cloc) {
     var a = storeCoords_(rv[O.SLOC - 1]), b = coordsOfLink_(cloc);
-    if (a && b) { var m = routeMeters_(a, b, true); if (m >= 0) { km = Math.round(m) / 1000; fee = Math.round(km * rate); } else ok = false; } else ok = false;
+    if (a && b) { var m = routeMeters_(a, b, ROUTE_LONGEST_); if (m >= 0) { var meters = Math.round(m); km = meters / 1000; fee = feeForMeters_(meters, rate); } else ok = false; } else ok = false;
   }
   if (!ok) { cache.put("pf_" + bon, "1", 40); return false; }      // فشل: نستنى شوية ونجرب تاني (من غير ما نبطّأ الباقي)
   sh.getRange(r, O_KM, 1, 3).setValues([[km, fee, goods]]);
+  try { sh.getRange(r, O_KM).setNumberFormat("0.000"); sh.getRange(r, O_FEE).setNumberFormat("0"); } catch (e) {}   // المسافة بالمتر بالظبط (3 أرقام بعد العلامة)
   sh.getRange(r, O_SIG).setValue(sigOf_(rv));
   sh.getRange(r, O.TOTAL).setValue(totalText_(goods, fee));
   return true;
