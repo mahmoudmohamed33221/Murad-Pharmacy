@@ -651,7 +651,7 @@ function resolveMapsLink_(url) {
 function coordsOfLink_(link) {
   link = String(link || "").trim(); if (!link) return null;
   var c = parseCoords_(link); if (c) return c;
-  if (/^https?:/i.test(link)) { try { return resolveMapsLink_(link); } catch (e) {} }
+  if (/^https?:/i.test(link)) { for (var k = 0; k < 2; k++) { try { var rr = resolveMapsLink_(link); if (rr) return rr; } catch (e) {} if (k === 0) Utilities.sleep(400); } }
   return null;
 }
 function storeCoords_(sloc) {
@@ -660,28 +660,40 @@ function storeCoords_(sloc) {
   return coordsOfLink_(sloc) || (sloc === STORE_LOCATION ? STORE_COORDS : null);
 }
 // مسافة الطريق بالمتر (عربية/موتوسيكل على الطرق مش خط مستقيم). longest=true: لو في أكتر من طريق ناخد الأطول زي ما طلبت
-function routeMeters_(a, b, longest) {
-  var cache = CacheService.getScriptCache(), key = "rt_" + [a.lat.toFixed(5), a.lng.toFixed(5), b.lat.toFixed(5), b.lng.toFixed(5), longest ? 1 : 0].join("_"), c = cache.get(key);
-  if (c) return Number(c);
-  var best = -1, pick = function (m) { if (best < 0 || (longest ? m > best : m < best)) best = m; };
-  try {
-    var f = Maps.newDirectionFinder().setOrigin(a.lat, a.lng).setDestination(b.lat, b.lng).setMode(Maps.DirectionFinder.Mode.DRIVING).setRegion("eg").setLanguage("ar");
-    if (longest) f.setAlternatives(true);
-    var res = f.getDirections();
-    if (res && res.status === "OK" && res.routes && res.routes.length) {
-      var rs = longest ? res.routes : [res.routes[0]];
-      rs.forEach(function (rt) { var m = 0; (rt.legs || []).forEach(function (l) { m += (l.distance && l.distance.value) || 0; }); pick(m); });
-    }
-  } catch (e) {}
-  if (best < 0) {                                        // احتياطي: OSRM (طرق حقيقية برضه) لو خدمة الخرائط مش متاحة
+// مسافة الطريق بالمتر + مصدرها: G = خرائط جوجل، O = احتياطي OSRM، E = تقدير مؤقت (خط مستقيم × 1.3) لو الاتنين فشلوا (والتطبيق بيعيد المحاولة لوحده ويبدّله بالحقيقي)
+function havM_(a, b) {
+  var R = 6371000, p1 = a.lat * Math.PI / 180, p2 = b.lat * Math.PI / 180, dp = (b.lat - a.lat) * Math.PI / 180, dl = (b.lng - a.lng) * Math.PI / 180;
+  var x = Math.sin(dp / 2) * Math.sin(dp / 2) + Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) * Math.sin(dl / 2);
+  return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
+}
+function routeFull_(a, b, longest) {
+  var cache = CacheService.getScriptCache(), key = "rt2_" + [a.lat.toFixed(5), a.lng.toFixed(5), b.lat.toFixed(5), b.lng.toFixed(5), longest ? 1 : 0].join("_"), c = cache.get(key);
+  if (c) { var cp = c.split("|"); return { m: Number(cp[0]), src: cp[1] || "G" }; }
+  var best = -1, src = "", pick = function (m) { if (best < 0 || (longest ? m > best : m < best)) best = m; };
+  for (var t1 = 0; t1 < 2 && best < 0; t1++) {
+    try {
+      var f = Maps.newDirectionFinder().setOrigin(a.lat, a.lng).setDestination(b.lat, b.lng).setMode(Maps.DirectionFinder.Mode.DRIVING).setRegion("eg").setLanguage("ar");
+      if (longest) f.setAlternatives(true);
+      var res = f.getDirections();
+      if (res && res.status === "OK" && res.routes && res.routes.length) {
+        (longest ? res.routes : [res.routes[0]]).forEach(function (rt) { var m = 0; (rt.legs || []).forEach(function (l) { m += (l.distance && l.distance.value) || 0; }); pick(m); });
+        if (best >= 0) src = "G";
+      }
+    } catch (e) {}
+    if (best < 0 && t1 === 0) Utilities.sleep(350);
+  }
+  for (var t2 = 0; t2 < 2 && best < 0; t2++) {                 // احتياطي: OSRM (طرق حقيقية برضه)
     try {
       var rr = UrlFetchApp.fetch("https://router.project-osrm.org/route/v1/driving/" + a.lng + "," + a.lat + ";" + b.lng + "," + b.lat + "?overview=false&alternatives=" + (longest ? "true" : "false") + "&steps=false", { muteHttpExceptions: true });
-      if (rr.getResponseCode() === 200) { var j = JSON.parse(rr.getContentText()); if (j && j.routes && j.routes.length) (longest ? j.routes : [j.routes[0]]).forEach(function (rt) { pick(Number(rt.distance) || 0); }); }
+      if (rr.getResponseCode() === 200) { var j = JSON.parse(rr.getContentText()); if (j && j.routes && j.routes.length) { (longest ? j.routes : [j.routes[0]]).forEach(function (rt) { pick(Number(rt.distance) || 0); }); if (best >= 0) src = "O"; } }
     } catch (e2) {}
+    if (best < 0 && t2 === 0) Utilities.sleep(350);
   }
-  if (best >= 0) cache.put(key, String(best), longest ? 1800 : 15);
-  return best;
+  if (best < 0) { best = Math.round(havM_(a, b) * 1.3); src = "E"; }
+  cache.put(key, best + "|" + src, src === "E" ? 6 : (longest ? 1800 : 15));
+  return { m: best, src: src };
 }
+function routeMeters_(a, b, longest) { var r = routeFull_(a, b, longest); return r.src === "E" ? -1 : r.m; }
 function fmtNum_(n) { n = Math.round((Number(n) || 0) * 100) / 100; return String(n); }
 function totalText_(goods, fee) { return "ح " + fmtNum_(goods) + " + ت " + fmtNum_(fee) + " = ا " + fmtNum_((Number(goods) || 0) + (Number(fee) || 0)); }
 function goodsOf_(rv) {
@@ -693,7 +705,9 @@ function goodsOf_(rv) {
 function feeOf_(rv) { var f = Number(rv[O_FEE - 1]); return isFinite(f) && f >= 0 ? f : 0; }
 function rateOf_(rv) { var r = Number(rv[O.RATE - 1]); return rv[O.RATE - 1] === "" || !isFinite(r) || r < 0 ? KM_RATE : r; }
 function sigOf_(rv) { return String(rv[O.CLOC - 1] || "").trim() + "|" + String(rv[O.SLOC - 1] || "").trim() + "|" + rateOf_(rv); }
-function needsPrice_(rv) { return String(rv[O_SIG - 1]) !== sigOf_(rv); }
+function sigBase_(s) { s = String(s == null ? "" : s); var i = s.lastIndexOf("|#"); return i >= 0 ? s.slice(0, i) : s; }
+function sigSrc_(s) { s = String(s == null ? "" : s); var i = s.lastIndexOf("|#"); return i >= 0 ? s.slice(i + 2) : ""; }
+function needsPrice_(rv) { var s = rv[O_SIG - 1]; return sigBase_(s) !== sigOf_(rv) || sigSrc_(s) === "E"; }
 function bareName_(v) { var t = String(v == null ? "" : v).trim(), i = t.lastIndexOf(" - "); return i > 0 ? t.slice(0, i).trim() : t; }
 // ===== تسعيرة التوصيل بالمتر =====
 // أول كيلو: 5 جنيه لحد 333 متر، وبعدها بيعلى بالتناسب لحد 15 جنيه عند 1000 متر (يعني 15 جنيه لكل كيلو في أول كيلو، وبحد أدنى 5).
@@ -723,16 +737,17 @@ function priceOrder_(sh, r) {
   var rv = sh.getRange(r, 1, 1, O_ARR).getValues()[0], bon = Number(rv[O.BON - 1]) || 0;
   if (!needsPrice_(rv)) return false;
   var cache = CacheService.getScriptCache(); if (cache.get("pf_" + bon)) return false;
-  var cloc = String(rv[O.CLOC - 1] || "").trim(), rate = rateOf_(rv), goods = goodsOf_(rv), km = 0, fee = 0, ok = true;
+  var cloc = String(rv[O.CLOC - 1] || "").trim(), rate = rateOf_(rv), goods = goodsOf_(rv), km = 0, fee = 0, ok = true, src = "";
   if (cloc) {
     var a = storeCoords_(rv[O.SLOC - 1]), b = coordsOfLink_(cloc);
-    if (a && b) { var m = routeMeters_(a, b, ROUTE_LONGEST_); if (m >= 0) { var meters = Math.round(m); km = meters / 1000; fee = feeForMeters_(meters, rate); } else ok = false; } else ok = false;
+    if (a && b) { var ri = routeFull_(a, b, ROUTE_LONGEST_); src = ri.src; var meters = Math.round(ri.m); km = meters / 1000; fee = feeForMeters_(meters, rate); } else ok = false;
   }
-  if (!ok) { cache.put("pf_" + bon, "1", 40); return false; }      // فشل: نستنى شوية ونجرب تاني (من غير ما نبطّأ الباقي)
+  if (!ok) { cache.put("pf_" + bon, "1", 8); return false; }       // مقدرناش نفهم اللوكيشن: نجرب تاني بعد شوية (لوحده كل دقيقة كمان)
   sh.getRange(r, O_KM, 1, 3).setValues([[km, fee, goods]]);
   try { sh.getRange(r, O_KM).setNumberFormat("0.000"); sh.getRange(r, O_FEE).setNumberFormat("0"); } catch (e) {}   // المسافة بالمتر بالظبط (3 أرقام بعد العلامة)
-  sh.getRange(r, O_SIG).setValue(sigOf_(rv));
+  sh.getRange(r, O_SIG).setValue(sigOf_(rv) + (src ? "|#" + src : ""));      // الحرف بعد |# = مصدر المسافة (G جوجل / O احتياطي / E تقدير مؤقت)
   sh.getRange(r, O.TOTAL).setValue(totalText_(goods, fee));
+  if (src === "E") cache.put("pf_" + bon, "1", 10);
   return true;
 }
 // بيرجّع بيانات الصف بعد التسعيرة (لو محتاج)، من غير ما نتأخر: بحد أقصى طلبين في المرة وبقفل سريع
@@ -907,7 +922,7 @@ function orderTime_(dispD, dispT, rawD, rawT) {
 function orderView_(r, mine, dv) {
   var tm = orderTime_(dv ? dv[O.DATE - 1] : r[O.DATE - 1], dv ? dv[O.TIME - 1] : r[O.TIME - 1], r[O.DATE - 1], r[O.TIME - 1]);
   var o = { bon: Number(r[O.BON - 1]) || 0, day: tm.day, dateTxt: tm.dateTxt, timeTxt: tm.timeTxt, ageMin: tm.ageMin, area: String(r[O.AREA - 1]), items: String(r[O.DETAILS - 1]),
-    total: goodsOf_(r), fee: feeOf_(r), km: Number(r[O_KM - 1]) || 0, note: String(r[O.NOTE - 1] || "") };
+    total: goodsOf_(r), fee: feeOf_(r), km: Number(r[O_KM - 1]) || 0, src: sigSrc_(r[O_SIG - 1]), priced: !needsPrice_(r), note: String(r[O.NOTE - 1] || "") };
   if (mine) {
     o.name = String(r[O.NAME - 1]); o.phone = normPhone_(r[O.PHONE - 1]); o.street = String(r[O.STREET - 1] || ""); o.landmark = String(r[O.LANDMARK - 1] || "");
     o.cloc = String(r[O.CLOC - 1] || ""); o.sloc = String(r[O.SLOC - 1] || ""); o.shopEta = String(r[O.SHOP_ETA - 1] || ""); o.custEta = String(r[O.CUST_ETA - 1] || "");
@@ -1660,11 +1675,26 @@ function testPushToAllRiders() {   // بتبعت إشعار تجريبي لكل 
 
 
 // شغّلها مرة واحدة من المحرر (Run): بتركّب "مشغّل التعديل" علشان اختيار الطيار وأرشفة الأوردر وتتبع الطيار السابق يشتغلوا لوحدهم
+// مشغّل كل دقيقة: بيحسب مسافة وتوصيل أي طلب لسه ماتحسبش (أو اتحسب بتقدير مؤقت)، من غير ما نستنى حد يفتح الطلب
+function sweepPricing_() {
+  var lk = LockService.getScriptLock(); if (!lk.tryLock(5000)) return;
+  try {
+    var sh = ordersSheet_(ssOpen_()), n = sh.getLastRow(); if (n < 2) return;
+    var from = Math.max(2, n - 80), rows = sh.getRange(from, 1, n - from + 1, O_ARR).getValues(), done = 0, t0 = Date.now();
+    for (var i = rows.length - 1; i >= 0 && done < 6 && Date.now() - t0 < 40000; i--) {
+      var rv = rows[i]; if (!(Number(rv[O.BON - 1]) > 0) || isTrue_(rv[O.DONE - 1]) || !String(rv[O.CLOC - 1] || "").trim() || !needsPrice_(rv)) continue;
+      try { priceOrder_(sh, from + i); done++; } catch (e) {}
+    }
+  } finally { try { lk.releaseLock(); } catch (x) {} }
+}
+
 function installTriggers() {
   var ss = ssOpen_();
   ScriptApp.getProjectTriggers().forEach(function (t) { if (t.getHandlerFunction() === "onEdit") ScriptApp.deleteTrigger(t); });
   ScriptApp.newTrigger("onEdit").forSpreadsheet(ss).onEdit().create();
-  Logger.log("✅ تم تركيب مشغّل التعديل");
+  ScriptApp.getProjectTriggers().forEach(function (t) { if (t.getHandlerFunction() === "sweepPricing_") ScriptApp.deleteTrigger(t); });
+  ScriptApp.newTrigger("sweepPricing_").timeBased().everyMinutes(1).create();
+  Logger.log("✅ تم تركيب مشغّل التعديل + مشغّل حساب المسافات (كل دقيقة)");
 }
 
 
