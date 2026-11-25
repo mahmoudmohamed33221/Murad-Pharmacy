@@ -5,7 +5,7 @@ window.APP_CONFIG = {
   BAN_PHONE: "201508800926",   // رقم واتساب اللي بيظهر للعميل المحظور (بصيغة دولية بدون +). 01200000001 = 201200000001
   PHARMACY_PHONE: "201508800926",   // رقم واتساب الصيدلية (واتساب + اتصال) بصيغة دولية بدون +
   CONSULT_PHONE: "201508800926",    // رقم استشاري الصيدلية (واتساب) في الفوتر
-  PHARMACY_LANDLINE: "20224534828", // التليفون الأرضي للصيدلية (0224534828): بيتفتح بزرار "اتصال" في الإعدادات وفي الفوتر
+  PHARMACY_LANDLINE: "201508800926", // التليفون الأرضي للصيدلية (0224534828): بيتفتح بزرار "اتصال" في الإعدادات وفي الفوتر
   CURRENCY: "ج.م",
 
   // مصدر المنتجات: "json" (ملف data/products.json) أو "sheet" (Google Sheet)
@@ -22,7 +22,7 @@ window.APP_CONFIG = {
   CUSTOMERS_URL: "https://script.google.com/macros/s/AKfycbzKUo02n5ZGecAj6YQJ1FLGi9FmP-vuM-96zEFIgiR_xYXYrMBvuuf9GFKrXEdl8Mo/exec",
 
   // رابط سكربت الطلبات ومشترياتي (مشروع Apps Script اسمه اوردارس) - شوف backend/orders.gs
-  ORDERS_URL: "https://script.google.com/macros/s/AKfycbweCaCKVK2m2ps2ZCC7UHqUaZOSPGjRJXOG9urYH-HJsWZ5SGd9u9VB4K3js8Tx3pw/exec",
+  ORDERS_URL: "https://script.google.com/macros/s/AKfycby8xMqxg_ERbO_vzt7tynwBu36s5fm724F1vmWTxtcDvB1vuJJYJbqp8zSYsmRrtt0/exec",
 
   // رابط سيرفر الذكاء الاصطناعي لقراءة الروشتات (اختياري) - شوف README قسم 8
   RECOGNIZE_URL: "",
