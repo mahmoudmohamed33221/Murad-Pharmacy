@@ -2,5 +2,13 @@
   "appId": "com.muradpharmacy.app",
   "appName": "صيدلية عوف",
   "webDir": "www",
-  "server": { "androidScheme": "https" }
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "PushNotifications": {
+      "smallIcon": "ic_stat_ouf",
+      "iconColor": "#E30613"
+    }
+  }
 }
