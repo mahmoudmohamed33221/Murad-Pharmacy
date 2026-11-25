@@ -22,7 +22,7 @@ var ARC_TAB = "الطلبات المكتملة";
 var PIL_TAB = "الطيارين";
 var TZ = "Africa/Cairo";
 var STORE_LOCATION = "https://maps.app.goo.gl/DFB78syKW2qDACz8A";   // لوكيشن الصيدلية: بيتكتب في عمود "لوكيشن المحل" لكل أوردر جديد (وتقدر تعدّله في أي صف)
-var STORE_COORDS = { lat: 30.121208, lng: 31.2491106 };              // نفس مكان الصيدلية بالإحداثيات (احتياطي لو فك اللينك فشل)
+var PLUS_REF_ = { lat: 30.05, lng: 31.25 };   // مرجع تقريبي (القاهرة) لفك Plus Code المختصر بس. مش بيدخل في أي حساب مسافة. مكان الصيدلية بيتاخد من STORE_LOCATION (اللينك) بس
 var KM_RATE = 10;                   // تسعيرة الكيلو الافتراضية (بتتكتب في عمود "تسعيرة الكيلو" لكل أوردر، وتقدر تعدّلها هناك)
 var ARRIVE_M = 25;                  // المندوب "وصل" لما يفضل عليه حوالي كده متر (على الطريق مش خط مستقيم)
 
@@ -300,7 +300,7 @@ function newOrder_(d) {
   [O.ACCEPT, O.PREP, O.DELIV, O.DONE].forEach(function (c) { sh.getRange(r, c).insertCheckboxes().setValue(false); });
   try { styleOrderRow_(sh, r); } catch (e) {}
   later_(function () { try { sh.getRange(r, O.NOTIF).setValue(broadcastToRiders_("\u200Fطلب جديد \u200E#" + bon + "\u200E 🧾⚠️", "في طلب جديد، افتح التطبيق واقبله قبل غيرك", "new_order_" + bon, { type: "new_order", bon: bon })); } catch (e) {} });
-  try { var lc = String(vals[O.CLOC - 1] || ""); if (lc) afterLocation_(ss, sh, r, phone, lc); } catch (e) {}   // فهم اللوكيشن (لينك مختصر ← إحداثيات) + حفظه في ورقة العملاء
+  try { var lc = String(vals[O.CLOC - 1] || ""); if (lc) afterLocation_(ss, sh, r, phone, lc); } catch (e) {}   // حفظ اللوكيشن في ورقة العملاء (اللينك زي ما هو)
   try { priceOrder_(sh, r); } catch (e) {}                                                                  // حساب التوصيل (مسافة الطريق × التسعيرة)
   return { ok: true, bon: bon };
 }
@@ -596,7 +596,7 @@ function parseCoords_(t) {
       var r3 = ok(la, ln); if (r3) return r3;
     }
     var pc = vs[v].match(/(?:^|[\s(,:])((?:[23456789CFGHJMPQRVWX]{2,8})\+[23456789CFGHJMPQRVWX]{2,3})(?=$|[\s,)])/i);
-    if (pc) { var o = olcDecode_(pc[1], STORE_COORDS); var r4 = o && ok(o.lat, o.lng); if (r4) return r4; }
+    if (pc) { var o = olcDecode_(pc[1], PLUS_REF_); var r4 = o && ok(o.lat, o.lng); if (r4) return r4; }
   }
   return null;
 }
@@ -609,7 +609,7 @@ function locEdit_(sh, r, c) {
       var raw = String(sh.getRange(r, O.CLOC).getValue() || "").trim();
       if (raw) {
         var link = normLoc_(raw); if (link !== raw) sh.getRange(r, O.CLOC).setValue(link);
-        afterLocation_(ss, sh, r, normPhone_(sh.getRange(r, O.PHONE).getDisplayValue()), link);      // بيحوّل اللينك لإحداثيات دقيقة ويحدّث ورقة العملاء
+        afterLocation_(ss, sh, r, normPhone_(sh.getRange(r, O.PHONE).getDisplayValue()), link);      // بيحدّث ورقة العملاء باللينك (من غير تحويل لإحداثيات)
       }
     }
     sh.getRange(r, O_ARR).clearContent(); sh.getRange(r, O.SHOP_ETA).setValue(""); sh.getRange(r, O.CUST_ETA).setValue("");
@@ -654,11 +654,11 @@ function coordsOfLink_(link) {
   if (/^https?:/i.test(link)) { for (var k = 0; k < 2; k++) { try { var rr = resolveMapsLink_(link); if (rr) return rr; } catch (e) {} if (k === 0) Utilities.sleep(400); } }
   return null;
 }
-function storeCoords_(sloc) {
-  sloc = String(sloc || "").trim();
-  if (!sloc || sloc === STORE_LOCATION) return STORE_COORDS;
-  return coordsOfLink_(sloc) || (sloc === STORE_LOCATION ? STORE_COORDS : null);
+function storeCoords_(sloc) {      // مكان الصيدلية دايمًا من اللينك نفسه (عمود "لوكيشن المحل" أو STORE_LOCATION) - مفيش إحداثيات ثابتة
+  sloc = String(sloc || "").trim() || STORE_LOCATION;
+  return coordsOfLink_(sloc);
 }
+function ptOut_(c) { return c && isFinite(c.lat) && isFinite(c.lng) ? { lat: +c.lat, lng: +c.lng } : null; }
 // مسافة الطريق بالمتر (عربية/موتوسيكل على الطرق مش خط مستقيم). longest=true: لو في أكتر من طريق ناخد الأطول زي ما طلبت
 // مسافة الطريق بالمتر + مصدرها: G = خرائط جوجل، O = احتياطي OSRM، E = تقدير مؤقت (خط مستقيم × 1.3) لو الاتنين فشلوا (والتطبيق بيعيد المحاولة لوحده ويبدّله بالحقيقي)
 function havM_(a, b) {
@@ -770,9 +770,7 @@ function updateCustomerLoc_(ss, phone, link) {
   for (var i = 0; i < v.length; i++) if (normPhone_(v[i][0]) === phone) { sh.getRange(i + 2, C_LOC_).setValue(link); return; }
 }
 function afterLocation_(ss, sh, r, phone, loc) {
-  var link = loc, c = coordsOfLink_(loc);
-  if (c) { link = "https://www.google.com/maps?q=" + c.lat + "," + c.lng; sh.getRange(r, O.CLOC).setValue(link); }   // لينك بإحداثيات دقيقة (التطبيق بيحسب منه المسافة والوصول)
-  updateCustomerLoc_(ss, phone, link);
+  updateCustomerLoc_(ss, phone, loc);      // اللينك بيفضل زي ما هو (مش بنحوّله لإحداثيات)، والإحداثيات بتتحسب منه لحظيًا
 }
 
 // ---- الطيارين: قراءة وبحث (آخر صف حقيقي بنعدّه على عمود التليفون لأن القوائم المنسدلة جنب الجدول بتبوّظ getLastRow) ----
@@ -919,7 +917,7 @@ function orderTime_(dispD, dispT, rawD, rawT) {
   try { age = Math.max(0, Math.floor((Date.now() - Utilities.parseDate(dt, TZ, "yyyy-MM-dd HH:mm").getTime()) / 60000)); } catch (e) {}
   return { day: AR_DAYS[new Date(y, mo - 1, da).getDay()], dateTxt: pad(da) + "/" + pad(mo) + "/" + y, timeTxt: pad(h % 12 || 12) + ":" + pad(mi) + " " + (h < 12 ? "ص" : "م"), dt: dt, ageMin: age };
 }
-function orderView_(r, mine, dv) {
+function orderView_(r, mine, dv, withPts) {
   var tm = orderTime_(dv ? dv[O.DATE - 1] : r[O.DATE - 1], dv ? dv[O.TIME - 1] : r[O.TIME - 1], r[O.DATE - 1], r[O.TIME - 1]);
   var o = { bon: Number(r[O.BON - 1]) || 0, day: tm.day, dateTxt: tm.dateTxt, timeTxt: tm.timeTxt, ageMin: tm.ageMin, area: String(r[O.AREA - 1]), items: String(r[O.DETAILS - 1]),
     total: goodsOf_(r), fee: feeOf_(r), km: Number(r[O_KM - 1]) || 0, src: sigSrc_(r[O_SIG - 1]), priced: !needsPrice_(r), note: String(r[O.NOTE - 1] || "") };
@@ -927,6 +925,7 @@ function orderView_(r, mine, dv) {
     o.name = String(r[O.NAME - 1]); o.phone = normPhone_(r[O.PHONE - 1]); o.street = String(r[O.STREET - 1] || ""); o.landmark = String(r[O.LANDMARK - 1] || "");
     o.cloc = String(r[O.CLOC - 1] || ""); o.sloc = String(r[O.SLOC - 1] || ""); o.shopEta = String(r[O.SHOP_ETA - 1] || ""); o.custEta = String(r[O.CUST_ETA - 1] || "");
     o.stage = isTrue_(r[O.DELIV - 1]) ? "delivering" : (isTrue_(r[O.PREP - 1]) ? "preparing" : "accepted"); o.arrived = !!r[O_ARR - 1];
+    if (withPts) { try { o.cc = ptOut_(coordsOfLink_(o.cloc)); o.sc = ptOut_(storeCoords_(o.sloc)); } catch (e) {} }   // إحداثيات العميل والصيدلية متحسبة لحظيًا من اللينكات (لتطبيق الطيار)
   }
   return o;
 }
@@ -945,7 +944,7 @@ function riderOrders_(d) {
       var r = v[i];
       if (!(Number(r[O.BON - 1]) > 0)) continue;
       if (!isTrue_(r[O.ACCEPT - 1])) { if (working) pool.push(orderView_(r, false, dvs[i])); }
-      else if (isMine_(r, a.phone) && !isTrue_(r[O.DONE - 1])) mine.push(orderView_(r, true, dvs[i]));
+      else if (isMine_(r, a.phone) && !isTrue_(r[O.DONE - 1])) mine.push(orderView_(r, true, dvs[i], true));
     }
   }
   var arc = ss.getSheetByName(ARC_TAB);
