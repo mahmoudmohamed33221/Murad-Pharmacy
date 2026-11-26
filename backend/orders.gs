@@ -21,7 +21,7 @@ var ORD_TAB = "الطلبات";
 var ARC_TAB = "الطلبات المكتملة";
 var PIL_TAB = "الطيارين";
 var TZ = "Africa/Cairo";
-var STORE_LOCATION = "https://maps.app.goo.gl/DFB78syKW2qDACz8A";   // لوكيشن الصيدلية: بيتكتب في عمود "لوكيشن المحل" لكل أوردر جديد (وتقدر تعدّله في أي صف)
+var STORE_LOCATION = "https://www.google.com/maps/place/%D8%B5%D9%8A%D8%AF%D9%84%D9%8A%D8%A9+%D8%B9%D9%88%D9%81%E2%80%AD/@30.1583599,31.2740807,15z/data=!4m6!3m5!1s0x14583fd4ffd3f1e1:0xffb796c28c336828!8m2!3d30.095599!4d31.3056826!16s%2Fg%2F1tlk3s_n?entry=ttu&g_ep=EgoyMDI2MTEyMy4wIKXMDSoASAFQAw%3D%3D";   // لوكيشن الصيدلية: بيتكتب في عمود "لوكيشن المحل" لكل أوردر جديد (وتقدر تعدّله في أي صف)
 var PLUS_REF_ = { lat: 30.05, lng: 31.25 };   // مرجع تقريبي (القاهرة) لفك Plus Code المختصر بس. مش بيدخل في أي حساب مسافة. مكان الصيدلية بيتاخد من STORE_LOCATION (اللينك) بس
 var KM_RATE = 10;                   // تسعيرة الكيلو الافتراضية (بتتكتب في عمود "تسعيرة الكيلو" لكل أوردر، وتقدر تعدّلها هناك)
 var ARRIVE_M = 25;                  // المندوب "وصل" لما يفضل عليه حوالي كده متر (على الطريق مش خط مستقيم)
@@ -572,12 +572,18 @@ function olcDecode_(code, ref) {
   }
   return { lat: lat + last / 2, lng: lng + last / 2 };
 }
+function plusRef_() {      // مرجع فك Plus Code المختصر: آخر مكان معروف للصيدلية (العملاء قريبين منها) وإلا مرجع القاهرة
+  try { var v = PropertiesService.getScriptProperties().getProperty("STORE_REF"); if (v) { var p = v.split(","); if (isFinite(+p[0]) && isFinite(+p[1])) return { lat: +p[0], lng: +p[1] }; } } catch (e) {}
+  return PLUS_REF_;
+}
 function parseCoords_(t) {
   t = String(t || "").replace(/[٠-٩]/g, function (x) { return "٠١٢٣٤٥٦٧٨٩".indexOf(x); }).replace(/[۰-۹]/g, function (x) { return "۰۱۲۳۴۵۶۷۸۹".indexOf(x); }).replace(/٫/g, ".").replace(/،/g, ",");
   var vs = [t]; try { var d = decodeURIComponent(t); if (d !== t) vs.push(d); } catch (e) {}
   var ok = function (la, ln) { la = +la; ln = +ln; return inEgypt_(la, ln) ? { lat: la, lng: ln } : null; };
   var pats = [
     /!3d(-?\d{1,3}\.\d+)!4d(-?\d{1,3}\.\d+)/,
+    /[?&]mlat=(-?\d{1,3}\.\d+)&mlon=(-?\d{1,3}\.\d+)/i,
+    /#map=\d+\/(-?\d{1,3}\.\d+)\/(-?\d{1,3}\.\d+)/,
     /[?&#](?:q|ll|query|destination|daddr|saddr|sll|center|coordinate|coord|latlng|dest|to)=(?:loc:|geo:)?\s*(-?\d{1,3}\.\d+)\s*[,;]\s*(-?\d{1,3}\.\d+)/i,
     /[?&](?:lat|latitude)=(-?\d{1,3}\.\d+)&(?:lng|lon|long|longitude)=(-?\d{1,3}\.\d+)/i,
     /geo:(-?\d{1,3}\.\d+),\s*(-?\d{1,3}\.\d+)/,
@@ -595,8 +601,8 @@ function parseCoords_(t) {
       if (/s/i.test(dm[4] || "")) la = -la; if (/w/i.test(dm[8] || "")) ln = -ln;
       var r3 = ok(la, ln); if (r3) return r3;
     }
-    var pc = vs[v].match(/(?:^|[\s(,:])((?:[23456789CFGHJMPQRVWX]{2,8})\+[23456789CFGHJMPQRVWX]{2,3})(?=$|[\s,)])/i);
-    if (pc) { var o = olcDecode_(pc[1], PLUS_REF_); var r4 = o && ok(o.lat, o.lng); if (r4) return r4; }
+    var pc = vs[v].match(/(?:^|[^A-Za-z0-9])((?:[23456789CFGHJMPQRVWX]{2,8})\+[23456789CFGHJMPQRVWX]{2,3})(?![23456789CFGHJMPQRVWX])/i);
+    if (pc) { var o = olcDecode_(pc[1], plusRef_()); var r4 = o && ok(o.lat, o.lng); if (r4) return r4; }
   }
   return null;
 }
@@ -618,6 +624,28 @@ function locEdit_(sh, r, c) {
     priceOrder_(sh, r);
   } catch (e) {}
 }
+function bodyCoordsMore_(b) {      // زي طريقة جبهالي: microdata بالترتيبين + canonical فيه @lat,lng
+  b = String(b); var ok = function (la, ln) { la = +la; ln = +ln; return inEgypt_(la, ln) ? { lat: la, lng: ln } : null; };
+  var a1 = b.match(/itemprop=["']latitude["'][^>]*content=["'](-?\d+\.\d+)["']/i), a2 = b.match(/itemprop=["']longitude["'][^>]*content=["'](-?\d+\.\d+)["']/i);
+  if (a1 && a2) { var r = ok(a1[1], a2[1]); if (r) return r; }
+  var c1 = b.match(/content=["'](-?\d+\.\d+)["'][^>]*itemprop=["']latitude["']/i), c2 = b.match(/content=["'](-?\d+\.\d+)["'][^>]*itemprop=["']longitude["']/i);
+  if (c1 && c2) { var r2 = ok(c1[1], c2[1]); if (r2) return r2; }
+  var l1 = b.match(/"latitude"\s*:\s*(-?\d+\.\d+)/i), l2 = b.match(/"longitude"\s*:\s*(-?\d+\.\d+)/i);
+  if (l1 && l2) { var r3 = ok(l1[1], l2[1]); if (r3) return r3; }
+  var can = b.match(/"canonical"[^"]*"(https:\/\/www\.google\.com\/maps\/place\/[^"]+)"/) || b.match(/rel=["']canonical["'][^>]*href=["']([^"']+)["']/);
+  if (can) { var cm = can[1].match(/@(-?\d{1,3}\.\d{4,}),(-?\d{1,3}\.\d{4,})/); if (cm) { var r4 = ok(cm[1], cm[2]); if (r4) return r4; } }
+  var m = b.match(/@(-?\d{1,3}\.\d{4,}),(-?\d{1,3}\.\d{4,})/);
+  return m ? ok(m[1], m[2]) : null;
+}
+function hexToDec_(h) {      // رقم المكان (CID) من hex لعشري
+  h = String(h).replace(/^0x/i, ""); var d = [0];
+  for (var i = 0; i < h.length; i++) {
+    var carry = parseInt(h.charAt(i), 16); if (isNaN(carry)) return "";
+    for (var j = 0; j < d.length; j++) { var v = d[j] * 16 + carry; d[j] = v % 10; carry = Math.floor(v / 10); }
+    while (carry) { d.push(carry % 10); carry = Math.floor(carry / 10); }
+  }
+  return d.reverse().join("");
+}
 function bodyCoords_(b) {          // إحداثيات من صفحة جوجل نفسها (لو اللينك مرجعش تحويل)
   var m = String(b).match(/!3d(-?\d{1,3}\.\d+)!4d(-?\d{1,3}\.\d+)/) || String(b).match(/"latitude"\s*:\s*(-?\d{1,3}\.\d+)\s*,\s*"longitude"\s*:\s*(-?\d{1,3}\.\d+)/) ||
     String(b).match(/itemprop="latitude"\s+content="(-?\d{1,3}\.\d+)"[^>]*itemprop="longitude"\s+content="(-?\d{1,3}\.\d+)"/) || String(b).match(/center=(-?\d{1,3}\.\d+)(?:%2C|,)(-?\d{1,3}\.\d+)/);
@@ -630,33 +658,91 @@ function normLoc_(raw) {
   return c ? "https://www.google.com/maps?q=" + c.lat + "," + c.lng : s;
 }
 // لينك مختصر (maps.app.goo.gl / goo.gl/maps) ← بنمشي ورا التحويلات لحد ما نلاقي الإحداثيات
+// عنوان مكتوب (أو Plus Code بالمنطقة) ← إحداثيات من مترجم عناوين جوجل المدمج في Apps Script (من غير مفتاح)
+function geocodeText_(text) {
+  text = String(text || "").replace(/[\u200e\u200f\u202a-\u202e]/g, "").replace(/\s+/g, " ").trim();
+  if (text.length < 6 || /^[\d\s.,;:+\-]+$/.test(text)) return null;
+  var cache = CacheService.getScriptCache(), key = "geo_" + hash_(text), c = cache.get(key);
+  if (c) { if (c === "x") return null; var p = c.split(","); return { lat: +p[0], lng: +p[1] }; }
+  var res = null;
+  try {
+    var r = Maps.newGeocoder().setRegion("eg").setLanguage("ar").geocode(text);
+    if (r && r.status === "OK" && r.results && r.results.length) {
+      var g = r.results[0], loc = g.geometry && g.geometry.location, lt = g.geometry && g.geometry.location_type;
+      if (loc && inEgypt_(loc.lat, loc.lng) && (!g.partial_match || lt === "ROOFTOP" || lt === "RANGE_INTERPOLATED" || lt === "GEOMETRIC_CENTER")) res = { lat: +loc.lat, lng: +loc.lng };   // بنرفض النتايج التقريبية الضعيفة عشان ما نحسبش من مكان غلط
+    }
+  } catch (e) {}
+  cache.put(key, res ? res.lat + "," + res.lng : "x", res ? 21600 : 300);
+  return res;
+}
+function shortPlusText_(t) { return /(?:^|\s)[23456789CFGHJMPQRVWX]{4,6}\+[23456789CFGHJMPQRVWX]{2,3}\s+\S/i.test(String(t || "")) && !/https?:/i.test(t); }
+function placeNameCoords_(u) {      // آخر محاولة للينك مفيهوش إحداثيات: اسم المكان اللي في اللينك لو كان عنوان تفصيلي
+  var m = String(u || "").match(/\/maps\/place\/([^\/@?]+)/); if (!m) return null;
+  var n = m[1]; try { n = decodeURIComponent(n.replace(/\+/g, " ")); } catch (e) { n = n.replace(/\+/g, " "); }
+  return n.length >= 20 && /[,،]/.test(n) ? geocodeText_(n) : null;
+}
+// لينك فيه @lat,lng بس (مركز الخريطة مش الدبوس بالظبط) ومعاه رقم المكان: نفضّل الدبوس الدقيق من CID
+function viewportOnly_(l) {
+  l = String(l || ""); try { l = decodeURIComponent(l); } catch (e) {}
+  return /@-?\d+\.\d+,-?\d+\.\d+/.test(l) && !/!3d-?\d+\.\d+!4d/.test(l) && !/[?&](?:q|ll|query|destination|daddr)=/.test(l) && /!1s0x[0-9a-fA-F]+:0x[0-9a-fA-F]+/.test(l);
+}
+function cidCoords_(text) {
+  var cm = String(text || "").match(/!1s0x[0-9a-fA-F]+:(0x[0-9a-fA-F]+)/); if (!cm) return null;
+  var cid = hexToDec_(cm[1]); if (!cid) return null;
+  var cache = CacheService.getScriptCache(), key = "cid_" + cid, c = cache.get(key);
+  if (c) { var p = c.split(","); return { lat: +p[0], lng: +p[1] }; }
+  var res = null, cu = "https://www.google.com/maps?cid=" + cid;
+  try {
+    for (var k = 0; k < 4 && cu && !res; k++) {
+      var pc = parseCoords_(cu); if (pc && !viewportOnly_(cu)) { res = pc; break; }
+      var r = UrlFetchApp.fetch(cu, { followRedirects: false, muteHttpExceptions: true, headers: { "User-Agent": UA_, "Accept-Language": "ar,en;q=0.8", "Cookie": "CONSENT=YES+cb.20240101-00-p0.en+FX+000; SOCS=CAI" } });
+      var h = r.getHeaders() || {}, l = h["Location"] || h["location"], code = r.getResponseCode();
+      if (code >= 300 && code < 400 && l) { cu = /^https?:/i.test(l) ? l : "https://www.google.com" + l; continue; }
+      var b = String(r.getContentText() || "").slice(0, 400000); res = bodyCoords_(b) || bodyCoordsMore_(b) || pc; break;
+    }
+  } catch (e) {}
+  if (res) cache.put(key, res.lat + "," + res.lng, 21600);
+  return res;
+}
 function resolveMapsLink_(url) {
   var cache = CacheService.getScriptCache(), key = "loc_" + hash_(url), c = cache.get(key);
   if (c) { var p = c.split(","); return { lat: +p[0], lng: +p[1] }; }
   var cur = url, res = null;
   for (var i = 0; i < 6 && cur; i++) {
-    var pc = parseCoords_(cur); if (pc) { res = pc; break; }
-    var r = UrlFetchApp.fetch(cur, { followRedirects: false, muteHttpExceptions: true, headers: { "User-Agent": UA_, "Accept-Language": "ar,en;q=0.8" } });
+    var pc = parseCoords_(cur); if (pc) { res = viewportOnly_(cur) ? (cidCoords_(cur) || pc) : pc; break; }
+    var r = UrlFetchApp.fetch(cur, { followRedirects: false, muteHttpExceptions: true, headers: { "User-Agent": UA_, "Accept-Language": "ar,en;q=0.8", "Cookie": "CONSENT=YES+cb.20240101-00-p0.en+FX+000; SOCS=CAI" } });
     var code = r.getResponseCode(), h = r.getHeaders() || {}, loc = h["Location"] || h["location"];
     if (code >= 300 && code < 400 && loc) { cur = /^https?:/i.test(loc) ? loc : (/^\//.test(loc) ? "https://www.google.com" + loc : loc); continue; }
-    var body = String(r.getContentText() || "").slice(0, 400000), bc = bodyCoords_(body);
+    var body = String(r.getContentText() || "").slice(0, 400000), bc = bodyCoords_(body) || bodyCoordsMore_(body);
     if (bc) { res = bc; break; }
     var mm = body.match(/https?:\/\/(?:www\.)?google\.[a-z.]+\/maps[^"'<>\s\\]*/i), nx = mm ? mm[0].replace(/&amp;/g, "&") : "";
     if (nx && nx !== cur) { cur = nx; continue; }
     break;
   }
+  if (!res) res = cidCoords_(cur) || cidCoords_(url) || placeNameCoords_(cur) || placeNameCoords_(url);      // لينكات "البيوت" بترجع بس رقم المكان (CID)
   if (res) cache.put(key, res.lat + "," + res.lng, 21600);
   return res;
 }
 function coordsOfLink_(link) {
   link = String(link || "").trim(); if (!link) return null;
-  var c = parseCoords_(link); if (c) return c;
-  if (/^https?:/i.test(link)) { for (var k = 0; k < 2; k++) { try { var rr = resolveMapsLink_(link); if (rr) return rr; } catch (e) {} if (k === 0) Utilities.sleep(400); } }
-  return null;
+  var isUrl = /^https?:/i.test(link), c = parseCoords_(link);
+  if (!isUrl && shortPlusText_(link)) { var g = null; try { g = geocodeText_(link); } catch (e) {} if (g) return g; }      // Plus Code مختصر + اسم المنطقة
+  if (c) {
+    if (!viewportOnly_(link)) return c;
+    var cc = null; try { cc = cidCoords_(link); } catch (e) {}
+    return cc || c;      // @ هو مركز الخريطة: نجرب الدبوس الدقيق الأول ولو فشل نستخدم @
+  }
+  if (isUrl) { for (var k = 0; k < 2; k++) { try { var rr = resolveMapsLink_(link); if (rr) return rr; } catch (e) {} if (k === 0) Utilities.sleep(400); } return null; }
+  try { return geocodeText_(link); } catch (e) { return null; }      // عنوان مكتوب
 }
 function storeCoords_(sloc) {      // مكان الصيدلية دايمًا من اللينك نفسه (عمود "لوكيشن المحل" أو STORE_LOCATION) - مفيش إحداثيات ثابتة
   sloc = String(sloc || "").trim() || STORE_LOCATION;
-  return coordsOfLink_(sloc);
+  var c = coordsOfLink_(sloc), pr = PropertiesService.getScriptProperties(), key = "SP_" + hash_(sloc);
+  try {
+    if (c) { var v = c.lat + "," + c.lng; if (pr.getProperty(key) !== v) pr.setProperty(key, v); if (pr.getProperty("STORE_REF") !== v) pr.setProperty("STORE_REF", v); return c; }   // آخر مكان اتفك صح لنفس اللينك بيتحفظ
+    var old = pr.getProperty(key); if (old) { var p = old.split(","); return { lat: +p[0], lng: +p[1] }; }   // لو جوجل رفض مؤقتًا: نفس اللينك بنستخدم آخر مكان اتفك منه
+  } catch (e) {}
+  return c;
 }
 function ptOut_(c) { return c && isFinite(c.lat) && isFinite(c.lng) ? { lat: +c.lat, lng: +c.lng } : null; }
 // مسافة الطريق بالمتر (عربية/موتوسيكل على الطرق مش خط مستقيم). longest=true: لو في أكتر من طريق ناخد الأطول زي ما طلبت
@@ -1708,4 +1794,53 @@ function refreshPilotList() {
   var rows = Math.max(sh.getMaxRows() - 1, 1);
   var rule = SpreadsheetApp.newDataValidation().requireValueInRange(pil.getRange(2, PIL_LIST_AVAIL, Math.max(pil.getMaxRows() - 1, 1), 1), true).setAllowInvalid(false).build();
   sh.getRange(2, O.PNAME, rows, 1).setDataValidation(rule);
+}
+
+// شغّلها من المحرر (اختار testLocations ← Run ← افتح Execution log): بتوريك لوكيشن المحل وآخر الطلبات المفتوحة اتفكت ولا لأ، ولو فشلت بتوريك فين
+function testLocations() {
+  var one = function (l) {
+    l = String(l || "").trim(); if (!l) return "فاضي";
+    var t0 = new Date(), c = null, err = "";
+    try { c = coordsOfLink_(l); } catch (e) { err = " خطأ: " + e; }
+    var out = (c ? "✅ " + c.lat + "," + c.lng : "❌ فشل" + err) + " (" + (new Date() - t0) + "ms)";
+    if (!c && /^https?:/i.test(l)) {
+      var cur = l;
+      for (var i = 0; i < 5 && cur; i++) {
+        try {
+          var r = UrlFetchApp.fetch(cur, { followRedirects: false, muteHttpExceptions: true, headers: { "User-Agent": UA_, "Cookie": "CONSENT=YES+cb.20240101-00-p0.en+FX+000; SOCS=CAI" } });
+          var h = r.getHeaders() || {}, loc = h["Location"] || h["location"];
+          out += "\n     خطوة " + (i + 1) + ": كود " + r.getResponseCode() + (loc ? " ← " + String(loc).slice(0, 160) : " (حجم الصفحة " + String(r.getContentText() || "").length + ")");
+          if (loc) { cur = /^https?:/i.test(loc) ? loc : "https://www.google.com" + loc; } else break;
+        } catch (e) { out += "\n     خطوة " + (i + 1) + ": خطأ " + e; break; }
+      }
+    }
+    return out;
+  };
+  Logger.log("لوكيشن المحل: " + STORE_LOCATION + "\n   " + one(STORE_LOCATION));
+  var sh = ordersSheet_(ssOpen_()), n = sh.getLastRow(); if (n < 2) return;
+  var from = Math.max(2, n - 9), v = sh.getRange(from, 1, n - from + 1, O_ARR).getValues();
+  for (var i = 0; i < v.length; i++) {
+    var rv = v[i], bon = Number(rv[O.BON - 1]) || 0; if (!bon) continue;
+    Logger.log("طلب " + bon + (isTrue_(rv[O.DONE - 1]) ? " (خلص)" : "") + "\n   لوكيشن العميل: " + String(rv[O.CLOC - 1] || "").slice(0, 120) + "\n   " + one(rv[O.CLOC - 1]) + "\n   لوكيشن المحل في الطلب: " + one(rv[O.SLOC - 1] || STORE_LOCATION));
+  }
+}
+
+// شغّلها من المحرر: بتجرب لوكيشن الصيدلية بكل الصيغ (عنوان مكتوب / لينكات مختصرة / لينك كامل) وبتقولك كل واحدة وصلت فين وبعدها قد إيه عن اللينك الكامل
+function testFormats() {
+  var forms = {
+    "1 عنوان مكتوب": "صيدلية عوف، 104 ابن سندر، الزيتون الشرقية، قسم الزيتون، محافظة القاهرة 4520156",
+    "2 مختصر": "https://maps.app.goo.gl/VLviv3fsz9rnhD2v7",
+    "3 مختصر": "https://maps.app.goo.gl/6szcKg4i424h7Nxa6",
+    "4 كامل": STORE_LOCATION,
+    "5 مختصر (الأخير)": "https://maps.app.goo.gl/P4GtSq2r7KqC1jWx7",
+    "6 Plus Code": "38W4+67 قسم الزيتون"
+  };
+  var base = coordsOfLink_(forms["4 كامل"]);
+  Logger.log("المرجع (اللينك الكامل): " + (base ? base.lat + "," + base.lng : "فشل"));
+  Object.keys(forms).forEach(function (k) {
+    var t0 = new Date(), c = null, err = "";
+    try { c = coordsOfLink_(forms[k]); } catch (e) { err = " خطأ: " + e; }
+    var d = c && base ? Math.round(havM_(base, c)) + " متر عن المرجع" : "";
+    Logger.log(k + " ← " + (c ? "✅ " + c.lat + "," + c.lng + " | " + d : "❌ فشل" + err) + " (" + (new Date() - t0) + "ms)");
+  });
 }
