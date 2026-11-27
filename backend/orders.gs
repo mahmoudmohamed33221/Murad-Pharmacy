@@ -34,17 +34,20 @@ var VEHICLES = ["موتوسيكل", "عجلة كهربائية", "عجلة عا�
 
 // ترتيب أعمدة "الطلبات" (بالظبط زي ما طلبته)
 var HDR_RATE = "تسعيرة الكيلو", HDR_P1N = "اسم الطيار السابق المستلم 1", HDR_P1P = "رقم الطيار السابق المستلم 1", HDR_P2N = "اسم الطيار السابق المستلم 2", HDR_P2P = "رقم الطيار السابق المستلم 2";
+var HDR_ACC_AT = "وقت قبول الطلب", HDR_PREP_END = "وقت انتهاء التجهيز", HDR_DELIV_AT = "وقت بدء التوصيل", HDR_DONE_AT = "وقت التسليم", HDR_TOTAL_MIN = "إجمالي المدة (دقيقة)", HDR_PHARM_AT = "وقت الوصول للصيدلية (لا تلمسه)";
+var TS_FMT_ = "dd/MM/yyyy hh:mm a";      // شكل الأوقات في الشيت (بتوقيت الشيت)
 var ORD_HEADERS = ["رقم", "رقم البون", "التاريخ واليوم", "الوقت", "اسم العميل", "رقم التليفون", "اسم العزبة / المنطقة", "الشارع / شارع كام",
-  "علامة مميزة بجوار البيت", "لوكيشن العميل", "تفاصيل الأوردر", "لوكيشن المحل", "ملحوظة", "اجمالي حساب العميل", HDR_RATE, "تم قبول الاوردر",
-  HDR_P1N, HDR_P1P, HDR_P2N, HDR_P2P, "اسم الطيار المستلم", "رقم الطيار المستلم", "الوصول الي المحل خلال", "جاري التجهيز", "جاري التوصيل", "الوصول الي العميل خلال",
-  "تم التوصيل", "نتيجة الإشعار", "خطوات التنفيذ"];
+  "علامة مميزة بجوار البيت", "لوكيشن العميل", "تفاصيل الأوردر", "لوكيشن المحل", "ملحوظة", "اجمالي حساب العميل", HDR_RATE, "تم قبول الاوردر", HDR_ACC_AT,
+  HDR_P1N, HDR_P1P, HDR_P2N, HDR_P2P, "اسم الطيار المستلم", "رقم الطيار المستلم", "الوصول الي المحل خلال", "جاري التجهيز", HDR_PREP_END, "جاري التوصيل", HDR_DELIV_AT, "الوصول الي العميل خلال",
+  "تم التوصيل", HDR_DONE_AT, HDR_TOTAL_MIN, "نتيجة الإشعار", "خطوات التنفيذ"];
 var O = { NUM: 1, BON: 2, DATE: 3, TIME: 4, NAME: 5, PHONE: 6, AREA: 7, STREET: 8, LANDMARK: 9, CLOC: 10, DETAILS: 11, SLOC: 12, NOTE: 13, TOTAL: 14, RATE: 15,
-  ACCEPT: 16, P1N: 17, P1P: 18, P2N: 19, P2P: 20, PNAME: 21, PPHONE: 22, SHOP_ETA: 23, PREP: 24, DELIV: 25, CUST_ETA: 26, DONE: 27, NOTIF: 28, STEPS: 29 };
-var O_CID = 30;    // عمود مخفي: معرّف الطلب (بيربط الطلب بالجهاز اللي عمله، ومنه بيتمنع التكرار وبيتحمي خصوصية العميل)
+  ACCEPT: 16, ACC_AT: 17, P1N: 18, P1P: 19, P2N: 20, P2P: 21, PNAME: 22, PPHONE: 23, SHOP_ETA: 24, PREP: 25, PREP_END: 26, DELIV: 27, DELIV_AT: 28, CUST_ETA: 29,
+  DONE: 30, DONE_AT: 31, TOTAL_MIN: 32, NOTIF: 33, STEPS: 34 };
+var O_CID = 35;    // عمود مخفي: معرّف الطلب (بيربط الطلب بالجهاز اللي عمله، ومنه بيتمنع التكرار وبيتحمي خصوصية العميل)
 // أعمدة مساعدة بعد معرّف الطلب (أرقام فعلية بيقراها البرنامجين، وعمود "اجمالي حساب العميل" بيتكتب نص: ح 1150 + ت 100 = ا 1250)
-var O_KM = 31, O_FEE = 32, O_GOODS = 33, O_SIG = 34, O_ARR = 35;
-var HELPER_HEADERS = ["معرّف الطلب (لا تلمسه)", "المسافة (كم)", "قيمة التوصيل", "حساب البضاعة", "بصمة التسعير (لا تلمسها)", "وصول المندوب"];
-var A_AT = 36;     // في ورقة المكتملة: وقت الأرشفة
+var O_KM = 36, O_FEE = 37, O_GOODS = 38, O_SIG = 39, O_PHARM = 40, O_ARR = 41;      // O_PHARM مخفي: وقت وصول المندوب للصيدلية (بيتحسب منه إجمالي المدة)
+var HELPER_HEADERS = ["معرّف الطلب (لا تلمسه)", "المسافة (كم)", "قيمة التوصيل", "حساب البضاعة", "بصمة التسعير (لا تلمسها)", HDR_PHARM_AT, "وصول المندوب"];
+var A_AT = 42;     // في ورقة المكتملة: وقت الأرشفة
 
 // ترتيب أعمدة "الطيارين"
 var PIL_HEADERS = ["رقم", "اسم الطيار", "رقم الهاتف", "الباسورد", "العنوان", "رقم البطاقه", "تاريخ الميلاد", "السن الحالي", "المركبه",
@@ -53,6 +56,65 @@ var P = { NUM: 1, NAME: 2, PHONE: 3, PASS: 4, ADDR: 5, ID: 6, BIRTH: 7, AGE: 8, 
 var PIL_AVAIL_FORMULA = '=IFERROR(ARRAYFORMULA(FILTER(TRIM(B2:B)&IF(TRIM(I2:I)<>""," - "&TRIM(I2:I),""), TRIM(J2:J)="مقبول", TRIM(L2:L)="يعمل", TRIM(M2:M)="يعمل الان")),"")';   // الاسم كما هو مكتوب - المركبة، بس لو الـ3 شروط متحققين: حالة الطلب مقبول + حالة الطيار يعمل + الشيفت يعمل الان
 var PIL_LIST_AVAIL = 21;   // عمود تلقائي: الطيارين المتاحين دلوقتي بالشكل "الاسم - المركبة" (مقبول + مش موقوف + يعمل الان)
 var PIL_LIST_REQ = 18, PIL_LIST_STATE = 19;   // عمودين القوائم المنسدلة (جنب الجدول بعد عمودين فاضيين)
+
+// ===== ربط الأعمدة بالهيدر =====
+// ترتيب الأعمدة في الشيت حر: الكود بيدوّر على كل عمود باسم هيدره (الصف الأول) ويشتغل عليه، فلو حركت أو أضفت أعمدة مفيش حاجة بتتلخبط.
+// لو هيدر مش لاقيه بيرجع للمكان الافتراضي بتاعه. (متغيّرش اسم هيدر عمود من اللي الكود بيستخدمهم)
+var ARC_AT_HDR = "وقت الأرشفة", PIL_AVAIL_HDR = "الطيارين المتاحين دلوقتي (تلقائي - لا تلمسه)";
+var O_DEF_ = {}, P_DEF_ = {}, H_DEF_ = { CID: O_CID, KM: O_KM, FEE: O_FEE, GOODS: O_GOODS, SIG: O_SIG, PHARM: O_PHARM, ARR: O_ARR }, A_AT_DEF_ = A_AT, PIL_LIST_AVAIL_DEF_ = PIL_LIST_AVAIL;
+var HKEYS_ = ["CID", "KM", "FEE", "GOODS", "SIG", "PHARM", "ARR"], O_W = O_ARR, P_W = PIL_HEADERS.length, BOUND_ = false, ARC_MAP_ = null;
+Object.keys(O).forEach(function (k) { O_DEF_[k] = O[k]; });
+Object.keys(P).forEach(function (k) { P_DEF_[k] = P[k]; });
+function normH_(h) { return String(h == null ? "" : h).replace(/[\u200e\u200f\u202a-\u202e\u00a0]/g, "").replace(/\s+/g, " ").trim(); }
+function hdrRow_(sh) { return sh.getRange(1, 1, 1, Math.max(sh.getLastColumn(), 1)).getValues()[0].map(normH_); }
+function bindOrders_(sh) {
+  var row = hdrRow_(sh), find = function (hd, def) { var i = row.indexOf(normH_(hd)); return i < 0 ? def : i + 1; }, mx = 0;
+  Object.keys(O_DEF_).forEach(function (k) { O[k] = find(ORD_HEADERS[O_DEF_[k] - 1], O_DEF_[k]); mx = Math.max(mx, O[k]); });
+  O_CID = find(HELPER_HEADERS[0], H_DEF_.CID); O_KM = find(HELPER_HEADERS[1], H_DEF_.KM); O_FEE = find(HELPER_HEADERS[2], H_DEF_.FEE); O_GOODS = find(HELPER_HEADERS[3], H_DEF_.GOODS);
+  O_SIG = find(HELPER_HEADERS[4], H_DEF_.SIG); O_PHARM = find(HELPER_HEADERS[5], H_DEF_.PHARM); O_ARR = find(HELPER_HEADERS[6], H_DEF_.ARR);
+  O_W = Math.max(mx, O_CID, O_KM, O_FEE, O_GOODS, O_SIG, O_PHARM, O_ARR);
+  A_AT = O_W + 1;      // مكان وقت الأرشفة في الصف الموحّد (بعد أعمدة الطلبات)
+  ARC_MAP_ = null;
+}
+function bindPilots_(sh) {
+  var row = hdrRow_(sh), mx = 0;
+  Object.keys(P_DEF_).forEach(function (k) { var i = row.indexOf(normH_(PIL_HEADERS[P_DEF_[k] - 1])); P[k] = i < 0 ? P_DEF_[k] : i + 1; mx = Math.max(mx, P[k]); });
+  var a = row.indexOf(normH_(PIL_AVAIL_HDR)); PIL_LIST_AVAIL = a < 0 ? PIL_LIST_AVAIL_DEF_ : a + 1;
+  P_W = mx;
+}
+function bindAll_(ss) {
+  if (BOUND_) return;
+  var o = ss.getSheetByName(ORD_TAB); if (o && o.getLastColumn() > 0) bindOrders_(o);
+  var p = ss.getSheetByName(PIL_TAB); if (p && p.getLastColumn() > 0) bindPilots_(p);
+  BOUND_ = true;
+}
+function arcCols_(arc) {      // أعمدة ورقة الأرشيف بالهيدر (ممكن يكون ترتيبها مختلف عن الطلبات)
+  var id = arc.getSheetId(); if (ARC_MAP_ && ARC_MAP_.id === id) return ARC_MAP_.m;
+  var row = hdrRow_(arc), m = {}, f = function (hd) { var i = row.indexOf(normH_(hd)); return i < 0 ? 0 : i + 1; };
+  Object.keys(O_DEF_).forEach(function (k) { m[k] = f(ORD_HEADERS[O_DEF_[k] - 1]); });
+  HKEYS_.forEach(function (k, i) { m[k] = f(HELPER_HEADERS[i]); });
+  m.AT = f(ARC_AT_HDR); ARC_MAP_ = { id: id, m: m }; return m;
+}
+function colIn_(sh, key) {      // رقم عمود معيّن في الورقة دي (الطلبات أو الأرشيف) حسب هيدرها
+  if (sh.getName() === ARC_TAB) return arcCols_(sh)[key] || 0;
+  if (key in O) return O[key];
+  return { CID: O_CID, KM: O_KM, FEE: O_FEE, GOODS: O_GOODS, SIG: O_SIG, PHARM: O_PHARM, ARR: O_ARR }[key] || 0;
+}
+function canonArc_(arc, rows) {      // صفوف الأرشيف ← نفس ترتيب أعمدة "الطلبات" الحالي (عشان باقي الكود يشتغل عليها بنفس الأرقام)
+  var m = arcCols_(arc), keys = Object.keys(m);
+  var dst = function (k) { return k === "AT" ? A_AT : (k in O ? O[k] : { CID: O_CID, KM: O_KM, FEE: O_FEE, GOODS: O_GOODS, SIG: O_SIG, PHARM: O_PHARM, ARR: O_ARR }[k]); };
+  var idx = {}; keys.forEach(function (k) { idx[k] = dst(k); });
+  return rows.map(function (rw) {
+    var o = []; for (var i = 0; i < A_AT; i++) o.push("");
+    keys.forEach(function (k) { if (m[k] && idx[k]) { var v = rw[m[k] - 1]; o[idx[k] - 1] = v === undefined ? "" : v; } });
+    return o;
+  });
+}
+function colLetter_(n) { var s = ""; while (n > 0) { var m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; }
+function pilAvailFormula_() {      // معادلة الطيارين المتاحين بحروف الأعمدة الحالية (بتتبني من الهيدر)
+  var L = function (k) { var c = colLetter_(P[k]); return c + "2:" + c; };
+  return '=IFERROR(ARRAYFORMULA(FILTER(TRIM(' + L("NAME") + ')&IF(TRIM(' + L("VEH") + ')<>""," - "&TRIM(' + L("VEH") + '),""), TRIM(' + L("REQ") + ')="مقبول", TRIM(' + L("STATE") + ')="يعمل", TRIM(' + L("SHIFT") + ')="يعمل الان")),"")';
+}
 
 // ===== تجهيز الورق (شغّلها مرة واحدة من Apps Script: اختار setupSheets واضغط Run) =====
 function setupSheets() {
@@ -74,57 +136,110 @@ var SCHEMA_DONE_ = false;
 function ensureSchema_(ss) {
   if (SCHEMA_DONE_) return;
   var cache = CacheService.getScriptCache();
-  if (cache.get("schema_v3")) { SCHEMA_DONE_ = true; return; }
+  if (cache.get("schema_v4")) { SCHEMA_DONE_ = true; return; }
   var lk = LockService.getScriptLock(), mine = false;
   if (!lk.hasLock()) { lk.waitLock(25000); mine = true; }
   try {
     [ORD_TAB, ARC_TAB].forEach(function (tab) {
       var sh = ss.getSheetByName(tab); if (!sh || sh.getLastColumn() < 3) return;
       var archived = tab === ARC_TAB, hd = function () { return sh.getRange(1, 1, 1, Math.max(sh.getLastColumn(), 1)).getValues()[0].map(String); }, h = hd(), last = sh.getLastRow();
+      // بيحط عمود/أعمدة جديدة بعد عمود معيّن (بالاسم)، والباقي بيتزحزح لوحده مع بياناته ومعادلاته
+      var addAfter = function (prev, names) {
+        if (h.indexOf(names[0]) >= 0) return 0;
+        var i = h.indexOf(prev); if (i < 0) return 0;
+        sh.insertColumnsAfter(i + 1, names.length);
+        sh.getRange(1, i + 2, 1, names.length).setValues([names]);
+        var rg = sh.getRange(2, i + 2, Math.max(sh.getMaxRows() - 1, 1), names.length);
+        rg.clearContent(); rg.clearDataValidations();
+        try { headerStyle_(sh.getRange(1, i + 2, 1, names.length)); } catch (e) {}
+        h = hd(); return i + 2;
+      };
       // 1) تسعيرة الكيلو بعد "اجمالي حساب العميل"
-      if (h[O.TOTAL - 1] === ORD_HEADERS[O.TOTAL - 1] && h[O.RATE - 1] !== HDR_RATE) {
-        sh.insertColumnAfter(O.TOTAL); sh.getRange(1, O.RATE).setValue(HDR_RATE);
-        if (last >= 2) sh.getRange(2, O.RATE, last - 1, 1).setValue(KM_RATE);
+      if (h.indexOf(HDR_RATE) < 0 && h.indexOf(ORD_HEADERS[O_DEF_.TOTAL - 1]) >= 0) {
+        var it = h.indexOf(ORD_HEADERS[O_DEF_.TOTAL - 1]) + 1;
+        sh.insertColumnAfter(it); sh.getRange(1, it + 1).setValue(HDR_RATE);
+        if (last >= 2) sh.getRange(2, it + 1, last - 1, 1).setValue(KM_RATE);
         h = hd();
       }
-      // 2) السابق 1 و 2 (اسم + رقم) بين "تم قبول الاوردر" و "اسم الطيار المستلم"
-      if (h[O.ACCEPT - 1] === ORD_HEADERS[O.ACCEPT - 1] && h[O.P1N - 1] !== HDR_P1N) {
-        sh.insertColumnsAfter(O.ACCEPT, 4); sh.getRange(1, O.P1N, 1, 4).setValues([[HDR_P1N, HDR_P1P, HDR_P2N, HDR_P2P]]);
+      // 2) السابق 1 و 2 (اسم + رقم) بعد "تم قبول الاوردر"
+      if (h.indexOf(HDR_P1N) < 0 && h.indexOf("تم قبول الاوردر") >= 0) {
+        var ia = h.indexOf("تم قبول الاوردر") + 1;
+        sh.insertColumnsAfter(ia, 4); sh.getRange(1, ia + 1, 1, 4).setValues([[HDR_P1N, HDR_P1P, HDR_P2N, HDR_P2P]]);
         h = hd();
       }
-      // 3) الأعمدة المساعدة بعد معرّف الطلب
-      ensureCols_(sh, A_AT);
-      if (h[O_KM - 1] !== HELPER_HEADERS[1]) {
-        if (archived && h.length >= O_CID + 1 && h[O_CID] !== HELPER_HEADERS[1]) sh.insertColumnsAfter(O_CID, 5);
-        sh.getRange(1, O_CID, 1, HELPER_HEADERS.length).setValues([HELPER_HEADERS]);
-        if (archived && sh.getLastColumn() >= A_AT) sh.getRange(1, A_AT).setValue("وقت الأرشفة");
+      // 3) أعمدة الأوقات الجديدة (كل واحد بعد عموده)
+      var c1 = addAfter("تم قبول الاوردر", [HDR_ACC_AT]);
+      var c2 = addAfter("جاري التجهيز", [HDR_PREP_END]);
+      var c3 = addAfter("جاري التوصيل", [HDR_DELIV_AT]);
+      var c4 = addAfter("تم التوصيل", [HDR_DONE_AT, HDR_TOTAL_MIN]);
+      // 4) الأعمدة المساعدة (لو الشيت قديم جدًا) + عمود وقت الوصول للصيدلية المخفي
+      if (h.indexOf(HELPER_HEADERS[1]) < 0) {
+        ensureCols_(sh, A_AT_DEF_);
+        if (archived && h[H_DEF_.CID - 1] === ARC_AT_HDR) sh.insertColumnsBefore(H_DEF_.CID, HELPER_HEADERS.length);
+        sh.getRange(1, H_DEF_.CID, 1, HELPER_HEADERS.length).setValues([HELPER_HEADERS]);
+        if (archived && sh.getLastColumn() >= A_AT_DEF_) sh.getRange(1, A_AT_DEF_).setValue(ARC_AT_HDR);
+        h = hd();
       }
+      var c5 = addAfter(HELPER_HEADERS[4], [HDR_PHARM_AT]);
+      // تنسيق الأعمدة الجديدة
+      var fmt = function (col, f) { if (col) sh.getRange(2, col, Math.max(sh.getMaxRows() - 1, 1), 1).setNumberFormat(f); };
+      fmt(c1, TS_FMT_); fmt(c2, TS_FMT_); fmt(c3, TS_FMT_); fmt(c4, TS_FMT_); fmt(c4 ? c4 + 1 : 0, "0"); fmt(c5, TS_FMT_);
+      if (c5) { try { sh.hideColumns(c5); } catch (e) {} }
+      if (c1 || c2 || c3 || c4 || c5) { try { var hc = hd().indexOf(HELPER_HEADERS[0]) + 1; if (hc > 0) styleHelperHeaders_(sh, hc); } catch (e) {} }
     });
-    cache.put("schema_v3", "1", 21600); SCHEMA_DONE_ = true;
+    cache.put("schema_v4", "1", 21600); SCHEMA_DONE_ = true; BOUND_ = false;
   } finally { if (mine) { try { lk.releaseLock(); } catch (e) {} } }
+}
+
+// ===== أوقات المراحل: بتتسجل في الشيت بتوقيت السيرفر (أو وقت الضغطة الفعلي عند المندوب لو النت كان واقع) =====
+function stampMs_(at) { var now = Date.now(), t = Number(at); return t > now - 3 * 864e5 && t <= now + 120000 ? t : now; }
+function toMs_(v) { if (v instanceof Date) { var t = v.getTime(); return isFinite(t) ? t : 0; } var n = Number(v); return n > 1e11 ? n : 0; }
+function setStamp_(sh, r, col, ms) { sh.getRange(r, col).setNumberFormat(TS_FMT_).setValue(new Date(ms)); }
+function stampFill_(sh, r, rv, col, ms) { if (!toMs_(rv[col - 1])) { setStamp_(sh, r, col, ms); rv[col - 1] = new Date(ms); } }      // مبيكتبش فوق وقت متسجل قبل كده
+function clearStamp_(sh, r, col) { sh.getRange(r, col).clearContent(); }
+// بيسجّل وقت المرحلة بالمللي ثانية في عمود "خطوات التنفيذ" (برنامج الإدارة بيقراه): a = وقت القبول، d = وقت بدء التوصيل. الصيغة: a:1700000000000|d:1700000600000
+function stampStep_(sh, r, k, force) {
+  try {
+    var c = sh.getRange(r, O.STEPS), cur = String(c.getValue() || ""), m = {};
+    cur.split("|").forEach(function (p) { var x = p.split(":"); if (x[0] && x[1]) m[x[0]] = x[1]; });
+    if (force || !m[k]) m[k] = String(Date.now());
+    c.setNumberFormat("@").setValue(Object.keys(m).map(function (q) { return q + ":" + m[q]; }).join("|"));
+  } catch (e) {}
+}
+// وقت التسليم + إجمالي المدة بالدقايق (من وصول المندوب للصيدلية لحد التسليم للعميل)
+function finishStamps_(sh, r, rv, ms) {
+  stampFill_(sh, r, rv, O_PHARM, ms); stampFill_(sh, r, rv, O.PREP_END, ms); stampFill_(sh, r, rv, O.DELIV_AT, ms);
+  setStamp_(sh, r, O.DONE_AT, ms);
+  var p = toMs_(rv[O_PHARM - 1]) || ms;
+  sh.getRange(r, O.TOTAL_MIN).setNumberFormat("0").setValue(Math.max(0, Math.round((ms - p) / 60000)));
 }
 
 function styleHelperHeaders_(sh, from) {
   var rg = sh.getRange(1, from, 1, HELPER_HEADERS.length);
   rg.setFontWeight("bold").setBackground("#1F2937").setFontColor("#9CA3AF").setHorizontalAlignment("center").setVerticalAlignment("middle").setWrap(true);
 }
-var ORD_WIDTHS_ = [50, 80, 130, 80, 150, 120, 150, 170, 170, 150, 320, 150, 160, 150, 90, 90, 150, 130, 150, 130, 220, 130, 130, 90, 90, 130, 90, 170, 200, 100, 90, 90, 100, 90, 120];
+var ORD_WIDTHS_ = [50, 80, 130, 80, 150, 120, 150, 170, 170, 150, 320, 150, 160, 150, 90, 90, 135, 150, 130, 150, 130, 220, 130, 130, 90, 135, 90, 135, 130, 90, 135, 115, 170, 200, 100, 90, 90, 100, 90, 135, 120];
 
 function setupOrders_(ss) {
-  var sh = ss.getSheetByName(ORD_TAB);
+  var sh = ss.getSheetByName(ORD_TAB), fresh = !sh;
   if (sh) ensureSchema_(ss); else sh = ss.insertSheet(ORD_TAB);
-  ensureCols_(sh, A_AT);
+  ensureCols_(sh, A_AT_DEF_);
   sh.setRightToLeft(true);
-  sh.getRange(1, 1, 1, ORD_HEADERS.length).setValues([ORD_HEADERS]);
-  headerStyle_(sh.getRange(1, 1, 1, ORD_HEADERS.length));
-  sh.getRange(1, O_CID, 1, HELPER_HEADERS.length).setValues([HELPER_HEADERS]);
+  if (fresh || sh.getLastColumn() < 3 || String(sh.getRange(1, 1).getValue()).trim() === "") {      // الهيدر بيتكتب بس لو الورقة جديدة (غير كده بنحترم ترتيبك)
+    sh.getRange(1, 1, 1, ORD_HEADERS.length).setValues([ORD_HEADERS]);
+    sh.getRange(1, H_DEF_.CID, 1, HELPER_HEADERS.length).setValues([HELPER_HEADERS]);
+    ORD_WIDTHS_.forEach(function (w, i) { sh.setColumnWidth(i + 1, w); });
+  }
+  bindOrders_(sh);
+  headerStyle_(sh.getRange(1, 1, 1, O_W));
   styleHelperHeaders_(sh, O_CID);
   sh.setFrozenRows(1);
   sh.setRowHeight(1, 44);
-  sh.hideColumns(O_CID); sh.hideColumns(O_SIG);
-  ORD_WIDTHS_.forEach(function (w, i) { sh.setColumnWidth(i + 1, w); });
+  sh.hideColumns(O_CID); sh.hideColumns(O_SIG); sh.hideColumns(O_PHARM);
   var rows = Math.max(sh.getMaxRows() - 1, 1);
   [O.ACCEPT, O.PREP, O.DELIV, O.DONE].forEach(function (c) { sh.getRange(2, c, rows, 1).insertCheckboxes(); });
+  [O.ACC_AT, O.PREP_END, O.DELIV_AT, O.DONE_AT, O_PHARM].forEach(function (c) { sh.getRange(2, c, rows, 1).setNumberFormat(TS_FMT_); });
+  sh.getRange(2, O.TOTAL_MIN, rows, 1).setNumberFormat("0");
   sh.getRange(2, O.PHONE, rows, 1).setNumberFormat("@");
   [O.P1P, O.P2P, O.PPHONE].forEach(function (c) { sh.getRange(2, c, rows, 1).setNumberFormat("@"); });
   sh.getRange(2, O.DETAILS, rows, 1).setWrap(true);
@@ -137,30 +252,38 @@ function setupOrders_(ss) {
 }
 
 function setupArchive_(ss) {
-  var sh = ss.getSheetByName(ARC_TAB);
+  var sh = ss.getSheetByName(ARC_TAB), fresh = !sh;
   if (sh) ensureSchema_(ss); else sh = ss.insertSheet(ARC_TAB);
-  ensureCols_(sh, A_AT);
+  ensureCols_(sh, A_AT_DEF_);
   sh.setRightToLeft(true);
-  var h = ORD_HEADERS.concat(HELPER_HEADERS).concat(["وقت الأرشفة"]);
-  sh.getRange(1, 1, 1, h.length).setValues([h]);
-  headerStyle_(sh.getRange(1, 1, 1, ORD_HEADERS.length));
-  styleHelperHeaders_(sh, O_CID);
-  headerStyle_(sh.getRange(1, A_AT));
+  if (fresh || sh.getLastColumn() < 3 || String(sh.getRange(1, 1).getValue()).trim() === "") {
+    var h = ORD_HEADERS.concat(HELPER_HEADERS).concat([ARC_AT_HDR]);
+    sh.getRange(1, 1, 1, h.length).setValues([h]);
+    ORD_WIDTHS_.forEach(function (w, i) { sh.setColumnWidth(i + 1, w); });
+  }
+  headerStyle_(sh.getRange(1, 1, 1, Math.max(sh.getLastColumn(), 1)));
+  ARC_MAP_ = null;
+  var cm = arcCols_(sh);
+  if (cm.CID) styleHelperHeaders_(sh, cm.CID);
   sh.setFrozenRows(1);
-  sh.hideColumns(O_CID); sh.hideColumns(O_SIG);
-  ORD_WIDTHS_.forEach(function (w, i) { sh.setColumnWidth(i + 1, w); });
+  [cm.CID, cm.SIG, cm.PHARM].forEach(function (c) { if (c) sh.hideColumns(c); });
 }
 
 function setupPilots_(ss) {
-  var sh = ss.getSheetByName(PIL_TAB) || ss.insertSheet(PIL_TAB);
+  var sh = ss.getSheetByName(PIL_TAB), fresh = !sh;
+  if (fresh) sh = ss.insertSheet(PIL_TAB);
   sh.setRightToLeft(true);
-  sh.getRange(1, 1, 1, PIL_HEADERS.length).setValues([PIL_HEADERS]);
-  headerStyle_(sh.getRange(1, 1, 1, PIL_HEADERS.length));
+  fresh = fresh || sh.getLastColumn() < 3 || String(sh.getRange(1, 1).getValue()).trim() === "";
+  if (fresh) sh.getRange(1, 1, 1, PIL_HEADERS.length).setValues([PIL_HEADERS]);      // الهيدر بيتكتب بس لو الورقة جديدة
+  bindPilots_(sh);
+  headerStyle_(sh.getRange(1, 1, 1, P_W));
   // جدولين القوائم (جنب الجدول بعد عمودين فاضيين)
-  sh.getRange(1, PIL_LIST_REQ, 1, 2).setValues([["حالة الطلب", "حالة الطيار"]]);
-  headerStyle_(sh.getRange(1, PIL_LIST_REQ, 1, 2));
-  sh.getRange(2, PIL_LIST_REQ, 3, 1).setValues([["منتظر"], ["مقبول"], ["مرفوض"]]);
-  sh.getRange(2, PIL_LIST_STATE, 3, 1).setValues([["يعمل"], ["موقوف مؤقتاً"], ["موقوف نهائي"]]);
+  if (fresh) {
+    sh.getRange(1, PIL_LIST_REQ, 1, 2).setValues([["حالة الطلب", "حالة الطيار"]]);
+    headerStyle_(sh.getRange(1, PIL_LIST_REQ, 1, 2));
+    sh.getRange(2, PIL_LIST_REQ, 3, 1).setValues([["منتظر"], ["مقبول"], ["مرفوض"]]);
+    sh.getRange(2, PIL_LIST_STATE, 3, 1).setValues([["يعمل"], ["موقوف مؤقتاً"], ["موقوف نهائي"]]);
+  }
   sh.setFrozenRows(1);
   sh.setRowHeight(1, 44);
   var rows = Math.max(sh.getMaxRows() - 1, 1);
@@ -170,13 +293,15 @@ function setupPilots_(ss) {
     .requireValueInRange(sh.getRange(2, PIL_LIST_STATE, 3, 1), true).setAllowInvalid(false).build());
   [P.PHONE, P.PASS, P.ID, P.BIRTH, P.TOKEN].forEach(function (c) { sh.getRange(2, c, rows, 1).setNumberFormat("@"); });
   sh.getRange(2, P.WALLET, rows, 1).setNumberFormat("0.00");
-  var widths = [50, 160, 130, 110, 200, 150, 110, 90, 110, 110, 160, 120, 120, 100, 220];
-  widths.forEach(function (w, i) { sh.setColumnWidth(i + 1, w); });
-  sh.setColumnWidth(16, 30); sh.setColumnWidth(17, 30);
+  if (fresh) {
+    var widths = [50, 160, 130, 110, 200, 150, 110, 90, 110, 110, 160, 120, 120, 100, 220];
+    widths.forEach(function (w, i) { sh.setColumnWidth(i + 1, w); });
+    sh.setColumnWidth(16, 30); sh.setColumnWidth(17, 30);
+  }
   // قائمة تلقائية بالطيارين المتاحين (مقبول + مش موقوف + "يعمل الان") بالشكل: الاسم - المركبة. بتتحدث لوحدها لما حالتهم تتغير
-  sh.getRange(1, PIL_LIST_AVAIL).setValue("الطيارين المتاحين دلوقتي (تلقائي - لا تلمسه)");
+  sh.getRange(1, PIL_LIST_AVAIL).setValue(PIL_AVAIL_HDR);
   headerStyle_(sh.getRange(1, PIL_LIST_AVAIL));
-  sh.getRange(2, PIL_LIST_AVAIL).setFormula(PIL_AVAIL_FORMULA);
+  sh.getRange(2, PIL_LIST_AVAIL).setFormula(pilAvailFormula_());
   sh.setColumnWidth(PIL_LIST_AVAIL, 260);
 }
 
@@ -244,14 +369,14 @@ function doPost_(e) {
     });
   } catch (err) { return out_({ ok: false, error: String(err) }); }
 }
-function ssOpen_() { var ss = SPREADSHEET_ID ? SpreadsheetApp.openById(SPREADSHEET_ID) : SpreadsheetApp.getActiveSpreadsheet(); ensureSchema_(ss); return ss; }
+function ssOpen_() { var ss = SPREADSHEET_ID ? SpreadsheetApp.openById(SPREADSHEET_ID) : SpreadsheetApp.getActiveSpreadsheet(); ensureSchema_(ss); bindAll_(ss); return ss; }
 function ensureCols_(sh, n) { var m = sh.getMaxColumns(); if (m < n) sh.insertColumnsAfter(m, n - m); }
 
 // آخر صف فيه أوردر فعلاً (بنعدّ على عمود رقم البون، لأن مربعات الاختيار بتخلّي getLastRow يرجّع آخر الورقة)
 function dataLast_(sh) {
   var n = sh.getMaxRows();
   if (n < 2) return 1;
-  var v = sh.getRange(2, O.BON, n - 1, 1).getValues();
+  var v = sh.getRange(2, colIn_(sh, "BON"), n - 1, 1).getValues();
   for (var i = v.length - 1; i >= 0; i--) if (v[i][0] !== "" && v[i][0] !== null) return i + 2;
   return 1;
 }
@@ -259,7 +384,7 @@ function dataLast_(sh) {
 function findByCid_(sh, cid) {
   var n = sh.getLastRow();
   if (n < 2 || !cid) return 0;
-  var v = sh.getRange(2, O_CID, n - 1, 1).getValues();
+  var v = sh.getRange(2, colIn_(sh, "CID"), n - 1, 1).getValues();
   for (var i = 0; i < v.length; i++) if (String(v[i][0]) === cid) return i + 2;
   return 0;
 }
@@ -275,15 +400,15 @@ function newOrder_(d) {
   var sh = ordersSheet_(ss), arc = ss.getSheetByName(ARC_TAB);
   var row = findByCid_(sh, cid);                       // نفس الطلب وصل قبل كده (إعادة محاولة): نرجّع نفس البون
   if (row) return { ok: true, bon: Number(sh.getRange(row, O.BON).getValue()), dup: true };
-  if (arc) { var ar = findByCid_(arc, cid); if (ar) return { ok: true, bon: Number(arc.getRange(ar, O.BON).getValue()), dup: true }; }
+  if (arc) { var ar = findByCid_(arc, cid); if (ar) return { ok: true, bon: Number(arc.getRange(ar, colIn_(arc, "BON")).getValue()), dup: true }; }
 
   var last = dataLast_(sh), bon = 1001;
   if (last >= 2) { var lb = Number(sh.getRange(last, O.BON).getValue()); if (lb > 0) bon = lb + 1; }
   if (arc && arc.getLastRow() >= 2) {                  // البون يكمّل بعد آخر بون اتأرشف كمان
-    var ab = Number(arc.getRange(arc.getLastRow(), O.BON).getValue()); if (ab >= bon) bon = ab + 1;
+    var ab = Number(arc.getRange(arc.getLastRow(), colIn_(arc, "BON")).getValue()); if (ab >= bon) bon = ab + 1;
   }
   var t = nowParts_();
-  var vals = []; for (var k = 0; k < O_ARR; k++) vals[k] = "";
+  var vals = []; for (var k = 0; k < O_W; k++) vals[k] = "";
   vals[O.NUM - 1] = Math.max(last, 1);
   vals[O.BON - 1] = bon; vals[O.DATE - 1] = t.date; vals[O.TIME - 1] = t.time;
   vals[O.NAME - 1] = name; vals[O.PHONE - 1] = phone;
@@ -314,9 +439,9 @@ function myOrders_(idsParam) {
   var sh = ss.getSheetByName(ORD_TAB), arc = ss.getSheetByName(ARC_TAB);
   function pull(s, archived) {
     if (!s || s.getLastRow() < 2) return;
-    var n = (archived ? s.getLastRow() : dataLast_(s)) - 1, w = archived ? A_AT : O_ARR;
+    var n = (archived ? s.getLastRow() : dataLast_(s)) - 1;
     if (n < 1) return;
-    var v = s.getRange(2, 1, n, w).getValues();
+    var v = archived ? canonArc_(s, s.getRange(2, 1, n, Math.max(s.getLastColumn(), 1)).getValues()) : s.getRange(2, 1, n, O_W).getValues();
     for (var i = 0; i < v.length; i++) {
       var r = v[i], cid = String(r[O_CID - 1]);
       if (!want[cid]) continue;
@@ -340,13 +465,13 @@ function myOrders_(idsParam) {
 
 // ===== تلوين صف الأوردر حسب حالته =====
 function styleOrderRow_(sh, r) {
-  var v = sh.getRange(r, 1, 1, O.DONE).getValues()[0];
+  var v = sh.getRange(r, 1, 1, O_W).getValues()[0];
   var bg = "#0B0F19", fg = "#F3F4F6";
   if (isTrue_(v[O.DONE - 1])) { bg = "#1F2937"; fg = "#9CA3AF"; }
   else if (isTrue_(v[O.DELIV - 1])) { bg = "#ADFF2F"; fg = "#111827"; }
   else if (isTrue_(v[O.PREP - 1])) { bg = "#E0F2FE"; fg = "#111827"; }
   else if (isTrue_(v[O.ACCEPT - 1])) { bg = "#064E3B"; fg = "#F3F4F6"; }
-  var rng = sh.getRange(r, 1, 1, ORD_HEADERS.length);
+  var rng = sh.getRange(r, 1, 1, O_W);
   rng.setBackground(bg).setFontColor(fg).setVerticalAlignment("middle")
     .setBorder(true, true, true, true, true, true, "#4B5563", SpreadsheetApp.BorderStyle.SOLID);
   sh.getRange(r, O.DETAILS).setWrap(true);
@@ -371,13 +496,21 @@ var pilotLabel_ = function (name, veh) { return String(name) + (veh ? " - " + ve
 function archiveOrder_(sh, r, atMs) {
   var ss = sh.getParent(), arc = ss.getSheetByName(ARC_TAB);
   if (!arc) { setupArchive_(ss); arc = ss.getSheetByName(ARC_TAB); }
-  var row = sh.getRange(r, 1, 1, O_ARR).getValues()[0];
+  var row = sh.getRange(r, 1, 1, Math.max(sh.getLastColumn(), O_W)).getValues()[0];
   [O.P1N, O.P1P, O.P2N, O.P2P].forEach(function (c) { if (!String(row[c - 1]).trim()) row[c - 1] = "--"; });   // مفيش طيار سابق = "--" (يعني نفس الطيار هو اللي وصّل)
-  var now = Date.now(), at = Number(atMs);
-  row.push(new Date(at > now - 3 * 864e5 && at <= now ? at : now));   // وقت التسليم الحقيقي عند الطيار (لو اتبعت متأخر بسبب النت)
-  arc.appendRow(row);
-  var ar = arc.getLastRow();
-  [O.PHONE, O.PPHONE, O.P1P, O.P2P].forEach(function (c) { arc.getRange(ar, c).setNumberFormat("@").setValue(normPhone_(row[c - 1]) || String(row[c - 1])); });
+  var now = Date.now(), at = Number(atMs), atD = new Date(at > now - 3 * 864e5 && at <= now ? at : now);   // وقت التسليم الحقيقي عند الطيار (لو اتبعت متأخر بسبب النت)
+  var src = hdrRow_(sh), ah = hdrRow_(arc), out = [];
+  for (var j = 0; j < Math.max(arc.getLastColumn(), 1); j++) out.push("");
+  for (var j2 = 0; j2 < ah.length; j2++) {      // كل عمود في الأرشيف بيتملّى من عمود بنفس الهيدر في الطلبات (ترتيب الأعمدة مش مهم)
+    var hn = ah[j2]; if (!hn) continue;
+    if (hn === normH_(ARC_AT_HDR)) { out[j2] = atD; continue; }
+    var si = src.indexOf(hn); if (si >= 0) out[j2] = row[si];
+  }
+  arc.appendRow(out);
+  var ar = arc.getLastRow(), cm = arcCols_(arc);
+  ["ACC_AT", "PREP_END", "DELIV_AT", "DONE_AT", "PHARM"].forEach(function (k) { if (cm[k] && out[cm[k] - 1]) arc.getRange(ar, cm[k]).setNumberFormat(TS_FMT_); });
+  if (cm.TOTAL_MIN) arc.getRange(ar, cm.TOTAL_MIN).setNumberFormat("0");
+  ["PHONE", "PPHONE", "P1P", "P2P"].forEach(function (k) { var c = cm[k]; if (c) { var v = out[c - 1]; arc.getRange(ar, c).setNumberFormat("@").setValue(normPhone_(v) || String(v)); } });
   sh.deleteRow(r);
 }
 
@@ -386,8 +519,9 @@ function onEdit(e) {
   try {
     var rg = e.range, sh = rg.getSheet(), r = rg.getRow(), c = rg.getColumn(), nm = sh.getName();
     if (r < 2) return;
+    if (nm === ORD_TAB || nm === PIL_TAB) { BOUND_ = false; bindAll_(sh.getParent()); }      // الأعمدة بالهيدر الحالي (ترتيبها حر)
     if (nm === ORD_TAB) {
-      if (c === O.DONE && isTrue_(rg.getValue())) { stageNotify_(sh, r, "done"); archiveOrder_(sh, r); return; }       // تم التوصيل: يتنقل لـ "الطلبات المكتملة"
+      if (c === O.DONE && isTrue_(rg.getValue())) { try { finishStamps_(sh, r, rowVals_(sh, r), Date.now()); } catch (e) {} stageNotify_(sh, r, "done"); archiveOrder_(sh, r); return; }       // تم التوصيل: يتنقل لـ "الطلبات المكتملة"
       if (c === O.PNAME) {                                                                // اختيار الطيار: رقمه يتكتب لوحده + الطيار اللي اتشال يتسجل "سابق"
         var nv = String(rg.getValue() == null ? "" : rg.getValue()).trim(), ov = String(e.oldValue == null ? "" : e.oldValue).trim();
         var dk = "ed_" + r + "_" + hash_(ov + "|" + nv), cc = CacheService.getScriptCache();
@@ -404,6 +538,16 @@ function onEdit(e) {
       if (c === O.CLOC || c === O.SLOC || c === O.RATE) locEdit_(sh, r, c);   // اللوكيشن/الصيدلية/التسعيرة اتغيروا: التوصيل والمسافة يتحسبوا فورًا
       if (c === O.ACCEPT || c === O.PREP || c === O.DELIV) {
         styleOrderRow_(sh, r);
+        try {      // أوقات المراحل لما التعليم بيتم يدوي من الشيت
+          var rv2 = rowVals_(sh, r), nowMs = Date.now();
+          if (isTrue_(rg.getValue())) {
+            if (c === O.ACCEPT) { stampFill_(sh, r, rv2, O.ACC_AT, nowMs); stampStep_(sh, r, "a", true); }
+            else if (c === O.PREP) stampFill_(sh, r, rv2, O_PHARM, nowMs);
+            else { stampFill_(sh, r, rv2, O_PHARM, nowMs); stampFill_(sh, r, rv2, O.PREP_END, nowMs); stampFill_(sh, r, rv2, O.DELIV_AT, nowMs); stampStep_(sh, r, "d"); }
+          } else if (c === O.ACCEPT) { clearStamp_(sh, r, O.ACC_AT); clearStamp_(sh, r, O.STEPS); }
+          else if (c === O.PREP) { clearStamp_(sh, r, O_PHARM); clearStamp_(sh, r, O.PREP_END); }
+          else { clearStamp_(sh, r, O.DELIV_AT); clearStamp_(sh, r, O.PREP_END); }
+        } catch (e) {}
         if (isTrue_(rg.getValue())) stageNotify_(sh, r, c === O.ACCEPT ? "accepted" : (c === O.PREP ? "prep" : "deliv"));   // تعليم يدوي من الشيت برضه بيوصّل للعميل
       }
     } else if (OFFER_TABS.indexOf(nm) >= 0) {
@@ -548,6 +692,7 @@ var MSG_ = {
 // ===== لوكيشن العميل ================================================
 // =====================================================================
 var CUST_TAB_ = "العملاء", C_PHONE_ = 3, C_LOC_ = 5;   // ورقة العملاء: عمود 3 رقم الهاتف، عمود 5 لوكيشن العميل
+var UA_DESK_ = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";   // جوجل بترجّع إحداثيات الدبوس في لينك الكمبيوتر، ولينك الموبايل ساعات بيرجع اسم ورقم المكان بس
 var UA_ = "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Mobile Safari/537.36";
 var PRICE_BUDGET_ = 2;   // أقصى عدد طلبات بنعيد تسعيرها في الطلب الواحد (علشان الرد يفضل سريع)
 function inEgypt_(la, lo) { return isFinite(la) && isFinite(lo) && la >= 21 && la <= 33 && lo >= 24 && lo <= 37.5; }
@@ -695,7 +840,7 @@ function cidCoords_(text) {
   try {
     for (var k = 0; k < 4 && cu && !res; k++) {
       var pc = parseCoords_(cu); if (pc && !viewportOnly_(cu)) { res = pc; break; }
-      var r = UrlFetchApp.fetch(cu, { followRedirects: false, muteHttpExceptions: true, headers: { "User-Agent": UA_, "Accept-Language": "ar,en;q=0.8", "Cookie": "CONSENT=YES+cb.20240101-00-p0.en+FX+000; SOCS=CAI" } });
+      var r = UrlFetchApp.fetch(cu, { followRedirects: false, muteHttpExceptions: true, headers: { "User-Agent": UA_DESK_, "Accept-Language": "ar,en;q=0.8", "Cookie": "CONSENT=YES+cb.20240101-00-p0.en+FX+000; SOCS=CAI" } });
       var h = r.getHeaders() || {}, l = h["Location"] || h["location"], code = r.getResponseCode();
       if (code >= 300 && code < 400 && l) { cu = /^https?:/i.test(l) ? l : "https://www.google.com" + l; continue; }
       var b = String(r.getContentText() || "").slice(0, 400000); res = bodyCoords_(b) || bodyCoordsMore_(b) || pc; break;
@@ -704,22 +849,29 @@ function cidCoords_(text) {
   if (res) cache.put(key, res.lat + "," + res.lng, 21600);
   return res;
 }
-function resolveMapsLink_(url) {
-  var cache = CacheService.getScriptCache(), key = "loc_" + hash_(url), c = cache.get(key);
-  if (c) { var p = c.split(","); return { lat: +p[0], lng: +p[1] }; }
-  var cur = url, res = null;
+function walkMapsLink_(url, ua) {
+  var cur = url, res = null, place = "";      // place = آخر لينك فيه اسم المكان/رقمه (بيتحفظ عشان صفحة جوجل ممكن تبعتنا لروابط تانية ملهاش لازمة)
   for (var i = 0; i < 6 && cur; i++) {
+    if (/\/maps\/place\//.test(cur) || /!1s0x[0-9a-fA-F]+:0x/.test(cur)) place = cur;
     var pc = parseCoords_(cur); if (pc) { res = viewportOnly_(cur) ? (cidCoords_(cur) || pc) : pc; break; }
-    var r = UrlFetchApp.fetch(cur, { followRedirects: false, muteHttpExceptions: true, headers: { "User-Agent": UA_, "Accept-Language": "ar,en;q=0.8", "Cookie": "CONSENT=YES+cb.20240101-00-p0.en+FX+000; SOCS=CAI" } });
+    var r = UrlFetchApp.fetch(cur, { followRedirects: false, muteHttpExceptions: true, headers: { "User-Agent": ua, "Accept-Language": "ar,en;q=0.8", "Cookie": "CONSENT=YES+cb.20240101-00-p0.en+FX+000; SOCS=CAI" } });
     var code = r.getResponseCode(), h = r.getHeaders() || {}, loc = h["Location"] || h["location"];
     if (code >= 300 && code < 400 && loc) { cur = /^https?:/i.test(loc) ? loc : (/^\//.test(loc) ? "https://www.google.com" + loc : loc); continue; }
     var body = String(r.getContentText() || "").slice(0, 400000), bc = bodyCoords_(body) || bodyCoordsMore_(body);
     if (bc) { res = bc; break; }
     var mm = body.match(/https?:\/\/(?:www\.)?google\.[a-z.]+\/maps[^"'<>\s\\]*/i), nx = mm ? mm[0].replace(/&amp;/g, "&") : "";
-    if (nx && nx !== cur) { cur = nx; continue; }
+    if (nx && nx !== cur && (parseCoords_(nx) || /\/maps\/place\//.test(nx))) { cur = nx; continue; }
     break;
   }
-  if (!res) res = cidCoords_(cur) || cidCoords_(url) || placeNameCoords_(cur) || placeNameCoords_(url);      // لينكات "البيوت" بترجع بس رقم المكان (CID)
+  return { res: res, cur: cur, place: place };
+}
+function resolveMapsLink_(url) {
+  var cache = CacheService.getScriptCache(), key = "loc_" + hash_(url), c = cache.get(key);
+  if (c) { var p = c.split(","); return { lat: +p[0], lng: +p[1] }; }
+  var w = walkMapsLink_(url, UA_), res = w.res, cur = w.cur, place = w.place;
+  if (!res) { try { var w2 = walkMapsLink_(url, UA_DESK_); res = w2.res; if (w2.cur) cur = w2.cur; if (w2.place) place = w2.place; } catch (e) {} }      // نفس اللينك بشكل الكمبيوتر (فيه إحداثيات الدبوس)
+  if (!res && place) res = cidCoords_(place) || placeNameCoords_(place);      // لينك اسم+رقم المكان بس: رقم المكان (CID) وبعده العنوان اللي في اللينك
+  if (!res) res = cidCoords_(cur) || cidCoords_(url) || placeNameCoords_(cur) || placeNameCoords_(url);
   if (res) cache.put(key, res.lat + "," + res.lng, 21600);
   return res;
 }
@@ -811,16 +963,33 @@ function feeForMeters_(meters, rate) {
 var ROUTE_LONGEST_ = false;
 // شغّلها مرة واحدة من المحرر: بتخلّي كل الطلبات المفتوحة تتحسب مسافتها وتوصيلها تاني بالطريق الصح
 function repriceOpenOrders() {
-  var sh = ordersSheet_(ssOpen_()), n = sh.getLastRow(); if (n < 2) return;
-  var done = sh.getRange(2, O.DONE, n - 1, 1).getValues(), cleared = 0;
-  for (var i = 0; i < done.length; i++) if (!isTrue_(done[i][0])) { sh.getRange(i + 2, O_SIG).clearContent(); cleared++; }
-  var cache = CacheService.getScriptCache();
-  for (var r = 2; r <= n; r++) { try { priceOrder_(sh, r); } catch (e) {} }
-  Logger.log("✅ اتحسبت تاني " + cleared + " طلب مفتوح");
+  var t0 = new Date(), sh = ordersSheet_(ssOpen_()), n = sh.getLastRow(); if (n < 2) { Logger.log("مفيش طلبات"); return; }
+  var v = sh.getRange(2, 1, n - 1, O_W).getValues(), todo = [];
+  for (var i = 0; i < v.length; i++) {      // الطلبات المفتوحة اللي ليها لوكيشن بس (مش كل التاريخ)
+    var rv = v[i]; if (!(Number(rv[O.BON - 1]) > 0) || isTrue_(rv[O.DONE - 1]) || !String(rv[O.CLOC - 1] || "").trim()) continue;
+    todo.push(i + 2);
+  }
+  Logger.log("طلبات مفتوحة هتتحسب: " + todo.length);
+  var cache = CacheService.getScriptCache(), ok = 0, bad = 0;
+  for (var k = 0; k < todo.length; k++) {
+    if (new Date() - t0 > 240000) { Logger.log("⏱ وقفت قبل حد الوقت: اتحسب " + ok + " وفاضل " + (todo.length - k) + " — شغّلها تاني"); return; }
+    var r = todo[k], bon = Number(v[r - 2][O.BON - 1]) || 0;
+    try {
+      if (String(v[r - 2][O.SLOC - 1] || "").trim() !== STORE_LOCATION) sh.getRange(r, O.SLOC).setValue(STORE_LOCATION);      // الطلبات المفتوحة تمشي على لوكيشن المحل الحالي اللي في الكود
+      sh.getRange(r, O_SIG).clearContent(); cache.remove("pf_" + bon);
+      var done = priceOrder_(sh, r);
+      if (done) { Logger.log("طلب " + bon + " ← ✅ " + sh.getRange(r, O_KM).getValue() + " كم | توصيل " + sh.getRange(r, O_FEE).getValue()); ok++; }
+      else {
+        bad++; var cl = String(v[r - 2][O.CLOC - 1] || "").trim(), a = storeCoords_(STORE_LOCATION), b = coordsOfLink_(cl);
+        Logger.log("طلب " + bon + " ← ❌ المحل: " + (a ? "✅" : "❌") + " | العميل: " + (b ? "✅ " + b.lat + "," + b.lng : "❌ " + cl.slice(0, 80)) + (!b && /^https?:/i.test(cl) ? "\n" + debugLink_(cl) : ""));
+      }
+    } catch (e) { bad++; Logger.log("طلب " + bon + " ← خطأ: " + e); }
+  }
+  Logger.log("✅ خلصت: " + ok + " اتحسب، " + bad + " فشل (" + Math.round((new Date() - t0) / 1000) + " ثانية)");
 }
 // بيحسب التوصيل = مسافة الطريق (كم) × تسعيرة الكيلو، ويكتبهم في الشيت. بيتنفذ لوحده لما اللوكيشن أو الصيدلية أو التسعيرة تتغير
 function priceOrder_(sh, r) {
-  var rv = sh.getRange(r, 1, 1, O_ARR).getValues()[0], bon = Number(rv[O.BON - 1]) || 0;
+  var rv = sh.getRange(r, 1, 1, O_W).getValues()[0], bon = Number(rv[O.BON - 1]) || 0;
   if (!needsPrice_(rv)) return false;
   var cache = CacheService.getScriptCache(); if (cache.get("pf_" + bon)) return false;
   var cloc = String(rv[O.CLOC - 1] || "").trim(), rate = rateOf_(rv), goods = goodsOf_(rv), km = 0, fee = 0, ok = true, src = "";
@@ -845,15 +1014,16 @@ function pricedRow_(sh, rowIdx, rv) {
   try {
     PRICE_BUDGET_--;
     var ri = findByCid_(sh, String(rv[O_CID - 1])) || rowIdx;
-    if (priceOrder_(sh, ri)) return sh.getRange(ri, 1, 1, O_ARR).getValues()[0];
+    if (priceOrder_(sh, ri)) return sh.getRange(ri, 1, 1, O_W).getValues()[0];
   } catch (e) {} finally { if (!had) { try { lk.releaseLock(); } catch (x) {} } }
   return rv;
 }
 function updateCustomerLoc_(ss, phone, link) {
   var sh = ss.getSheetByName(CUST_TAB_); if (!sh) return;
   var n = sh.getLastRow(); if (n < 2) return;
-  var v = sh.getRange(2, C_PHONE_, n - 1, 1).getValues();
-  for (var i = 0; i < v.length; i++) if (normPhone_(v[i][0]) === phone) { sh.getRange(i + 2, C_LOC_).setValue(link); return; }
+  var hr = hdrRow_(sh), cp = hr.indexOf("رقم الهاتف") + 1 || C_PHONE_, cl = hr.indexOf("لوكيشن العميل") + 1 || C_LOC_;      // الأعمدة بالهيدر (لو مش لاقيها بيرجع لمكانها الافتراضي)
+  var v = sh.getRange(2, cp, n - 1, 1).getValues();
+  for (var i = 0; i < v.length; i++) if (normPhone_(v[i][0]) === phone) { sh.getRange(i + 2, cl).setValue(link); return; }
 }
 function afterLocation_(ss, sh, r, phone, loc) {
   updateCustomerLoc_(ss, phone, loc);      // اللينك بيفضل زي ما هو (مش بنحوّله لإحداثيات)، والإحداثيات بتتحسب منه لحظيًا
@@ -869,7 +1039,7 @@ function pilotLast_(sh) {
 }
 function readPilots_(sh) {
   var last = pilotLast_(sh);
-  return last < 2 ? [] : sh.getRange(2, 1, last - 1, PIL_HEADERS.length).getValues();
+  return last < 2 ? [] : sh.getRange(2, 1, last - 1, Math.max(P_W, 1)).getValues();
 }
 function findPilot_(sh, phone) {
   var rows = readPilots_(sh);
@@ -926,7 +1096,7 @@ function stylePilotRow_(sh, r) {
   else if (rq === "منتظر") { bg = "#FFEB3B"; fg = "#000000"; }
   else if (rq === "مرفوض") { bg = "#7A1212"; fg = "#FFFFFF"; }
   else if (rq) { bg = "#FFFFFF"; fg = "#000000"; }
-  sh.getRange(r, 1, 1, PIL_HEADERS.length).setBackground(bg).setFontColor(fg);
+  sh.getRange(r, 1, 1, Math.max(P_W, 1)).setBackground(bg).setFontColor(fg);
 }
 
 // ---- تسجيل الدخول ----
@@ -972,11 +1142,14 @@ function pilotRegister_(d) {
 function rowByBon_(sh, bon) {
   var last = dataLast_(sh);
   if (last < 2 || !bon) return 0;
-  var v = sh.getRange(2, O.BON, last - 1, 1).getValues();
+  var v = sh.getRange(2, colIn_(sh, "BON"), last - 1, 1).getValues();
   for (var i = 0; i < v.length; i++) if (Number(v[i][0]) === Number(bon)) return i + 2;
   return 0;
 }
-function rowVals_(sh, r) { return sh.getRange(r, 1, 1, O_ARR).getValues()[0]; }
+function rowVals_(sh, r) {
+  if (sh.getName() === ARC_TAB) return canonArc_(sh, [sh.getRange(r, 1, 1, Math.max(sh.getLastColumn(), 1)).getValues()[0]])[0];
+  return sh.getRange(r, 1, 1, O_W).getValues()[0];
+}
 function isMine_(rv, phone) { return isTrue_(rv[O.ACCEPT - 1]) && normPhone_(rv[O.PPHONE - 1]) === phone; }
 function activeCount_(sh, phone) {
   var last = dataLast_(sh), n = 0;
@@ -1011,6 +1184,7 @@ function orderView_(r, mine, dv, withPts) {
     o.name = String(r[O.NAME - 1]); o.phone = normPhone_(r[O.PHONE - 1]); o.street = String(r[O.STREET - 1] || ""); o.landmark = String(r[O.LANDMARK - 1] || "");
     o.cloc = String(r[O.CLOC - 1] || ""); o.sloc = String(r[O.SLOC - 1] || ""); o.shopEta = String(r[O.SHOP_ETA - 1] || ""); o.custEta = String(r[O.CUST_ETA - 1] || "");
     o.stage = isTrue_(r[O.DELIV - 1]) ? "delivering" : (isTrue_(r[O.PREP - 1]) ? "preparing" : "accepted"); o.arrived = !!r[O_ARR - 1];
+    o.tAcc = toMs_(r[O.ACC_AT - 1]); o.tPharm = toMs_(r[O_PHARM - 1]); o.tPrepEnd = toMs_(r[O.PREP_END - 1]); o.tDeliv = toMs_(r[O.DELIV_AT - 1]); o.tDone = toMs_(r[O.DONE_AT - 1]); o.totMin = Number(r[O.TOTAL_MIN - 1]) || 0;      // أوقات المراحل (ms) من الشيت
     if (withPts) { try { o.cc = ptOut_(coordsOfLink_(o.cloc)); o.sc = ptOut_(storeCoords_(o.sloc)); } catch (e) {} }   // إحداثيات العميل والصيدلية متحسبة لحظيًا من اللينكات (لتطبيق الطيار)
   }
   return o;
@@ -1023,7 +1197,7 @@ function riderOrders_(d) {
   if (a.code !== "ok") return authFail_(a);
   var ss = ssOpen_(), sh = ordersSheet_(ss), last = dataLast_(sh), working = isWorking_(a.v), pool = [], mine = [], hist = [];
   if (last >= 2) {
-    var rg = sh.getRange(2, 1, last - 1, O_ARR), v = rg.getValues(), dvs;
+    var rg = sh.getRange(2, 1, last - 1, O_W), v = rg.getValues(), dvs;
     for (var q = 0; q < v.length; q++) v[q] = pricedRow_(sh, q + 2, v[q]);       // التوصيل يتحدّث لوحده لو اتغير اللوكيشن/الصيدلية/التسعيرة
     dvs = rg.getDisplayValues();
     for (var i = 0; i < v.length; i++) {
@@ -1035,7 +1209,7 @@ function riderOrders_(d) {
   }
   var arc = ss.getSheetByName(ARC_TAB);
   if (arc && arc.getLastRow() >= 2) {
-    var from = Math.max(2, arc.getLastRow() - 400), rg2 = arc.getRange(from, 1, arc.getLastRow() - from + 1, A_AT), av = rg2.getValues(), adv = rg2.getDisplayValues(), myName = String(a.v[P.NAME - 1]).trim();
+    var from = Math.max(2, arc.getLastRow() - 400), rg2 = arc.getRange(from, 1, arc.getLastRow() - from + 1, Math.max(arc.getLastColumn(), 1)), av = canonArc_(arc, rg2.getValues()), adv = canonArc_(arc, rg2.getDisplayValues()), myName = String(a.v[P.NAME - 1]).trim();
     for (var k = av.length - 1; k >= 0 && hist.length < 150; k--) {
       var q = av[k], pp = normPhone_(q[O.PPHONE - 1]);
       if (pp ? pp !== a.phone : bareName_(q[O.PNAME - 1]) !== myName) continue;
@@ -1074,6 +1248,8 @@ function riderAccept_(d) {
   }
   if (activeCount_(sh, a.phone) >= MAX_ACTIVE) return { ok: false, status: "limit", message: "معاك " + MAX_ACTIVE + " طلبات شغالة، خلّصهم الأول" };
   sh.getRange(r, O.ACCEPT).setValue(true);
+  try { setStamp_(sh, r, O.ACC_AT, stampMs_(d.at)); } catch (e) {}      // وقت قبول الطلب
+  stampStep_(sh, r, "a", true);
   sh.getRange(r, O.PNAME).setValue(pilotLabel_(String(a.v[P.NAME - 1]), String(a.v[P.VEH - 1] || "")));
   sh.getRange(r, O.PPHONE).setNumberFormat("@").setValue(a.phone);
   try { styleOrderRow_(sh, r); } catch (e) {}
@@ -1092,12 +1268,17 @@ function riderStage_(d) {
   if (!isMine_(rv, a.phone)) return { ok: false, status: "not_yours", message: "الطلب ده مش بتاعك" };
   if (isTrue_(rv[O.DONE - 1])) return { ok: true, already: true };
   var kind = "", kinds = [], bonS = Number(d.bon), phS = a.phone, whoS = String(a.v[P.NAME - 1]);
-  if (stage === "prepare") { if (!isTrue_(rv[O.PREP - 1])) { sh.getRange(r, O.PREP).setValue(true); kind = "prep"; kinds.push("prep"); } }
-  else if (stage === "deliver") { if (!isTrue_(rv[O.PREP - 1])) { sh.getRange(r, O.PREP).setValue(true); kinds.push("prep"); } if (!isTrue_(rv[O.DELIV - 1])) { sh.getRange(r, O.DELIV).setValue(true); kind = "deliv"; kinds.push("deliv"); } }
+  var ms = stampMs_(d.at);
+  if (stage === "prepare") { if (!isTrue_(rv[O.PREP - 1])) { sh.getRange(r, O.PREP).setValue(true); try { stampFill_(sh, r, rv, O_PHARM, ms); } catch (e) {} kind = "prep"; kinds.push("prep"); } }
+  else if (stage === "deliver") {
+    if (!isTrue_(rv[O.PREP - 1])) { sh.getRange(r, O.PREP).setValue(true); try { stampFill_(sh, r, rv, O_PHARM, ms); } catch (e) {} kinds.push("prep"); }
+    if (!isTrue_(rv[O.DELIV - 1])) { sh.getRange(r, O.DELIV).setValue(true); stampStep_(sh, r, "d"); try { stampFill_(sh, r, rv, O.PREP_END, ms); stampFill_(sh, r, rv, O.DELIV_AT, ms); } catch (e) {} kind = "deliv"; kinds.push("deliv"); }
+  }
   else {
     if (!isTrue_(rv[O.PREP - 1])) { sh.getRange(r, O.PREP).setValue(true); notifyStageOnce_(bonS, "prep", phS, whoS); }
-    if (!isTrue_(rv[O.DELIV - 1])) { sh.getRange(r, O.DELIV).setValue(true); notifyStageOnce_(bonS, "deliv", phS, whoS); }
+    if (!isTrue_(rv[O.DELIV - 1])) { sh.getRange(r, O.DELIV).setValue(true); stampStep_(sh, r, "d"); notifyStageOnce_(bonS, "deliv", phS, whoS); }
     sh.getRange(r, O.DONE).setValue(true);
+    try { finishStamps_(sh, r, rv, ms); } catch (e) {}      // وقت التسليم + إجمالي المدة (قبل ما الطلب يتنقل للأرشيف)
     notifyStageOnce_(bonS, "done", phS, whoS);                       // "تم التوصيل" لازم يتبعت قبل ما الطلب يتنقل للأرشيف
     archiveOrder_(sh, r, d.at);                 // بيتنقل لـ "الطلبات المكتملة" (التعديل من السكربت مبيشغّلش onEdit، فبنؤرشف هنا بإيدينا)
     return { ok: true, stage: "complete" };
@@ -1118,10 +1299,12 @@ function riderRelease_(d) {
   stageNotify_(sh, r, "released");
   pushPrev_(sh, r, rv[O.PNAME - 1], normPhone_(rv[O.PPHONE - 1]));      // الطيار اللي اتنازل يتسجل "سابق"
   sh.getRange(r, O.ACCEPT).setValue(false);
+  try { clearStamp_(sh, r, O.ACC_AT); } catch (e) {}
   sh.getRange(r, O.PNAME).setValue("");
   sh.getRange(r, O.PPHONE).setValue("");
   sh.getRange(r, O.SHOP_ETA).setValue("");
   sh.getRange(r, O.CUST_ETA).setValue("");
+  sh.getRange(r, O.STEPS).setValue("");      // أوقات a/d بتتمسح لما الطلب يرجع للمتاحين
   try { styleOrderRow_(sh, r); } catch (e) {}
   try { sh.getRange(r, O.NOTIF).setValue(broadcastToRiders_("\u200Fطلب رجع للقايمة \u200E#" + d.bon + "\u200E 🧾⚠️", "طيار اتنازل عن الطلب، اقبله لو فاضي", "new_order_" + d.bon, { type: "new_order", bon: d.bon }, a.phone)); } catch (e) {}
   return { ok: true };
@@ -1150,9 +1333,21 @@ function riderShift_(d) {
 // مسافة + وقت الطريق من مكان الطيار لهدفه (الصيدلية/العميل): التطبيق بيسأل كل ~15 ثانية وبين كل مرة بيحدّث الوقت كل 5 ثواني بالتناسب
 function routeInfo_(a, b) {
   var cache = CacheService.getScriptCache(), key = "ri_" + [a.lat.toFixed(4), a.lng.toFixed(4), b.lat.toFixed(5), b.lng.toFixed(5)].join("_"), c = cache.get(key);
-  if (c) { var p = c.split(","); return { m: +p[0], s: +p[1] }; }
-  var m = -1, s = 0;
+  if (c) { var p = c.split(","); return { m: +p[0], s: +p[1], live: p[2] === "1" }; }
+  var m = -1, s = 0, live = false;
+  var rk = ""; try { rk = PropertiesService.getScriptProperties().getProperty("ROUTES_API_KEY") || ""; } catch (e0) {}
+  if (rk) {      // مفتاح Routes API (اختياري): وقت الوصول بالزحمة الحية زي تطبيق جوجل ماب
+    try {
+      var rr0 = UrlFetchApp.fetch("https://routes.googleapis.com/directions/v2:computeRoutes", {
+        method: "post", contentType: "application/json", muteHttpExceptions: true,
+        headers: { "X-Goog-Api-Key": rk, "X-Goog-FieldMask": "routes.duration,routes.distanceMeters" },
+        payload: JSON.stringify({ origin: { location: { latLng: { latitude: a.lat, longitude: a.lng } } }, destination: { location: { latLng: { latitude: b.lat, longitude: b.lng } } }, travelMode: "DRIVE", routingPreference: "TRAFFIC_AWARE", languageCode: "ar", regionCode: "EG" })
+      });
+      if (rr0.getResponseCode() === 200) { var j0 = JSON.parse(rr0.getContentText()); var r0 = j0 && j0.routes && j0.routes[0]; if (r0 && r0.distanceMeters != null && r0.duration) { m = Number(r0.distanceMeters) || 0; s = parseInt(String(r0.duration), 10) || 0; live = true; } }
+    } catch (e1) {}
+  }
   try {
+    if (m >= 0) throw "skip";
     var res = Maps.newDirectionFinder().setOrigin(a.lat, a.lng).setDestination(b.lat, b.lng).setMode(Maps.DirectionFinder.Mode.DRIVING).setRegion("eg").setLanguage("ar").getDirections();
     if (res && res.status === "OK" && res.routes && res.routes.length) { m = 0; (res.routes[0].legs || []).forEach(function (l) { m += (l.distance && l.distance.value) || 0; s += (l.duration && l.duration.value) || 0; }); }
   } catch (e) {}
@@ -1162,8 +1357,8 @@ function routeInfo_(a, b) {
       if (rr.getResponseCode() === 200) { var j = JSON.parse(rr.getContentText()); if (j && j.routes && j.routes.length) { m = Number(j.routes[0].distance) || 0; s = Number(j.routes[0].duration) || 0; } }
     } catch (e2) {}
   }
-  if (m >= 0) cache.put(key, m + "," + s, 10);
-  return { m: m, s: s };
+  if (m >= 0) cache.put(key, m + "," + s + "," + (live ? 1 : 0), 8);
+  return { m: m, s: s, live: live };
 }
 function riderRoute_(d) {
   var a = authPilot_(d); if (a.code !== "ok") return authFail_(a);
@@ -1174,8 +1369,8 @@ function riderRoute_(d) {
   var lat = Number(d.lat), lng = Number(d.lng); if (!inEgypt_(lat, lng)) return { ok: false, status: "invalid" };
   var target = d.stage === "shop" ? storeCoords_(rv[O.SLOC - 1]) : coordsOfLink_(rv[O.CLOC - 1]);
   if (!target) return { ok: true, status: "noloc" };
-  var ri = routeInfo_({ lat: lat, lng: lng }, target); if (ri.m < 0) return { ok: true, status: "noroute" };
-  return { ok: true, m: Math.round(ri.m), s: Math.round(ri.s) };
+  var ri = routeInfo_({ lat: lat, lng: lng }, target); if (ri.m < 0) return { ok: true, status: "noroute", tp: ptOut_(target) };
+  return { ok: true, m: Math.round(ri.m), s: Math.round(ri.s), live: !!ri.live, tp: ptOut_(target) };      // tp = نقطة الهدف (التطبيق بيستخدمها لو لسه ما استلمش cc/sc)
 }
 
 // المندوب قرّب من العميل؟ بنحسب مسافة الطريق (مش خط مستقيم) من مكانه لموقع العميل. لو ≤ 25 متر نسجّل "وصل" والعميل يشوفها
@@ -1201,15 +1396,15 @@ function riderNear_(d) {
 // الإشعار للعميل بيتبعت من طلب منفصل (من التطبيق بعد نجاح الخطوة) علشان قبول الطلب والمراحل متستناش FCM
 function riderNotify_(d) {
   var a = authPilot_(d); if (a.code !== "ok") return authFail_(a);
-  var kind = String(d.kind || ""), need = { accepted: O.ACCEPT, prep: O.PREP, deliv: O.DELIV, done: O.DONE }[kind];
+  var kind = String(d.kind || ""), need = { accepted: "ACCEPT", prep: "PREP", deliv: "DELIV", done: "DONE" }[kind];
   if (!need || !(Number(d.bon) > 0)) return { ok: false, status: "invalid" };
   var cache = CacheService.getScriptCache(), ck = "ntf_" + d.bon + "_" + kind + "_" + a.phone;
   if (cache.get(ck)) return { ok: true, dup: true };
   var ss = ssOpen_(), sh = ordersSheet_(ss), r = rowByBon_(sh, d.bon);
   if (!r) { var arc = ss.getSheetByName(ARC_TAB); if (arc) { sh = arc; r = rowByBon_(sh, d.bon); } }
   if (!r) return { ok: false, status: "gone" };
-  if (normPhone_(sh.getRange(r, O.PPHONE).getDisplayValue()) !== a.phone) return { ok: false, status: "not_yours" };
-  if (!isTrue_(sh.getRange(r, need).getValue())) return { ok: false, status: "not_set" };
+  if (normPhone_(sh.getRange(r, colIn_(sh, "PPHONE")).getDisplayValue()) !== a.phone) return { ok: false, status: "not_yours" };
+  if (!isTrue_(sh.getRange(r, colIn_(sh, need)).getValue())) return { ok: false, status: "not_set" };
   cache.put(ck, "1", 20);
   stageNotify_(sh, r, kind, String(a.v[P.NAME - 1]));
   return { ok: true };
@@ -1396,8 +1591,9 @@ function shortName_(n) { return String(n || "").trim().split(/\s+/).slice(0, 2).
 // kind: accepted | prep | deliv | arrived | done | released
 function stageNotify_(sh, r, kind, who) {
   try {
-    var cid = String(sh.getRange(r, O_CID).getValue() || "");
-    var bon = sh.getRange(r, O.BON).getValue(), nm = shortName_(bareName_(who || sh.getRange(r, O.PNAME).getValue()));
+    var C = function (k) { return colIn_(sh, k); };
+    var cid = String(sh.getRange(r, C("CID")).getValue() || "");
+    var bon = sh.getRange(r, C("BON")).getValue(), nm = shortName_(bareName_(who || sh.getRange(r, C("PNAME")).getValue()));
     var M = {
       accepted: ["تم قبول طلبك ✅", (nm ? "المندوب " + nm + " " : "المندوب ") + "قبل طلبك رقم " + bon + " وبدأ في تجهيزه"],
       prep: ["جاري تجهيز طلبك 💊", "طلبك رقم " + bon + " بيتجهّز دلوقتي"],
@@ -1406,7 +1602,7 @@ function stageNotify_(sh, r, kind, who) {
       done: ["تم توصيل طلبك 🎉", "شكراً لثقتك في صيدلية عوف"],
       released: ["جاري تعيين مندوب آخر 🔄", "المندوب مش هيقدر يكمل طلبك رقم " + bon + "، وجاري تعيين مندوب تاني حالاً"]
     }[kind];
-    if (M) notifyCust_(cid, M[0], M[1], "order_" + bon, { type: "order_status", bon: bon, stage: kind }, sh.getRange(r, O.PHONE).getDisplayValue());
+    if (M) notifyCust_(cid, M[0], M[1], "order_" + bon, { type: "order_status", bon: bon, stage: kind }, sh.getRange(r, C("PHONE")).getDisplayValue());
   } catch (e) {}
 }
 // إشعار لمندوب واحد (مثلاً لما الإدارة تعيّنله طلب من الشيت)
@@ -1765,7 +1961,7 @@ function sweepPricing_() {
   var lk = LockService.getScriptLock(); if (!lk.tryLock(5000)) return;
   try {
     var sh = ordersSheet_(ssOpen_()), n = sh.getLastRow(); if (n < 2) return;
-    var from = Math.max(2, n - 80), rows = sh.getRange(from, 1, n - from + 1, O_ARR).getValues(), done = 0, t0 = Date.now();
+    var from = Math.max(2, n - 80), rows = sh.getRange(from, 1, n - from + 1, O_W).getValues(), done = 0, t0 = Date.now();
     for (var i = rows.length - 1; i >= 0 && done < 6 && Date.now() - t0 < 40000; i--) {
       var rv = rows[i]; if (!(Number(rv[O.BON - 1]) > 0) || isTrue_(rv[O.DONE - 1]) || !String(rv[O.CLOC - 1] || "").trim() || !needsPrice_(rv)) continue;
       try { priceOrder_(sh, from + i); done++; } catch (e) {}
@@ -1788,9 +1984,9 @@ function installTriggers() {
 function refreshPilotList() {
   var ss = ssOpen_(), pil = ss.getSheetByName(PIL_TAB), sh = ss.getSheetByName(ORD_TAB);
   if (!pil || !sh) return;
-  pil.getRange(1, PIL_LIST_AVAIL).setValue("الطيارين المتاحين دلوقتي (تلقائي - لا تلمسه)");
+  pil.getRange(1, PIL_LIST_AVAIL).setValue(PIL_AVAIL_HDR);
   pil.getRange(2, PIL_LIST_AVAIL, Math.max(pil.getMaxRows() - 1, 1), 1).clearContent();
-  pil.getRange(2, PIL_LIST_AVAIL).setFormula(PIL_AVAIL_FORMULA);
+  pil.getRange(2, PIL_LIST_AVAIL).setFormula(pilAvailFormula_());
   var rows = Math.max(sh.getMaxRows() - 1, 1);
   var rule = SpreadsheetApp.newDataValidation().requireValueInRange(pil.getRange(2, PIL_LIST_AVAIL, Math.max(pil.getMaxRows() - 1, 1), 1), true).setAllowInvalid(false).build();
   sh.getRange(2, O.PNAME, rows, 1).setDataValidation(rule);
@@ -1818,7 +2014,7 @@ function testLocations() {
   };
   Logger.log("لوكيشن المحل: " + STORE_LOCATION + "\n   " + one(STORE_LOCATION));
   var sh = ordersSheet_(ssOpen_()), n = sh.getLastRow(); if (n < 2) return;
-  var from = Math.max(2, n - 9), v = sh.getRange(from, 1, n - from + 1, O_ARR).getValues();
+  var from = Math.max(2, n - 9), v = sh.getRange(from, 1, n - from + 1, O_W).getValues();
   for (var i = 0; i < v.length; i++) {
     var rv = v[i], bon = Number(rv[O.BON - 1]) || 0; if (!bon) continue;
     Logger.log("طلب " + bon + (isTrue_(rv[O.DONE - 1]) ? " (خلص)" : "") + "\n   لوكيشن العميل: " + String(rv[O.CLOC - 1] || "").slice(0, 120) + "\n   " + one(rv[O.CLOC - 1]) + "\n   لوكيشن المحل في الطلب: " + one(rv[O.SLOC - 1] || STORE_LOCATION));
@@ -1826,6 +2022,23 @@ function testLocations() {
 }
 
 // شغّلها من المحرر: بتجرب لوكيشن الصيدلية بكل الصيغ (عنوان مكتوب / لينكات مختصرة / لينك كامل) وبتقولك كل واحدة وصلت فين وبعدها قد إيه عن اللينك الكامل
+function debugLink_(url) {      // بيورّي كل خطوة بيعملها السيرفر مع اللينك (جوال وكمبيوتر) عشان نعرف ليه فشل
+  var out = [];
+  [["جوال", UA_], ["كمبيوتر", UA_DESK_]].forEach(function (u) {
+    var cur = url;
+    for (var i = 0; i < 5 && cur; i++) {
+      try {
+        var r = UrlFetchApp.fetch(cur, { followRedirects: false, muteHttpExceptions: true, headers: { "User-Agent": u[1], "Accept-Language": "ar,en;q=0.8", "Cookie": "CONSENT=YES+cb.20240101-00-p0.en+FX+000; SOCS=CAI" } });
+        var h = r.getHeaders() || {}, loc = h["Location"] || h["location"], code = r.getResponseCode();
+        if (loc) { out.push("   " + u[0] + " خطوة " + (i + 1) + ": " + code + " ← " + String(loc).slice(0, 230)); cur = /^https?:/i.test(loc) ? loc : "https://www.google.com" + loc; continue; }
+        var b = String(r.getContentText() || "");
+        out.push("   " + u[0] + " خطوة " + (i + 1) + ": " + code + " صفحة " + b.length + " حرف | !3d:" + (/!3d-?\d/.test(b) ? "فيه" : "لا") + " @:" + (/@-?\d+\.\d+,-?\d+/.test(b) ? "فيه" : "لا") + " center=:" + (/center=-?\d/.test(b) ? "فيه" : "لا") + " | " + b.replace(/\s+/g, " ").slice(0, 120));
+      } catch (e) { out.push("   " + u[0] + " خطأ: " + e); }
+      break;
+    }
+  });
+  return out.join("\n");
+}
 function testFormats() {
   var forms = {
     "1 عنوان مكتوب": "صيدلية عوف، 104 ابن سندر، الزيتون الشرقية، قسم الزيتون، محافظة القاهرة 4520156",
@@ -1841,6 +2054,6 @@ function testFormats() {
     var t0 = new Date(), c = null, err = "";
     try { c = coordsOfLink_(forms[k]); } catch (e) { err = " خطأ: " + e; }
     var d = c && base ? Math.round(havM_(base, c)) + " متر عن المرجع" : "";
-    Logger.log(k + " ← " + (c ? "✅ " + c.lat + "," + c.lng + " | " + d : "❌ فشل" + err) + " (" + (new Date() - t0) + "ms)");
+    Logger.log(k + " ← " + (c ? "✅ " + c.lat + "," + c.lng + " | " + d : "❌ فشل" + err) + " (" + (new Date() - t0) + "ms)" + (!c && /^https?:/i.test(forms[k]) ? "\n" + debugLink_(forms[k]) : ""));
   });
 }
