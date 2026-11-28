@@ -24,7 +24,7 @@ var TZ = "Africa/Cairo";
 var STORE_LOCATION = "https://www.google.com/maps/place/%D8%B5%D9%8A%D8%AF%D9%84%D9%8A%D8%A9+%D8%B9%D9%88%D9%81%E2%80%AD/@30.1583599,31.2740807,15z/data=!4m6!3m5!1s0x14583fd4ffd3f1e1:0xffb796c28c336828!8m2!3d30.095599!4d31.3056826!16s%2Fg%2F1tlk3s_n?entry=ttu&g_ep=EgoyMDI2MTEyMy4wIKXMDSoASAFQAw%3D%3D";   // لوكيشن الصيدلية: بيتكتب في عمود "لوكيشن المحل" لكل أوردر جديد (وتقدر تعدّله في أي صف)
 var PLUS_REF_ = { lat: 30.05, lng: 31.25 };   // مرجع تقريبي (القاهرة) لفك Plus Code المختصر بس. مش بيدخل في أي حساب مسافة. مكان الصيدلية بيتاخد من STORE_LOCATION (اللينك) بس
 var KM_RATE = 10;                   // تسعيرة الكيلو الافتراضية (بتتكتب في عمود "تسعيرة الكيلو" لكل أوردر، وتقدر تعدّلها هناك)
-var ARRIVE_M = 25;                  // المندوب "وصل" لما يفضل عليه حوالي كده متر (على الطريق مش خط مستقيم)
+var ARRIVE_M = 50;                  // المندوب "وصل" لما يفضل عليه حوالي كده متر (على الطريق مش خط مستقيم)
 
 var SCRIPT_VERSION = "murad-rider-2026-11-13";
 var MAX_ACTIVE = 3;                 // أقصى عدد طلبات ممكن الطيار الواحد يكون شايلها في نفس الوقت (غيّره لو عايز)
@@ -327,7 +327,7 @@ function out_(o) { return ContentService.createTextOutput(JSON.stringify(o)).set
 function doGet(e) {
   try {
     var p = (e && e.parameter) || {};
-    if (p.action === "myOrders") return out_(myOrders_(p.ids));
+    if (p.action === "myOrders") return out_(myOrders_(p.ids, p.bons));
     return out_({ ok: true, service: "orders", version: SCRIPT_VERSION });
   } catch (err) { return out_({ ok: false, error: String(err) }); }
 }
@@ -432,19 +432,24 @@ function newOrder_(d) {
 
 // ===== حالة طلبات العميل (صفحة مشترياتي) =====
 // التطبيق بيبعت معرّفات طلباته هو بس (ids)، فمحدش يقدر يشوف طلبات غيره حتى لو عرف رقمه.
-function myOrders_(idsParam) {
-  var ids = String(idsParam || "").split(",").map(cleanCid_).filter(Boolean).slice(0, 40);
-  var want = {}; ids.forEach(function (i) { want[i] = 1; });
+function myOrders_(idsParam, bonsParam) {
+  var raw = String(idsParam || "").split(",").slice(0, 40), bl = String(bonsParam || "").split(","), ids = [], want = {}, bonIdx = {}, found = {};
+  raw.forEach(function (x, i) {      // bons بنفس ترتيب ids (فاضي لو الطلب لسه مالوش رقم)
+    var c = cleanCid_(x); if (!c) return;
+    ids.push(c); want[c] = 1;
+    var b = Number(String(bl[i] || "").trim()); if (b > 0) bonIdx[b] = c;
+  });
   var ss = ssOpen_(), out = [];
   var sh = ss.getSheetByName(ORD_TAB), arc = ss.getSheetByName(ARC_TAB);
-  function pull(s, archived) {
+  function pull(s, archived, from, to) {
     if (!s || s.getLastRow() < 2) return;
-    var n = (archived ? s.getLastRow() : dataLast_(s)) - 1;
+    var last = archived ? s.getLastRow() : dataLast_(s), st = Math.max(2, from || 2), en = Math.min(to || last, last), n = en - st + 1;
     if (n < 1) return;
-    var v = archived ? canonArc_(s, s.getRange(2, 1, n, Math.max(s.getLastColumn(), 1)).getValues()) : s.getRange(2, 1, n, O_W).getValues();
+    var v = archived ? canonArc_(s, s.getRange(st, 1, n, Math.max(s.getLastColumn(), 1)).getValues()) : s.getRange(st, 1, n, O_W).getValues();
     for (var i = 0; i < v.length; i++) {
       var r = v[i], cid = String(r[O_CID - 1]);
-      if (!want[cid]) continue;
+      if (!want[cid]) { var hit = !cid.trim() ? bonIdx[Number(r[O.BON - 1])] : ""; if (!hit) continue; cid = hit; }      // لو معرّف الطلب فاضي في الصف بنطابق برقم البون
+      found[cid] = 1;
       if (!archived) r = pricedRow_(s, i + 2, r);      // التوصيل يتحدّث لوحده لو اللوكيشن/التسعيرة اتغيرت
       var st = "pending";
       if (archived || isTrue_(r[O.DONE - 1])) st = "completed";
@@ -456,10 +461,18 @@ function myOrders_(idsParam) {
       out.push({ cid: cid, bon: Number(r[O.BON - 1]) || 0, date: String(r[O.DATE - 1]), time: String(r[O.TIME - 1]), items: String(r[O.DETAILS - 1]),
         total: goods, fee: fee, km: Number(r[O_KM - 1]) || 0, hasLoc: !!cl, priced: !cl || !needsPrice_(r), arrived: !archived && !!r[O_ARR - 1],
         status: st, pilotName: bareName_(r[O.PNAME - 1]), pilotPhone: String(r[O.PPHONE - 1] || "").replace(/'/g, ""),
-        shopEta: String(r[O.SHOP_ETA - 1] || ""), custEta: String(r[O.CUST_ETA - 1] || ""), doneAt: at });
+        shopEta: String(r[O.SHOP_ETA - 1] || ""), custEta: String(r[O.CUST_ETA - 1] || ""), doneAt: at, note: String(r[O.NOTE - 1] || "") });
     }
   }
-  pull(sh, false); pull(arc, true);
+  pull(sh, false);
+  var missing = function () { return ids.some(function (c) { return !found[c]; }); };
+  if (arc && missing()) {      // الأرشيف بنقراه بس لو فيه طلب لسه مالقيناهوش (أحدث 1500 صف الأول، ولو لسه ناقص نكمّل الباقي قبل ما نحكم إنه اتلغى)
+    var la = arc.getLastRow(), recent = Math.max(2, la - 1499);
+    pull(arc, true, recent);
+    if (missing() && recent > 2) pull(arc, true, 2, recent - 1);
+  }
+  // طلب التطبيق عارفه ومش موجود لا في الطلبات ولا في المكتملة = اتمسح/اتلغى (من الشيت أو من الإدارة)
+  if (sh && arc) ids.forEach(function (c) { if (!found[c]) out.push({ cid: c, status: "cancelled" }); });
   return { ok: true, orders: out };
 }
 
@@ -1330,7 +1343,7 @@ function riderShift_(d) {
   return { ok: true, working: want };
 }
 
-// مسافة + وقت الطريق من مكان الطيار لهدفه (الصيدلية/العميل): التطبيق بيسأل كل ~15 ثانية وبين كل مرة بيحدّث الوقت كل 5 ثواني بالتناسب
+// مسافة + وقت الطريق من مكان الطيار لهدفه (الصيدلية/العميل): التطبيق بيسأل كل ~5 ثواني وهو متحرك (ومرة كل 20 ثانية وهو واقف) وبين كل مرة بيحدّث الوقت بالتناسب
 function routeInfo_(a, b) {
   var cache = CacheService.getScriptCache(), key = "ri_" + [a.lat.toFixed(4), a.lng.toFixed(4), b.lat.toFixed(5), b.lng.toFixed(5)].join("_"), c = cache.get(key);
   if (c) { var p = c.split(","); return { m: +p[0], s: +p[1], live: p[2] === "1" }; }
@@ -1357,7 +1370,7 @@ function routeInfo_(a, b) {
       if (rr.getResponseCode() === 200) { var j = JSON.parse(rr.getContentText()); if (j && j.routes && j.routes.length) { m = Number(j.routes[0].distance) || 0; s = Number(j.routes[0].duration) || 0; } }
     } catch (e2) {}
   }
-  if (m >= 0) cache.put(key, m + "," + s + "," + (live ? 1 : 0), 8);
+  if (m >= 0) cache.put(key, m + "," + s + "," + (live ? 1 : 0), 4);
   return { m: m, s: s, live: live };
 }
 function riderRoute_(d) {
@@ -1373,7 +1386,7 @@ function riderRoute_(d) {
   return { ok: true, m: Math.round(ri.m), s: Math.round(ri.s), live: !!ri.live, tp: ptOut_(target) };      // tp = نقطة الهدف (التطبيق بيستخدمها لو لسه ما استلمش cc/sc)
 }
 
-// المندوب قرّب من العميل؟ بنحسب مسافة الطريق (مش خط مستقيم) من مكانه لموقع العميل. لو ≤ 25 متر نسجّل "وصل" والعميل يشوفها
+// المندوب قرّب من العميل؟ بنحسب مسافة الطريق (مش خط مستقيم) من مكانه لموقع العميل. لو ≤ ARRIVE_M (50 متر) نسجّل "وصل" والعميل يشوفها
 function riderNear_(d) {
   var a = authPilot_(d); if (a.code !== "ok") return authFail_(a);
   var sh = ordersSheet_(ssOpen_()), r = rowByBon_(sh, d.bon);
